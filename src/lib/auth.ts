@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
+import GitLab from "next-auth/providers/gitlab";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/infrastructure/database/prisma";
 import type { User } from "next-auth";
@@ -14,7 +15,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: "/login",
-    newUser: "/dashboard",
     error: "/login",
   },
   providers: [
@@ -27,6 +27,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          scope: "read:user user:email repo",
+        },
+      },
+    }),
+    GitLab({
+      clientId: process.env.GITLAB_CLIENT_ID,
+      clientSecret: process.env.GITLAB_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        url: "https://gitlab.com/oauth/authorize",
+        params: {
+          scope: "read_api read_user read_repository",
+        },
+      },
+      token: "https://gitlab.com/oauth/token",
+      userinfo: "https://gitlab.com/api/v4/user",
     }),
     Credentials({
       name: "credentials",
@@ -68,7 +86,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       // Allow OAuth sign in
-      if (account?.provider === "google" || account?.provider === "github") {
+      if (
+        account?.provider === "google" ||
+        account?.provider === "github" ||
+        account?.provider === "gitlab"
+      ) {
         return true;
       }
       // Allow credentials sign in
@@ -97,9 +119,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Redirect to dashboard after sign in
+      // If callbackUrl is provided and valid, use it
+      if (url.startsWith(baseUrl)) return url;
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      if (new URL(url).origin === baseUrl) return url;
+      // Default to dashboard
       return `${baseUrl}/dashboard`;
     },
   },
