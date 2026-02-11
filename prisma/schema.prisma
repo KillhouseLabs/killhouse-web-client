@@ -82,8 +82,14 @@ model Project {
   id          String   @id @default(cuid())
   name        String
   description String?
-  type        String   @default("CODE")      // CODE, CONTAINER
   status      String   @default("ACTIVE")    // ACTIVE, ARCHIVED, DELETED
+
+  // Repository connection
+  repoProvider   String?                     // GITHUB, GITLAB, MANUAL
+  repoUrl        String?                     // Repository URL (e.g., https://github.com/user/repo)
+  repoOwner      String?                     // Repository owner/org
+  repoName       String?                     // Repository name
+  defaultBranch  String   @default("main")   // Default branch to analyze
 
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -99,19 +105,29 @@ model Project {
 
 model Analysis {
   id          String   @id @default(cuid())
-  status      String   @default("PENDING")   // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  status      String   @default("PENDING")   // PENDING, CLONING, STATIC_ANALYSIS, BUILDING, PENETRATION_TEST, COMPLETED, FAILED, CANCELLED
 
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  report      String?  // JSON string for analysis report
+  // Analysis configuration
+  branch      String   @default("main")      // Branch being analyzed
+  commitHash  String?                        // Specific commit hash
 
-  // Vulnerability counts (populated after analysis)
+  // Analysis phases results (JSON)
+  staticAnalysisReport    String?            // Static code analysis results
+  penetrationTestReport   String?            // Penetration test results
+
+  // Combined vulnerability summary
   vulnerabilitiesFound Int @default(0)
   criticalCount        Int @default(0)
   highCount            Int @default(0)
   mediumCount          Int @default(0)
   lowCount             Int @default(0)
+
+  // Sandbox execution metadata
+  sandboxContainerId   String?              // Container ID for sandbox execution
+  sandboxStatus        String?              // PROVISIONING, RUNNING, STOPPED, TERMINATED
 
   startedAt   DateTime @default(now())
   completedAt DateTime?

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import { createProjectSchema } from "@/domains/project/dto/project.dto";
+import {
+  createProjectSchema,
+  parseRepoUrl,
+} from "@/domains/project/dto/project.dto";
 
 // GET /api/projects - List user's projects
 export async function GET() {
@@ -66,13 +69,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, description, type } = validationResult.data;
+    const { name, description, repoProvider, repoUrl, defaultBranch } =
+      validationResult.data;
+
+    // Parse repo URL to extract owner and repo name
+    let repoOwner: string | null = null;
+    let repoName: string | null = null;
+    let provider: string | null = repoProvider || null;
+
+    if (repoUrl) {
+      const parsed = parseRepoUrl(repoUrl);
+      if (parsed) {
+        provider = parsed.provider;
+        repoOwner = parsed.owner;
+        repoName = parsed.name;
+      }
+    }
 
     const project = await prisma.project.create({
       data: {
         name,
         description,
-        type,
+        repoProvider: provider,
+        repoUrl: repoUrl || null,
+        repoOwner,
+        repoName,
+        defaultBranch,
         userId: session.user.id,
       },
     });

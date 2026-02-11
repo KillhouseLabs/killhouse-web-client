@@ -9,6 +9,13 @@ import { ko } from "date-fns/locale";
 interface Analysis {
   id: string;
   status: string;
+  branch: string;
+  commitHash: string | null;
+  vulnerabilitiesFound: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
   startedAt: Date;
   completedAt: Date | null;
 }
@@ -17,8 +24,12 @@ interface Project {
   id: string;
   name: string;
   description: string | null;
-  type: string;
   status: string;
+  repoProvider: string | null;
+  repoUrl: string | null;
+  repoOwner: string | null;
+  repoName: string | null;
+  defaultBranch: string;
   createdAt: Date;
   updatedAt: Date;
   analyses: Analysis[];
@@ -30,6 +41,17 @@ interface Project {
 interface ProjectDetailProps {
   project: Project;
 }
+
+const statusLabels: Record<string, string> = {
+  PENDING: "대기 중",
+  CLONING: "저장소 클론 중",
+  STATIC_ANALYSIS: "정적 분석 중",
+  BUILDING: "빌드 중",
+  PENETRATION_TEST: "침투 테스트 중",
+  COMPLETED: "완료",
+  FAILED: "실패",
+  CANCELLED: "취소됨",
+};
 
 export function ProjectDetail({ project }: ProjectDetailProps) {
   const router = useRouter();
@@ -53,6 +75,39 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
+  };
+
+  const getProviderIcon = () => {
+    if (project.repoProvider === "GITHUB") {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+        </svg>
+      );
+    }
+    if (project.repoProvider === "GITLAB") {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+          <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
+        </svg>
+      );
+    }
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5"
+      >
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" x2="12" y1="3" y2="15" />
+      </svg>
+    );
   };
 
   return (
@@ -139,36 +194,70 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
         </div>
       )}
 
-      {/* Project Info */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              {project.type === "CODE" ? (
-                <>
-                  <polyline points="16 18 22 12 16 6" />
-                  <polyline points="8 6 2 12 8 18" />
-                </>
-              ) : (
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              )}
-            </svg>
-            프로젝트 유형
+      {/* Repository Info */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold">저장소 정보</h2>
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+            {getProviderIcon()}
           </div>
-          <p className="mt-2 text-lg font-semibold">
-            {project.type === "CODE" ? "코드 분석" : "컨테이너 스캔"}
-          </p>
+          <div className="flex-1">
+            {project.repoUrl ? (
+              <>
+                <a
+                  href={project.repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium hover:text-primary hover:underline"
+                >
+                  {project.repoOwner}/{project.repoName}
+                </a>
+                <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                    >
+                      <line x1="6" x2="6" y1="3" y2="15" />
+                      <circle cx="18" cy="6" r="3" />
+                      <circle cx="6" cy="18" r="3" />
+                      <path d="M18 9a9 9 0 0 1-9 9" />
+                    </svg>
+                    {project.defaultBranch}
+                  </span>
+                  <span>{project.repoProvider}</span>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p className="font-medium">수동 업로드</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  코드 파일을 직접 업로드하여 분석합니다
+                </p>
+              </div>
+            )}
+          </div>
+          {project.repoUrl && (
+            <a
+              href={project.repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              저장소 열기
+            </a>
+          )}
         </div>
+      </div>
 
+      {/* Project Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <svg
@@ -203,6 +292,33 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
               strokeLinejoin="round"
               className="h-4 w-4"
             >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            발견된 취약점
+          </div>
+          <p className="mt-2 text-lg font-semibold">
+            {project.analyses.reduce(
+              (acc, a) => acc + a.vulnerabilitiesFound,
+              0
+            )}
+            개
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
@@ -216,6 +332,108 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
               locale: ko,
             })}
           </p>
+        </div>
+      </div>
+
+      {/* Analysis Flow Info */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold">분석 프로세스</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">클론</p>
+          </div>
+          <div className="h-px flex-1 bg-border" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">SAST</p>
+          </div>
+          <div className="h-px flex-1 bg-border" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">빌드</p>
+          </div>
+          <div className="h-px flex-1 bg-border" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">침투 테스트</p>
+          </div>
+          <div className="h-px flex-1 bg-border" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">리포트</p>
+          </div>
         </div>
       </div>
 
@@ -323,23 +541,55 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                   </div>
                   <div>
                     <p className="text-sm font-medium">
-                      {analysis.status === "COMPLETED"
-                        ? "분석 완료"
-                        : analysis.status === "FAILED"
-                          ? "분석 실패"
-                          : "분석 중"}
+                      {statusLabels[analysis.status] || analysis.status}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(analysis.startedAt, {
-                        addSuffix: true,
-                        locale: ko,
-                      })}
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {formatDistanceToNow(analysis.startedAt, {
+                          addSuffix: true,
+                          locale: ko,
+                        })}
+                      </span>
+                      <span>|</span>
+                      <span>{analysis.branch}</span>
+                      {analysis.commitHash && (
+                        <>
+                          <span>|</span>
+                          <span>{analysis.commitHash.slice(0, 7)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent">
-                  상세 보기
-                </button>
+                <div className="flex items-center gap-4">
+                  {analysis.status === "COMPLETED" && (
+                    <div className="flex items-center gap-2 text-xs">
+                      {analysis.criticalCount > 0 && (
+                        <span className="rounded bg-red-500/10 px-2 py-1 text-red-600">
+                          Critical: {analysis.criticalCount}
+                        </span>
+                      )}
+                      {analysis.highCount > 0 && (
+                        <span className="rounded bg-orange-500/10 px-2 py-1 text-orange-600">
+                          High: {analysis.highCount}
+                        </span>
+                      )}
+                      {analysis.mediumCount > 0 && (
+                        <span className="rounded bg-yellow-500/10 px-2 py-1 text-yellow-600">
+                          Medium: {analysis.mediumCount}
+                        </span>
+                      )}
+                      {analysis.lowCount > 0 && (
+                        <span className="rounded bg-blue-500/10 px-2 py-1 text-blue-600">
+                          Low: {analysis.lowCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <button className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent">
+                    상세 보기
+                  </button>
+                </div>
               </div>
             ))}
           </div>
