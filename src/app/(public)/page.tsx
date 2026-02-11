@@ -51,8 +51,7 @@ export default function HomePage() {
         <section className="container mx-auto px-4 py-24 text-center">
           <div className="mx-auto max-w-3xl">
             <h1 className="mb-6 text-5xl font-bold tracking-tight">
-              AI 기반{" "}
-              <span className="text-primary">취약점 분석</span> 플랫폼
+              AI 기반 <span className="text-primary">취약점 분석</span> 플랫폼
             </h1>
             <p className="mb-8 text-xl text-muted-foreground">
               코드와 컨테이너를 업로드하면 최신 취약점 데이터베이스를 기반으로
@@ -78,9 +77,7 @@ export default function HomePage() {
         {/* Features Section */}
         <section className="border-t border-border bg-muted/50 py-24">
           <div className="container mx-auto px-4">
-            <h2 className="mb-12 text-center text-3xl font-bold">
-              주요 기능
-            </h2>
+            <h2 className="mb-12 text-center text-3xl font-bold">주요 기능</h2>
             <div className="grid gap-8 md:grid-cols-3">
               {/* Feature 1 */}
               <div className="rounded-xl border border-border bg-card p-6">
@@ -101,7 +98,8 @@ export default function HomePage() {
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">코드 분석</h3>
                 <p className="text-muted-foreground">
-                  소스 코드를 업로드하면 정적 분석을 통해 보안 취약점을 탐지합니다.
+                  소스 코드를 업로드하면 정적 분석을 통해 보안 취약점을
+                  탐지합니다.
                 </p>
               </div>
 
@@ -148,7 +146,8 @@ export default function HomePage() {
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">상세 리포트</h3>
                 <p className="text-muted-foreground">
-                  발견된 취약점에 대한 상세한 분석 리포트와 해결 방안을 제공합니다.
+                  발견된 취약점에 대한 상세한 분석 리포트와 해결 방안을
+                  제공합니다.
                 </p>
               </div>
             </div>
@@ -158,9 +157,7 @@ export default function HomePage() {
         {/* CTA Section */}
         <section className="py-24">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="mb-4 text-3xl font-bold">
-              지금 바로 시작하세요
-            </h2>
+            <h2 className="mb-4 text-3xl font-bold">지금 바로 시작하세요</h2>
             <p className="mb-8 text-lg text-muted-foreground">
               무료 플랜으로 시작하고 필요에 따라 업그레이드하세요.
             </p>

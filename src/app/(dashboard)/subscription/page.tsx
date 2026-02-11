@@ -19,7 +19,9 @@ export default function SubscriptionPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">현재 플랜</h2>
-            <p className="mt-1 text-muted-foreground">Free 플랜을 사용 중입니다</p>
+            <p className="mt-1 text-muted-foreground">
+              Free 플랜을 사용 중입니다
+            </p>
           </div>
           <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
             Free

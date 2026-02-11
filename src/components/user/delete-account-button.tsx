@@ -45,9 +45,7 @@ export function DeleteAccountButton() {
 
   return (
     <div>
-      {error && (
-        <p className="mb-4 text-sm text-destructive">{error}</p>
-      )}
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
 
       {isConfirming ? (
         <div className="flex items-center gap-3">

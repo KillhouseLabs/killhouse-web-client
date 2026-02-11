@@ -15,7 +15,13 @@ export const metadata: Metadata = {
   },
   description:
     "Analyze your code and containers for security vulnerabilities with AI-powered analysis",
-  keywords: ["security", "vulnerability", "analysis", "code review", "container security"],
+  keywords: [
+    "security",
+    "vulnerability",
+    "analysis",
+    "code review",
+    "container security",
+  ],
 };
 
 export default function RootLayout({
