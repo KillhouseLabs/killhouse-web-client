@@ -97,7 +97,10 @@ export const handlers = [
   }),
 
   http.patch("/api/projects/:id", async ({ params, request }) => {
-    const body = (await request.json()) as { name?: string; description?: string };
+    const body = (await request.json()) as {
+      name?: string;
+      description?: string;
+    };
     const project = mockProjects.find((p) => p.id === params.id);
     if (!project) {
       return HttpResponse.json(

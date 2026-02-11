@@ -39,7 +39,9 @@ describe("SignupForm", () => {
       render(<SignupForm />);
 
       // THEN
-      expect(screen.getByText("회원가입")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "회원가입" })
+      ).toBeInTheDocument();
       expect(screen.getByLabelText("이름")).toBeInTheDocument();
       expect(screen.getByLabelText("이메일")).toBeInTheDocument();
       expect(screen.getByLabelText("비밀번호")).toBeInTheDocument();

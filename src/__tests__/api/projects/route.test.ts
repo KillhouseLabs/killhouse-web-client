@@ -101,7 +101,8 @@ describe("Projects API", () => {
         const input = {
           name: "New Project",
           description: "Project description",
-          type: "CODE",
+          repoProvider: "GITHUB",
+          repoUrl: "https://github.com/owner/repo",
         };
 
         // WHEN
@@ -115,7 +116,6 @@ describe("Projects API", () => {
         // GIVEN
         const input = {
           name: "",
-          type: "CODE",
         };
 
         // WHEN
@@ -125,11 +125,25 @@ describe("Projects API", () => {
         expect(result.success).toBe(false);
       });
 
-      it("GIVEN 잘못된 타입 WHEN 스키마 검증 THEN 실패해야 한다", () => {
+      it("GIVEN 잘못된 프로바이더 WHEN 스키마 검증 THEN 실패해야 한다", () => {
         // GIVEN
         const input = {
           name: "New Project",
-          type: "INVALID",
+          repoProvider: "INVALID",
+        };
+
+        // WHEN
+        const result = createProjectSchema.safeParse(input);
+
+        // THEN
+        expect(result.success).toBe(false);
+      });
+
+      it("GIVEN 잘못된 URL 형식 WHEN 스키마 검증 THEN 실패해야 한다", () => {
+        // GIVEN
+        const input = {
+          name: "New Project",
+          repoUrl: "https://bitbucket.org/owner/repo",
         };
 
         // WHEN
@@ -146,7 +160,11 @@ describe("Projects API", () => {
         const projectData = {
           name: "New Project",
           description: "Description",
-          type: "CODE",
+          repoProvider: "GITHUB",
+          repoUrl: "https://github.com/owner/repo",
+          repoOwner: "owner",
+          repoName: "repo",
+          defaultBranch: "main",
           userId: "user-1",
         };
         (prisma.project.create as jest.Mock).mockResolvedValue({
@@ -160,6 +178,7 @@ describe("Projects API", () => {
         // THEN
         expect(result.id).toBe("new-project-id");
         expect(result.name).toBe("New Project");
+        expect(result.repoProvider).toBe("GITHUB");
         expect(prisma.project.create).toHaveBeenCalledWith({
           data: projectData,
         });
@@ -175,6 +194,7 @@ describe("Projects API", () => {
           id: "project-1",
           name: "Test Project",
           userId: "user-1",
+          repoProvider: "GITHUB",
           analyses: [],
         };
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);

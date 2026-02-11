@@ -9,10 +9,12 @@ import userEvent from "@testing-library/user-event";
 import { DeleteAccountButton } from "@/components/user/delete-account-button";
 
 // Mock next-auth/react
-const mockSignOut = jest.fn();
 jest.mock("next-auth/react", () => ({
-  signOut: mockSignOut,
+  signOut: jest.fn(),
 }));
+
+import { signOut } from "next-auth/react";
+const mockSignOut = signOut as jest.Mock;
 
 // Mock fetch
 global.fetch = jest.fn();
@@ -49,9 +51,7 @@ describe("DeleteAccountButton", () => {
       expect(
         screen.getByRole("button", { name: "네, 삭제합니다" })
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "취소" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "취소" })).toBeInTheDocument();
     });
 
     it("GIVEN 1단계 확인 상태 WHEN 취소 버튼 클릭 THEN 초기 상태로 돌아가야 한다", async () => {
@@ -101,9 +101,7 @@ describe("DeleteAccountButton", () => {
       await user.click(screen.getByRole("button", { name: "취소" }));
 
       // THEN
-      expect(
-        screen.queryByText("마지막 확인입니다")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("마지막 확인입니다")).not.toBeInTheDocument();
       expect(screen.getByText("계정 삭제")).toBeInTheDocument();
     });
   });

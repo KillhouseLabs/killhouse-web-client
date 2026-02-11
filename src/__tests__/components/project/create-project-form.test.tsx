@@ -37,36 +37,75 @@ describe("CreateProjectForm", () => {
       // THEN
       expect(screen.getByLabelText(/프로젝트 이름/)).toBeInTheDocument();
       expect(screen.getByLabelText(/설명/)).toBeInTheDocument();
-      expect(screen.getByText("코드 분석")).toBeInTheDocument();
-      expect(screen.getByText("컨테이너 스캔")).toBeInTheDocument();
+      expect(screen.getByText("GitHub")).toBeInTheDocument();
+      expect(screen.getByText("GitLab")).toBeInTheDocument();
+      expect(screen.getByText("수동 업로드")).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "프로젝트 생성" })
       ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "취소" })).toBeInTheDocument();
     });
 
-    it("GIVEN 프로젝트 생성 페이지 WHEN 컴포넌트 렌더링 THEN CODE 타입이 기본 선택되어야 한다", () => {
+    it("GIVEN 프로젝트 생성 페이지 WHEN 컴포넌트 렌더링 THEN GitHub이 기본 선택되어야 한다", () => {
       // GIVEN & WHEN
       render(<CreateProjectForm />);
 
       // THEN
-      const codeButton = screen.getByText("코드 분석").closest("button");
-      expect(codeButton).toHaveClass("border-primary");
+      const githubButton = screen.getByText("GitHub").closest("button");
+      expect(githubButton).toHaveClass("border-primary");
+    });
+
+    it("GIVEN GitHub 선택됨 WHEN 컴포넌트 렌더링 THEN 저장소 URL 입력이 표시되어야 한다", () => {
+      // GIVEN & WHEN
+      render(<CreateProjectForm />);
+
+      // THEN
+      expect(screen.getByLabelText(/저장소 URL/)).toBeInTheDocument();
+    });
+
+    it("GIVEN 프로젝트 생성 페이지 WHEN 컴포넌트 렌더링 THEN 분석 프로세스 설명이 표시되어야 한다", () => {
+      // GIVEN & WHEN
+      render(<CreateProjectForm />);
+
+      // THEN
+      expect(screen.getByText("분석 프로세스")).toBeInTheDocument();
+      expect(screen.getByText("저장소 클론 및 코드 검색")).toBeInTheDocument();
+      expect(screen.getByText("정적 코드 분석 (SAST)")).toBeInTheDocument();
+      expect(
+        screen.getByText("샌드박스 컨테이너 빌드 및 실행")
+      ).toBeInTheDocument();
+      expect(screen.getByText("모의 침투 테스트 수행")).toBeInTheDocument();
+      expect(screen.getByText("취약점 리포트 생성")).toBeInTheDocument();
     });
   });
 
-  describe("타입 선택", () => {
-    it("GIVEN CODE 타입 선택됨 WHEN CONTAINER 클릭 THEN CONTAINER가 선택되어야 한다", async () => {
+  describe("저장소 프로바이더 선택", () => {
+    it("GIVEN GitHub 선택됨 WHEN GitLab 클릭 THEN GitLab이 선택되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       render(<CreateProjectForm />);
 
       // WHEN
-      await user.click(screen.getByText("컨테이너 스캔"));
+      await user.click(screen.getByText("GitLab"));
 
       // THEN
-      const containerButton = screen.getByText("컨테이너 스캔").closest("button");
-      expect(containerButton).toHaveClass("border-primary");
+      const gitlabButton = screen.getByText("GitLab").closest("button");
+      expect(gitlabButton).toHaveClass("border-primary");
+    });
+
+    it("GIVEN GitHub 선택됨 WHEN 수동 업로드 클릭 THEN URL 입력이 숨겨지고 업로드 안내가 표시되어야 한다", async () => {
+      // GIVEN
+      const user = userEvent.setup();
+      render(<CreateProjectForm />);
+
+      // WHEN
+      await user.click(screen.getByText("수동 업로드"));
+
+      // THEN
+      expect(screen.queryByLabelText(/저장소 URL/)).not.toBeInTheDocument();
+      expect(
+        screen.getByText("프로젝트 생성 후 코드를 직접 업로드할 수 있습니다")
+      ).toBeInTheDocument();
     });
   });
 
@@ -87,10 +126,48 @@ describe("CreateProjectForm", () => {
       });
       expect(global.fetch).not.toHaveBeenCalled();
     });
+
+    it("GIVEN GitHub 선택 + 빈 URL WHEN 생성 버튼 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
+      // GIVEN
+      const user = userEvent.setup();
+      render(<CreateProjectForm />);
+
+      // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "Test Project");
+      await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("저장소 URL을 입력하세요")).toBeInTheDocument();
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("GIVEN 잘못된 URL 형식 WHEN 생성 버튼 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
+      // GIVEN
+      const user = userEvent.setup();
+      render(<CreateProjectForm />);
+
+      // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "Test Project");
+      await user.type(
+        screen.getByLabelText(/저장소 URL/),
+        "https://bitbucket.org/owner/repo"
+      );
+      await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
+
+      // THEN
+      await waitFor(() => {
+        expect(
+          screen.getByText("올바른 GitHub 또는 GitLab 저장소 URL을 입력하세요")
+        ).toBeInTheDocument();
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
   });
 
   describe("프로젝트 생성", () => {
-    it("GIVEN 유효한 입력 WHEN 생성 버튼 클릭 THEN API가 호출되어야 한다", async () => {
+    it("GIVEN 유효한 GitHub 입력 WHEN 생성 버튼 클릭 THEN API가 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       (global.fetch as jest.Mock).mockResolvedValue({
@@ -104,11 +181,12 @@ describe("CreateProjectForm", () => {
       render(<CreateProjectForm />);
 
       // WHEN
-      await user.type(
-        screen.getByLabelText(/프로젝트 이름/),
-        "New Project"
-      );
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.type(screen.getByLabelText(/설명/), "Project description");
+      await user.type(
+        screen.getByLabelText(/저장소 URL/),
+        "https://github.com/owner/repo"
+      );
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN
@@ -119,7 +197,9 @@ describe("CreateProjectForm", () => {
           body: JSON.stringify({
             name: "New Project",
             description: "Project description",
-            type: "CODE",
+            repoProvider: "GITHUB",
+            repoUrl: "https://github.com/owner/repo",
+            defaultBranch: "main",
           }),
         });
       });
@@ -139,9 +219,10 @@ describe("CreateProjectForm", () => {
       render(<CreateProjectForm />);
 
       // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.type(
-        screen.getByLabelText(/프로젝트 이름/),
-        "New Project"
+        screen.getByLabelText(/저장소 URL/),
+        "https://github.com/owner/repo"
       );
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
@@ -151,7 +232,7 @@ describe("CreateProjectForm", () => {
       });
     });
 
-    it("GIVEN CONTAINER 타입 선택 WHEN 생성 THEN type이 CONTAINER로 전송되어야 한다", async () => {
+    it("GIVEN 수동 업로드 선택 WHEN 생성 THEN repoProvider가 MANUAL로 전송되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       (global.fetch as jest.Mock).mockResolvedValue({
@@ -159,17 +240,14 @@ describe("CreateProjectForm", () => {
         json: () =>
           Promise.resolve({
             success: true,
-            data: { id: "new-project-id", name: "Container Project" },
+            data: { id: "new-project-id", name: "Manual Project" },
           }),
       });
       render(<CreateProjectForm />);
 
       // WHEN
-      await user.type(
-        screen.getByLabelText(/프로젝트 이름/),
-        "Container Project"
-      );
-      await user.click(screen.getByText("컨테이너 스캔"));
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "Manual Project");
+      await user.click(screen.getByText("수동 업로드"));
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN
@@ -177,7 +255,40 @@ describe("CreateProjectForm", () => {
         expect(global.fetch).toHaveBeenCalledWith(
           "/api/projects",
           expect.objectContaining({
-            body: expect.stringContaining('"type":"CONTAINER"'),
+            body: expect.stringContaining('"repoProvider":"MANUAL"'),
+          })
+        );
+      });
+    });
+
+    it("GIVEN GitLab 선택 WHEN 생성 THEN repoProvider가 GITLAB으로 전송되어야 한다", async () => {
+      // GIVEN
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { id: "new-project-id", name: "GitLab Project" },
+          }),
+      });
+      render(<CreateProjectForm />);
+
+      // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "GitLab Project");
+      await user.click(screen.getByText("GitLab"));
+      await user.type(
+        screen.getByLabelText(/저장소 URL/),
+        "https://gitlab.com/owner/repo"
+      );
+      await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
+
+      // THEN
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/projects",
+          expect.objectContaining({
+            body: expect.stringContaining('"repoProvider":"GITLAB"'),
           })
         );
       });
@@ -197,9 +308,10 @@ describe("CreateProjectForm", () => {
       render(<CreateProjectForm />);
 
       // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.type(
-        screen.getByLabelText(/프로젝트 이름/),
-        "New Project"
+        screen.getByLabelText(/저장소 URL/),
+        "https://github.com/owner/repo"
       );
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
@@ -246,9 +358,10 @@ describe("CreateProjectForm", () => {
       render(<CreateProjectForm />);
 
       // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.type(
-        screen.getByLabelText(/프로젝트 이름/),
-        "New Project"
+        screen.getByLabelText(/저장소 URL/),
+        "https://github.com/owner/repo"
       );
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 

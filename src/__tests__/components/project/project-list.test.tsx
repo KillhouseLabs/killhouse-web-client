@@ -57,7 +57,9 @@ describe("ProjectList", () => {
       render(<ProjectList />);
 
       // THEN
-      expect(screen.getByRole("status") || document.querySelector(".animate-spin")).toBeTruthy();
+      expect(
+        screen.getByRole("status") || document.querySelector(".animate-spin")
+      ).toBeTruthy();
     });
   });
 

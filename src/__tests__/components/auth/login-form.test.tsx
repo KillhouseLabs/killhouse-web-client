@@ -39,7 +39,9 @@ describe("LoginForm", () => {
       expect(screen.getByText("로그인")).toBeInTheDocument();
       expect(screen.getByLabelText("이메일")).toBeInTheDocument();
       expect(screen.getByLabelText("비밀번호")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "로그인" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "로그인" })
+      ).toBeInTheDocument();
       expect(screen.getByText("Google로 계속하기")).toBeInTheDocument();
       expect(screen.getByText("GitHub로 계속하기")).toBeInTheDocument();
     });
@@ -171,7 +173,9 @@ describe("LoginForm", () => {
       await waitFor(() => {
         expect(screen.getByText("로그인 중...")).toBeInTheDocument();
       });
-      expect(screen.getByRole("button", { name: "로그인 중..." })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "로그인 중..." })
+      ).toBeDisabled();
     });
   });
 
@@ -185,7 +189,9 @@ describe("LoginForm", () => {
       await user.click(screen.getByText("Google로 계속하기"));
 
       // THEN
-      expect(signIn).toHaveBeenCalledWith("google", { callbackUrl: "/dashboard" });
+      expect(signIn).toHaveBeenCalledWith("google", {
+        callbackUrl: "/dashboard",
+      });
     });
 
     it("GIVEN GitHub 버튼 클릭 WHEN 소셜 로그인 시도 THEN signIn이 github provider로 호출되어야 한다", async () => {
@@ -197,7 +203,9 @@ describe("LoginForm", () => {
       await user.click(screen.getByText("GitHub로 계속하기"));
 
       // THEN
-      expect(signIn).toHaveBeenCalledWith("github", { callbackUrl: "/dashboard" });
+      expect(signIn).toHaveBeenCalledWith("github", {
+        callbackUrl: "/dashboard",
+      });
     });
   });
 });
