@@ -18,6 +18,18 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Client-side validation
+    if (!email || !password) {
+      setError("이메일과 비밀번호를 입력하세요");
+      return;
+    }
+
+    if (!email.includes("@")) {
+      setError("올바른 이메일 주소를 입력하세요");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -27,9 +39,17 @@ export function LoginForm() {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (!result) {
+        setError("로그인 중 오류가 발생했습니다");
+        return;
+      }
+
+      if (result.error) {
         setError("이메일 또는 비밀번호가 올바르지 않습니다");
-      } else {
+        return;
+      }
+
+      if (result.ok) {
         router.push(callbackUrl);
         router.refresh();
       }

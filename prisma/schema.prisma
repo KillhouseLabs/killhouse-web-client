@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -40,12 +40,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -79,85 +79,58 @@ model VerificationToken {
 // ============================================
 
 model Project {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
-  type        ProjectType   @default(CODE)
-  status      ProjectStatus @default(ACTIVE)
+  type        String   @default("CODE")      // CODE, CONTAINER
+  status      String   @default("ACTIVE")    // ACTIVE, ARCHIVED, DELETED
 
   userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   analyses    Analysis[]
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([userId])
   @@map("projects")
 }
 
-enum ProjectType {
-  CODE
-  CONTAINER
-}
-
-enum ProjectStatus {
-  ACTIVE
-  ARCHIVED
-  DELETED
-}
-
 model Analysis {
-  id          String         @id @default(cuid())
-  status      AnalysisStatus @default(PENDING)
+  id          String   @id @default(cuid())
+  status      String   @default("PENDING")   // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
 
   projectId   String
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  report      Json?          // Analysis report data
+  report      String?  // JSON string for analysis report
 
-  startedAt   DateTime       @default(now())
+  startedAt   DateTime @default(now())
   completedAt DateTime?
 
   @@index([projectId])
   @@map("analyses")
 }
 
-enum AnalysisStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-  CANCELLED
-}
-
 model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @unique
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  planId               String             @default("free")
-  status               SubscriptionStatus @default(ACTIVE)
+  planId               String   @default("free")
+  status               String   @default("ACTIVE")  // ACTIVE, CANCELLED, PAST_DUE, UNPAID, TRIALING
 
-  stripeCustomerId     String?            @unique
-  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
   stripePriceId        String?
 
-  currentPeriodStart   DateTime           @default(now())
+  currentPeriodStart   DateTime @default(now())
   currentPeriodEnd     DateTime?
-  cancelAtPeriodEnd    Boolean            @default(false)
+  cancelAtPeriodEnd    Boolean  @default(false)
 
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("subscriptions")
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  UNPAID
-  TRIALING
 }
