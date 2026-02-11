@@ -25,15 +25,32 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
       include: {
+        repositories: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
         _count: {
           select: { analyses: true },
         },
       },
     });
 
+    // Add backward compatibility fields computed from primary repository
+    const projectsWithLegacyFields = projects.map((project) => {
+      const primaryRepo = project.repositories.find((r) => r.isPrimary);
+      return {
+        ...project,
+        // Legacy fields for backward compatibility
+        repoProvider: primaryRepo?.provider || null,
+        repoUrl: primaryRepo?.url || null,
+        repoOwner: primaryRepo?.owner || null,
+        repoName: primaryRepo?.name || null,
+        defaultBranch: primaryRepo?.defaultBranch || "main",
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: projects,
+      data: projectsWithLegacyFields,
     });
   } catch (error) {
     console.error("List projects error:", error);
@@ -69,40 +86,67 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, description, repoProvider, repoUrl, defaultBranch } =
-      validationResult.data;
+    const { name, description, repositories } = validationResult.data;
 
-    // Parse repo URL to extract owner and repo name
-    let repoOwner: string | null = null;
-    let repoName: string | null = null;
-    let provider: string | null = repoProvider || null;
-
-    if (repoUrl) {
-      const parsed = parseRepoUrl(repoUrl);
-      if (parsed) {
-        provider = parsed.provider;
-        repoOwner = parsed.owner;
-        repoName = parsed.name;
+    // Process repositories: parse URLs and ensure first one is primary
+    const processedRepositories = repositories.map((repo, index) => {
+      let owner: string | null = null;
+      if (repo.url) {
+        const parsed = parseRepoUrl(repo.url);
+        if (parsed) {
+          owner = parsed.owner;
+        }
       }
+
+      return {
+        provider: repo.provider,
+        url: repo.url || null,
+        owner,
+        name: repo.name,
+        defaultBranch: repo.defaultBranch,
+        // First repository is primary by default, or use provided value
+        isPrimary: index === 0 ? (repo.isPrimary ?? true) : repo.isPrimary,
+        role: repo.role,
+      };
+    });
+
+    // Ensure only one repository is marked as primary
+    const hasPrimary = processedRepositories.some((r) => r.isPrimary);
+    if (processedRepositories.length > 0 && !hasPrimary) {
+      processedRepositories[0].isPrimary = true;
     }
 
     const project = await prisma.project.create({
       data: {
         name,
         description,
-        repoProvider: provider,
-        repoUrl: repoUrl || null,
-        repoOwner,
-        repoName,
-        defaultBranch,
         userId: session.user.id,
+        repositories: {
+          create: processedRepositories,
+        },
+      },
+      include: {
+        repositories: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
       },
     });
+
+    // Add backward compatibility fields
+    const primaryRepo = project.repositories.find((r) => r.isPrimary);
+    const projectWithLegacyFields = {
+      ...project,
+      repoProvider: primaryRepo?.provider || null,
+      repoUrl: primaryRepo?.url || null,
+      repoOwner: primaryRepo?.owner || null,
+      repoName: primaryRepo?.name || null,
+      defaultBranch: primaryRepo?.defaultBranch || "main",
+    };
 
     return NextResponse.json(
       {
         success: true,
-        data: project,
+        data: projectWithLegacyFields,
       },
       { status: 201 }
     );

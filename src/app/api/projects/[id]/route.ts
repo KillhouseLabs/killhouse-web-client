@@ -27,6 +27,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         status: { not: "DELETED" },
       },
       include: {
+        repositories: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
         analyses: {
           orderBy: { startedAt: "desc" },
           take: 10,
@@ -44,9 +47,20 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
+    // Add backward compatibility fields
+    const primaryRepo = project.repositories.find((r) => r.isPrimary);
+    const projectWithLegacyFields = {
+      ...project,
+      repoProvider: primaryRepo?.provider || null,
+      repoUrl: primaryRepo?.url || null,
+      repoOwner: primaryRepo?.owner || null,
+      repoName: primaryRepo?.name || null,
+      defaultBranch: primaryRepo?.defaultBranch || "main",
+    };
+
     return NextResponse.json({
       success: true,
-      data: project,
+      data: projectWithLegacyFields,
     });
   } catch (error) {
     console.error("Get project error:", error);
@@ -102,11 +116,27 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const project = await prisma.project.update({
       where: { id },
       data: validationResult.data,
+      include: {
+        repositories: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
+      },
     });
+
+    // Add backward compatibility fields
+    const primaryRepo = project.repositories.find((r) => r.isPrimary);
+    const projectWithLegacyFields = {
+      ...project,
+      repoProvider: primaryRepo?.provider || null,
+      repoUrl: primaryRepo?.url || null,
+      repoOwner: primaryRepo?.owner || null,
+      repoName: primaryRepo?.name || null,
+      defaultBranch: primaryRepo?.defaultBranch || "main",
+    };
 
     return NextResponse.json({
       success: true,
-      data: project,
+      data: projectWithLegacyFields,
     });
   } catch (error) {
     console.error("Update project error:", error);
