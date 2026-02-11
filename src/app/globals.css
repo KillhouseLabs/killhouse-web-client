@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 270 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 270 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 10% 10%;
+    --primary: 282 100% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 280 20% 96%;
+    --secondary-foreground: 270 10% 10%;
+    --muted: 280 20% 96%;
+    --muted-foreground: 270 10% 45%;
+    --accent: 280 30% 94%;
+    --accent-foreground: 270 10% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 280 20% 90%;
+    --input: 280 20% 90%;
+    --ring: 282 100% 41%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 270 30% 6%;
+    --foreground: 280 20% 98%;
+    --card: 270 25% 10%;
+    --card-foreground: 280 20% 98%;
+    --popover: 270 25% 10%;
+    --popover-foreground: 280 20% 98%;
+    --primary: 282 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 270 20% 18%;
+    --secondary-foreground: 280 20% 98%;
+    --muted: 270 20% 18%;
+    --muted-foreground: 280 15% 65%;
+    --accent: 270 25% 20%;
+    --accent-foreground: 280 20% 98%;
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 20% 20%;
+    --input: 270 20% 20%;
+    --ring: 282 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-out {
+    animation: fade-out 0.2s ease-out;
+  }
+}
