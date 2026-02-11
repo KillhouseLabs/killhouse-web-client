@@ -39,12 +39,15 @@ npm run dev
 Create a `.env.local` file with the following variables:
 
 ```env
+# Server
+PORT=3001
+
 # Database
 DATABASE_URL="file:./dev.db"
 
 # NextAuth
-NEXTAUTH_URL="http://localhost:3001"
-NEXTAUTH_SECRET="your-secret-key-here"
+AUTH_URL="http://localhost:3001"
+AUTH_SECRET="your-secret-key-here"
 
 # OAuth Providers
 GOOGLE_CLIENT_ID="your-google-client-id"
@@ -52,6 +55,8 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
 ```
+
+포트를 변경하려면 `.env.local`의 `PORT` 값을 수정하세요.
 
 ## TODO: OAuth Redirect URI Configuration
 
