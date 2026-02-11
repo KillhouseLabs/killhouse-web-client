@@ -1,7 +1,8 @@
 /**
- * Project DTO Validation Tests
+ * Project DTO Validation Tests (Multi-Repository)
  *
  * 프로젝트 생성/수정 시 입력 데이터 검증 테스트
+ * - repositories 배열 지원
  */
 
 import {
@@ -10,7 +11,7 @@ import {
   parseRepoUrl,
 } from "@/domains/project/dto/project.dto";
 
-describe("createProjectSchema", () => {
+describe("createProjectSchema (Multi-Repo)", () => {
   describe("name 필드 검증", () => {
     it("GIVEN 빈 이름 WHEN 검증 THEN 실패해야 한다", () => {
       // GIVEN
@@ -113,12 +114,21 @@ describe("createProjectSchema", () => {
     });
   });
 
-  describe("repoProvider 필드 검증", () => {
-    it("GIVEN GITHUB 프로바이더 WHEN 검증 THEN 성공해야 한다", () => {
+  describe("repositories 필드 검증", () => {
+    it("GIVEN repositories 배열 WHEN 검증 THEN 성공해야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        repoProvider: "GITHUB",
+        name: "Multi-Repo Project",
+        repositories: [
+          {
+            provider: "GITHUB",
+            name: "frontend",
+            url: "https://github.com/owner/frontend",
+            defaultBranch: "main",
+            isPrimary: true,
+            role: "frontend",
+          },
+        ],
       };
 
       // WHEN
@@ -127,15 +137,16 @@ describe("createProjectSchema", () => {
       // THEN
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.repoProvider).toBe("GITHUB");
+        expect(result.data.repositories).toHaveLength(1);
+        expect(result.data.repositories![0].name).toBe("frontend");
+        expect(result.data.repositories![0].isPrimary).toBe(true);
       }
     });
 
-    it("GIVEN GITLAB 프로바이더 WHEN 검증 THEN 성공해야 한다", () => {
+    it("GIVEN 빈 repositories WHEN 검증 THEN 성공해야 한다 (기본값 [])", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        repoProvider: "GITLAB",
+        name: "Project without repos",
       };
 
       // WHEN
@@ -144,15 +155,37 @@ describe("createProjectSchema", () => {
       // THEN
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.repoProvider).toBe("GITLAB");
+        expect(result.data.repositories).toEqual([]);
       }
     });
 
-    it("GIVEN MANUAL 프로바이더 WHEN 검증 THEN 성공해야 한다", () => {
+    it("GIVEN 여러 repositories WHEN 검증 THEN 성공해야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        repoProvider: "MANUAL",
+        name: "Multi-Repo Project",
+        repositories: [
+          {
+            provider: "GITHUB",
+            name: "frontend",
+            url: "https://github.com/owner/frontend",
+            isPrimary: true,
+            role: "frontend",
+          },
+          {
+            provider: "GITHUB",
+            name: "backend",
+            url: "https://github.com/owner/backend",
+            isPrimary: false,
+            role: "backend",
+          },
+          {
+            provider: "GITLAB",
+            name: "shared",
+            url: "https://gitlab.com/owner/shared",
+            isPrimary: false,
+            role: "shared",
+          },
+        ],
       };
 
       // WHEN
@@ -161,15 +194,23 @@ describe("createProjectSchema", () => {
       // THEN
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.repoProvider).toBe("MANUAL");
+        expect(result.data.repositories).toHaveLength(3);
+        expect(result.data.repositories![0].role).toBe("frontend");
+        expect(result.data.repositories![1].role).toBe("backend");
+        expect(result.data.repositories![2].provider).toBe("GITLAB");
       }
     });
 
-    it("GIVEN 잘못된 프로바이더 WHEN 검증 THEN 실패해야 한다", () => {
+    it("GIVEN 잘못된 repository 객체 WHEN 검증 THEN 실패해야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        repoProvider: "INVALID",
+        name: "Project",
+        repositories: [
+          {
+            provider: "INVALID_PROVIDER",
+            name: "repo",
+          },
+        ],
       };
 
       // WHEN
@@ -179,57 +220,16 @@ describe("createProjectSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    it("GIVEN 프로바이더 없음 WHEN 검증 THEN GITHUB이 기본값이어야 한다", () => {
+    it("GIVEN repository name 없음 WHEN 검증 THEN 실패해야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-      };
-
-      // WHEN
-      const result = createProjectSchema.safeParse(input);
-
-      // THEN
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.repoProvider).toBe("GITHUB");
-      }
-    });
-  });
-
-  describe("repoUrl 필드 검증", () => {
-    it("GIVEN 유효한 GitHub URL WHEN 검증 THEN 성공해야 한다", () => {
-      // GIVEN
-      const input = {
-        name: "Valid Name",
-        repoUrl: "https://github.com/owner/repo",
-      };
-
-      // WHEN
-      const result = createProjectSchema.safeParse(input);
-
-      // THEN
-      expect(result.success).toBe(true);
-    });
-
-    it("GIVEN 유효한 GitLab URL WHEN 검증 THEN 성공해야 한다", () => {
-      // GIVEN
-      const input = {
-        name: "Valid Name",
-        repoUrl: "https://gitlab.com/owner/repo",
-      };
-
-      // WHEN
-      const result = createProjectSchema.safeParse(input);
-
-      // THEN
-      expect(result.success).toBe(true);
-    });
-
-    it("GIVEN 잘못된 URL WHEN 검증 THEN 실패해야 한다", () => {
-      // GIVEN
-      const input = {
-        name: "Valid Name",
-        repoUrl: "https://bitbucket.org/owner/repo",
+        name: "Project",
+        repositories: [
+          {
+            provider: "GITHUB",
+            // name missing
+          },
+        ],
       };
 
       // WHEN
@@ -239,11 +239,30 @@ describe("createProjectSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    it("GIVEN 빈 URL WHEN 검증 THEN 성공해야 한다 (optional)", () => {
+    it("GIVEN repository provider 없음 WHEN 검증 THEN 실패해야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        repoUrl: "",
+        name: "Project",
+        repositories: [
+          {
+            name: "my-repo",
+            // provider missing
+          },
+        ],
+      };
+
+      // WHEN
+      const result = createProjectSchema.safeParse(input);
+
+      // THEN
+      expect(result.success).toBe(false);
+    });
+
+    it("GIVEN repositories 명시적 빈 배열 WHEN 검증 THEN 성공해야 한다", () => {
+      // GIVEN
+      const input = {
+        name: "Project",
+        repositories: [],
       };
 
       // WHEN
@@ -251,14 +270,23 @@ describe("createProjectSchema", () => {
 
       // THEN
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.repositories).toEqual([]);
+      }
     });
   });
 
-  describe("defaultBranch 필드 검증", () => {
-    it("GIVEN 브랜치 없음 WHEN 검증 THEN main이 기본값이어야 한다", () => {
+  describe("repositories 기본값 검증", () => {
+    it("GIVEN repository defaultBranch 없음 WHEN 검증 THEN main이 기본값이어야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
+        name: "Project",
+        repositories: [
+          {
+            provider: "GITHUB",
+            name: "repo",
+          },
+        ],
       };
 
       // WHEN
@@ -267,15 +295,20 @@ describe("createProjectSchema", () => {
       // THEN
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.defaultBranch).toBe("main");
+        expect(result.data.repositories![0].defaultBranch).toBe("main");
       }
     });
 
-    it("GIVEN 커스텀 브랜치 WHEN 검증 THEN 성공해야 한다", () => {
+    it("GIVEN repository isPrimary 없음 WHEN 검증 THEN false가 기본값이어야 한다", () => {
       // GIVEN
       const input = {
-        name: "Valid Name",
-        defaultBranch: "develop",
+        name: "Project",
+        repositories: [
+          {
+            provider: "GITHUB",
+            name: "repo",
+          },
+        ],
       };
 
       // WHEN
@@ -284,7 +317,7 @@ describe("createProjectSchema", () => {
       // THEN
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.defaultBranch).toBe("develop");
+        expect(result.data.repositories![0].isPrimary).toBe(false);
       }
     });
   });
@@ -381,37 +414,6 @@ describe("updateProjectSchema", () => {
 
       // THEN
       expect(result.success).toBe(false);
-    });
-  });
-
-  describe("repoUrl 업데이트 검증", () => {
-    it("GIVEN 새로운 GitHub URL WHEN 검증 THEN 성공해야 한다", () => {
-      // GIVEN
-      const input = {
-        repoUrl: "https://github.com/new-owner/new-repo",
-      };
-
-      // WHEN
-      const result = updateProjectSchema.safeParse(input);
-
-      // THEN
-      expect(result.success).toBe(true);
-    });
-
-    it("GIVEN defaultBranch 업데이트 WHEN 검증 THEN 성공해야 한다", () => {
-      // GIVEN
-      const input = {
-        defaultBranch: "feature-branch",
-      };
-
-      // WHEN
-      const result = updateProjectSchema.safeParse(input);
-
-      // THEN
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.defaultBranch).toBe("feature-branch");
-      }
     });
   });
 });
