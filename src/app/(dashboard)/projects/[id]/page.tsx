@@ -44,6 +44,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       status: { not: "DELETED" },
     },
     include: {
+      repositories: {
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        include: {
+          _count: {
+            select: { analyses: true },
+          },
+        },
+      },
       analyses: {
         orderBy: { startedAt: "desc" },
         take: 10,

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { RepositoryList, Repository } from "./repository-list";
+import { AddRepositoryModal } from "./add-repository-modal";
 
 interface Analysis {
   id: string;
@@ -20,16 +22,20 @@ interface Analysis {
   completedAt: Date | null;
 }
 
+
 interface Project {
   id: string;
   name: string;
   description: string | null;
   status: string;
-  repoProvider: string | null;
-  repoUrl: string | null;
-  repoOwner: string | null;
-  repoName: string | null;
-  defaultBranch: string;
+  // Legacy fields (for backward compatibility, optional)
+  repoProvider?: string | null;
+  repoUrl?: string | null;
+  repoOwner?: string | null;
+  repoName?: string | null;
+  defaultBranch?: string;
+  // New multi-repo fields
+  repositories?: Repository[];
   createdAt: Date;
   updatedAt: Date;
   analyses: Analysis[];
@@ -57,6 +63,10 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAddRepoModal, setShowAddRepoModal] = useState(false);
+
+  // Helper to check if project uses new multi-repo structure
+  const hasRepositories = project.repositories && project.repositories.length > 0;
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -194,67 +204,84 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
         </div>
       )}
 
-      {/* Repository Info */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">저장소 정보</h2>
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-            {getProviderIcon()}
-          </div>
-          <div className="flex-1">
-            {project.repoUrl ? (
-              <>
-                <a
-                  href={project.repoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium hover:text-primary hover:underline"
-                >
-                  {project.repoOwner}/{project.repoName}
-                </a>
-                <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-3.5 w-3.5"
-                    >
-                      <line x1="6" x2="6" y1="3" y2="15" />
-                      <circle cx="18" cy="6" r="3" />
-                      <circle cx="6" cy="18" r="3" />
-                      <path d="M18 9a9 9 0 0 1-9 9" />
-                    </svg>
-                    {project.defaultBranch}
-                  </span>
-                  <span>{project.repoProvider}</span>
+      {/* Repository Info - Multi-repo or Legacy */}
+      {hasRepositories ? (
+        <>
+          <RepositoryList
+            projectId={project.id}
+            repositories={project.repositories!}
+            onUpdate={() => router.refresh()}
+            onAdd={() => setShowAddRepoModal(true)}
+          />
+          <AddRepositoryModal
+            isOpen={showAddRepoModal}
+            onClose={() => setShowAddRepoModal(false)}
+            projectId={project.id}
+            onSuccess={() => router.refresh()}
+          />
+        </>
+      ) : (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">저장소 정보</h2>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+              {getProviderIcon()}
+            </div>
+            <div className="flex-1">
+              {project.repoUrl ? (
+                <>
+                  <a
+                    href={project.repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium hover:text-primary hover:underline"
+                  >
+                    {project.repoOwner}/{project.repoName}
+                  </a>
+                  <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-3.5 w-3.5"
+                      >
+                        <line x1="6" x2="6" y1="3" y2="15" />
+                        <circle cx="18" cy="6" r="3" />
+                        <circle cx="6" cy="18" r="3" />
+                        <path d="M18 9a9 9 0 0 1-9 9" />
+                      </svg>
+                      {project.defaultBranch}
+                    </span>
+                    <span>{project.repoProvider}</span>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <p className="font-medium">수동 업로드</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    코드 파일을 직접 업로드하여 분석합니다
+                  </p>
                 </div>
-              </>
-            ) : (
-              <div>
-                <p className="font-medium">수동 업로드</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  코드 파일을 직접 업로드하여 분석합니다
-                </p>
-              </div>
+              )}
+            </div>
+            {project.repoUrl && (
+              <a
+                href={project.repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+              >
+                저장소 열기
+              </a>
             )}
           </div>
-          {project.repoUrl && (
-            <a
-              href={project.repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-            >
-              저장소 열기
-            </a>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Project Stats */}
       <div className="grid gap-4 md:grid-cols-3">

@@ -5,16 +5,30 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 
+interface Repository {
+  id: string;
+  provider: string;
+  url: string | null;
+  owner: string | null;
+  name: string;
+  defaultBranch: string;
+  isPrimary: boolean;
+  role: string | null;
+}
+
 interface Project {
   id: string;
   name: string;
   description: string | null;
   status: string;
+  // Legacy fields (for backward compatibility)
   repoProvider: string | null;
   repoUrl: string | null;
   repoOwner: string | null;
   repoName: string | null;
   defaultBranch: string;
+  // New multi-repo fields
+  repositories?: Repository[];
   createdAt: string;
   updatedAt: string;
   _count: {
@@ -147,71 +161,110 @@ export function ProjectList() {
     );
   }
 
+  // Helper function to get repository info for display
+  const getRepositoryInfo = (project: Project) => {
+    // Use new repositories array if available
+    if (project.repositories && project.repositories.length > 0) {
+      const primaryRepo = project.repositories.find((r) => r.isPrimary);
+      const displayRepo = primaryRepo || project.repositories[0];
+      const repoCount = project.repositories.length;
+
+      return {
+        provider: displayRepo.provider,
+        owner: displayRepo.owner,
+        name: displayRepo.name,
+        repoCount,
+        hasMultipleRepos: repoCount > 1,
+      };
+    }
+
+    // Fall back to legacy fields
+    return {
+      provider: project.repoProvider,
+      owner: project.repoOwner,
+      name: project.repoName,
+      repoCount: project.repoOwner && project.repoName ? 1 : 0,
+      hasMultipleRepos: false,
+    };
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => (
-        <Link
-          key={project.id}
-          href={`/projects/${project.id}`}
-          className="group rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent"
-        >
-          <div className="mb-4 flex items-start justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              {getProviderIcon(project.repoProvider)}
+      {projects.map((project) => {
+        const repoInfo = getRepositoryInfo(project);
+
+        return (
+          <Link
+            key={project.id}
+            href={`/projects/${project.id}`}
+            className="group rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent"
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {getProviderIcon(repoInfo.provider)}
+              </div>
+              <div className="flex items-center gap-2">
+                {repoInfo.hasMultipleRepos && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {repoInfo.repoCount}개 저장소
+                  </span>
+                )}
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${
+                    project.status === "ACTIVE"
+                      ? "bg-green-500/10 text-green-600"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {project.status === "ACTIVE" ? "활성" : "보관됨"}
+                </span>
+              </div>
             </div>
-            <span
-              className={`rounded-full px-2 py-1 text-xs font-medium ${
-                project.status === "ACTIVE"
-                  ? "bg-green-500/10 text-green-600"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {project.status === "ACTIVE" ? "활성" : "보관됨"}
-            </span>
-          </div>
 
-          <h3 className="mb-1 font-semibold group-hover:text-primary">
-            {project.name}
-          </h3>
+            <h3 className="mb-1 font-semibold group-hover:text-primary">
+              {project.name}
+            </h3>
 
-          {project.repoOwner && project.repoName ? (
-            <p className="mb-2 text-sm text-muted-foreground">
-              {project.repoOwner}/{project.repoName}
-            </p>
-          ) : project.description ? (
-            <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
-              {project.description}
-            </p>
-          ) : (
-            <p className="mb-2 text-sm text-muted-foreground">수동 업로드</p>
-          )}
+            {repoInfo.owner && repoInfo.name ? (
+              <p className="mb-2 text-sm text-muted-foreground">
+                {repoInfo.owner}/{repoInfo.name}
+                {repoInfo.hasMultipleRepos && " 외"}
+              </p>
+            ) : project.description ? (
+              <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
+                {project.description}
+              </p>
+            ) : (
+              <p className="mb-2 text-sm text-muted-foreground">수동 업로드</p>
+            )}
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-3.5 w-3.5"
-              >
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              분석 {project._count.analyses}회
-            </span>
-            <span>
-              {formatDistanceToNow(new Date(project.createdAt), {
-                addSuffix: true,
-                locale: ko,
-              })}
-            </span>
-          </div>
-        </Link>
-      ))}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                분석 {project._count.analyses}회
+              </span>
+              <span>
+                {formatDistanceToNow(new Date(project.createdAt), {
+                  addSuffix: true,
+                  locale: ko,
+                })}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

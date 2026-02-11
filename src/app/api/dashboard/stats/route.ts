@@ -67,7 +67,11 @@ export async function GET() {
         project: {
           select: {
             name: true,
-            repoProvider: true,
+            repositories: {
+              where: { isPrimary: true },
+              take: 1,
+              select: { provider: true },
+            },
           },
         },
       },
@@ -84,7 +88,7 @@ export async function GET() {
           (a: (typeof recentAnalyses)[number]) => ({
             id: a.id,
             projectName: a.project.name,
-            repoProvider: a.project.repoProvider,
+            repoProvider: a.project.repositories[0]?.provider || null,
             status: a.status,
             startedAt: a.startedAt,
             completedAt: a.completedAt,

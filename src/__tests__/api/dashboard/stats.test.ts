@@ -155,7 +155,7 @@ describe("Dashboard Stats API", () => {
           startedAt: new Date(),
           completedAt: new Date(),
           vulnerabilitiesFound: 5,
-          project: { name: "Project 1", type: "CODE" },
+          project: { name: "Project 1", repositories: [{ provider: "GITHUB" }] },
         },
         {
           id: "analysis-2",
@@ -163,7 +163,7 @@ describe("Dashboard Stats API", () => {
           startedAt: new Date(),
           completedAt: null,
           vulnerabilitiesFound: null,
-          project: { name: "Project 2", type: "CONTAINER" },
+          project: { name: "Project 2", repositories: [{ provider: "GITLAB" }] },
         },
       ];
       (prisma.analysis.findMany as jest.Mock).mockResolvedValue(
@@ -178,7 +178,12 @@ describe("Dashboard Stats API", () => {
         orderBy: { startedAt: "desc" },
         take: 5,
         include: {
-          project: { select: { name: true, type: true } },
+          project: {
+            select: {
+              name: true,
+              repositories: { where: { isPrimary: true }, take: 1, select: { provider: true } },
+            },
+          },
         },
       });
 
