@@ -54,6 +54,8 @@ GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
+GITLAB_CLIENT_ID="your-gitlab-client-id"
+GITLAB_CLIENT_SECRET="your-gitlab-client-secret"
 ```
 
 포트를 변경하려면 `.env.local`의 `PORT` 값을 수정하세요.
@@ -81,6 +83,43 @@ GITHUB_CLIENT_SECRET="your-github-client-secret"
 4. **Homepage URL** 설정:
    - 개발: `http://localhost:3001`
    - 프로덕션: `https://your-domain.com`
+
+### GitLab OAuth
+
+GitLab OAuth를 설정하여 GitLab 저장소에 접근할 수 있습니다.
+
+#### 1. GitLab Application 생성
+
+1. [GitLab User Settings > Applications](https://gitlab.com/-/user_settings/applications)에 접속
+2. **Add new application** 클릭
+3. 다음 정보 입력:
+   - **Name**: `Autopsy Agent` (원하는 이름)
+   - **Redirect URI**:
+     ```
+     http://localhost:3001/api/auth/callback/gitlab
+     ```
+     (프로덕션 환경에서는 `https://your-domain.com/api/auth/callback/gitlab` 추가)
+   - **Confidential**: 체크 (서버 사이드 애플리케이션용)
+   - **Scopes**: 다음 항목 체크
+     - `read_api` - API 읽기 권한
+     - `read_user` - 사용자 정보 읽기
+     - `read_repository` - 저장소 읽기 권한
+4. **Save application** 클릭
+5. 생성된 **Application ID**와 **Secret**을 복사
+
+#### 2. 환경 변수 설정
+
+`.env.local` 파일에 다음 추가:
+
+```env
+GITLAB_CLIENT_ID="your-application-id"
+GITLAB_CLIENT_SECRET="your-secret"
+```
+
+#### 3. 참고 문서
+
+- [GitLab OAuth Provider 공식 문서](https://docs.gitlab.com/integration/oauth_provider/)
+- [User-owned Applications](https://docs.gitlab.com/integration/oauth_provider/#create-a-user-owned-application)
 
 ### Important Notes
 
