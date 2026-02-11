@@ -54,12 +54,10 @@ describe("ProjectList", () => {
       );
 
       // WHEN
-      render(<ProjectList />);
+      const { container } = render(<ProjectList />);
 
       // THEN
-      expect(
-        screen.getByRole("status") || document.querySelector(".animate-spin")
-      ).toBeTruthy();
+      expect(container.querySelector(".animate-spin")).toBeTruthy();
     });
   });
 
@@ -150,7 +148,7 @@ describe("ProjectList", () => {
         expect(screen.getByText("프로젝트가 없습니다")).toBeInTheDocument();
         expect(
           screen.getByText(
-            "첫 번째 프로젝트를 만들어 코드나 컨테이너의 취약점을 분석해보세요"
+            "첫 번째 프로젝트를 만들어 GitHub/GitLab 저장소의 취약점을 분석해보세요"
           )
         ).toBeInTheDocument();
       });
