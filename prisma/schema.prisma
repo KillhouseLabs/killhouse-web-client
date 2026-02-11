@@ -106,6 +106,13 @@ model Analysis {
 
   report      String?  // JSON string for analysis report
 
+  // Vulnerability counts (populated after analysis)
+  vulnerabilitiesFound Int @default(0)
+  criticalCount        Int @default(0)
+  highCount            Int @default(0)
+  mediumCount          Int @default(0)
+  lowCount             Int @default(0)
+
   startedAt   DateTime @default(now())
   completedAt DateTime?
 
