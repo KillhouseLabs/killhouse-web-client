@@ -30,6 +30,7 @@ model User {
   sessions      Session[]
   projects      Project[]
   subscription  Subscription?
+  payments      Payment[]
 
   @@map("users")
 }
@@ -170,6 +171,9 @@ model Subscription {
   stripeSubscriptionId String?  @unique
   stripePriceId        String?
 
+  // PortOne 연동
+  portoneCustomerId    String?
+
   currentPeriodStart   DateTime @default(now())
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
@@ -178,4 +182,31 @@ model Subscription {
   updatedAt            DateTime @updatedAt
 
   @@map("subscriptions")
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique              // 주문 번호 (고객사 채번)
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  planId          String                        // 결제 대상 플랜
+  amount          Int                           // 결제 금액 (KRW)
+
+  status          String   @default("PENDING")  // PENDING, COMPLETED, FAILED, CANCELLED, REFUNDED
+
+  portonePaymentId String?                      // 포트원 결제 ID
+  portoneTransactionId String?                  // 포트원 트랜잭션 ID
+
+  paidAt          DateTime?                     // 결제 완료 시간
+  cancelledAt     DateTime?                     // 취소 시간
+  cancelReason    String?                       // 취소 사유
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
 }
