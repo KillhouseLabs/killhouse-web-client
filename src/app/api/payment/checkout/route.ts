@@ -39,6 +39,19 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
+    // 사용자 존재 확인
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      console.error("[Payment Checkout] User not found:", userId);
+      return NextResponse.json(
+        { success: false, error: "사용자 정보를 찾을 수 없습니다" },
+        { status: 404 }
+      );
+    }
+
     // 요청 파싱 및 검증
     const body = (await request.json()) as CreatePaymentRequest;
     const validationResult = createPaymentSchema.safeParse(body);
