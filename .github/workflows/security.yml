@@ -50,33 +50,7 @@ jobs:
         run: npm outdated || true
 
   # ===========================================
-  # Job 2: CodeQL Static Analysis
-  # Note: Requires GitHub Advanced Security to be enabled
-  # ===========================================
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-          queries: security-extended
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript-typescript"
-
-  # ===========================================
-  # Job 3: Secret Scanning (Gitleaks)
+  # Job 2: Secret Scanning (Gitleaks)
   # ===========================================
   secrets:
     name: Secret Scanning
