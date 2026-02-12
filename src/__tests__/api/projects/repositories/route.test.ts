@@ -25,7 +25,9 @@ jest.mock("@/infrastructure/database/prisma", () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
-    $transaction: jest.fn((fn) => fn({ repository: { updateMany: jest.fn(), create: jest.fn() } })),
+    $transaction: jest.fn((fn) =>
+      fn({ repository: { updateMany: jest.fn(), create: jest.fn() } })
+    ),
   },
 }));
 
@@ -107,7 +109,9 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findMany as jest.Mock).mockResolvedValue(mockRepositories);
+        (prisma.repository.findMany as jest.Mock).mockResolvedValue(
+          mockRepositories
+        );
 
         // WHEN
         await prisma.repository.findMany({
@@ -239,7 +243,9 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(existingRepo);
+        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(
+          existingRepo
+        );
 
         // WHEN
         const duplicate = await prisma.repository.findFirst({
@@ -263,7 +269,9 @@ describe("Projects Repositories API", () => {
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
         (prisma.repository.findFirst as jest.Mock).mockResolvedValue(null);
-        (prisma.repository.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.repository.updateMany as jest.Mock).mockResolvedValue({
+          count: 1,
+        });
         (prisma.repository.create as jest.Mock).mockResolvedValue({
           id: "new-primary-repo",
           isPrimary: true,
@@ -338,7 +346,9 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(mockRepository);
+        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(
+          mockRepository
+        );
         (prisma.repository.update as jest.Mock).mockResolvedValue({
           id: "repo-1",
           name: "updated-repo",
@@ -389,8 +399,12 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(mockRepository);
-        (prisma.repository.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(
+          mockRepository
+        );
+        (prisma.repository.updateMany as jest.Mock).mockResolvedValue({
+          count: 1,
+        });
         (prisma.repository.update as jest.Mock).mockResolvedValue({
           id: "repo-2",
           isPrimary: true,
@@ -428,8 +442,12 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(mockRepository);
-        (prisma.repository.delete as jest.Mock).mockResolvedValue(mockRepository);
+        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(
+          mockRepository
+        );
+        (prisma.repository.delete as jest.Mock).mockResolvedValue(
+          mockRepository
+        );
 
         // WHEN
         const result = await prisma.repository.delete({
@@ -464,7 +482,9 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.delete as jest.Mock).mockResolvedValue(mockPrimaryRepo);
+        (prisma.repository.delete as jest.Mock).mockResolvedValue(
+          mockPrimaryRepo
+        );
         (prisma.repository.update as jest.Mock).mockResolvedValue({
           ...mockNextRepo,
           isPrimary: true,
@@ -520,7 +540,9 @@ describe("Projects Repositories API", () => {
           user: { id: "user-1" },
         });
         (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.repository.findFirst as jest.Mock).mockReturnValue(Promise.resolve(null));
+        (prisma.repository.findFirst as jest.Mock).mockReturnValue(
+          Promise.resolve(null)
+        );
 
         // WHEN
         const repository = await prisma.repository.findFirst({

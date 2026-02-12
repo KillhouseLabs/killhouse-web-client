@@ -103,9 +103,7 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       await user.click(screen.getByText("수동 업로드"));
 
       // THEN
-      expect(
-        screen.queryByText("저장소 검색 및 선택")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("저장소 검색 및 선택")).not.toBeInTheDocument();
       expect(
         screen.getByText("프로젝트 생성 후 코드를 직접 업로드할 수 있습니다")
       ).toBeInTheDocument();

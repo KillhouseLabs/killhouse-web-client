@@ -152,7 +152,9 @@ describe("AddRepositoryModal", () => {
       fireEvent.click(screen.getByRole("button", { name: /수동 업로드/i }));
 
       // WHEN
-      const primaryCheckbox = screen.getByRole("checkbox", { name: /Primary/i });
+      const primaryCheckbox = screen.getByRole("checkbox", {
+        name: /Primary/i,
+      });
       fireEvent.click(primaryCheckbox);
 
       // THEN

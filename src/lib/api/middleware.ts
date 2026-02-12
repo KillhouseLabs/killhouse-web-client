@@ -46,7 +46,9 @@ export type RouteHandler<TContext = any> = (
 ) => Promise<NextResponse<any>>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type MiddlewareFunction = (handler: RouteHandler<any>) => RouteHandler<any>;
+export type MiddlewareFunction = (
+  handler: RouteHandler<any>
+) => RouteHandler<any>;
 
 // 구독 검증 액션 타입
 export type SubscriptionAction = "createProject" | "runAnalysis";
@@ -88,7 +90,9 @@ export const withAuth: MiddlewareFunction = (handler) => {
  * - createProject: 프로젝트 생성 제한
  * - runAnalysis: 분석 실행 제한
  */
-export function withSubscriptionCheck(action: SubscriptionAction): MiddlewareFunction {
+export function withSubscriptionCheck(
+  action: SubscriptionAction
+): MiddlewareFunction {
   return (handler) => {
     return async (request: NextRequest, context: AuthenticatedContext) => {
       const { userId } = context;

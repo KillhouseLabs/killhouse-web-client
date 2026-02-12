@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckoutButton } from "@/components/subscription/checkout-button";
 import { PLANS } from "@/config/constants";
 
@@ -20,10 +20,26 @@ interface UsageStats {
 }
 
 export default function SubscriptionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      }
+    >
+      <SubscriptionPageContent />
+    </Suspense>
+  );
+}
+
+function SubscriptionPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const fetchUsage = async () => {
     try {
@@ -39,13 +55,54 @@ export default function SubscriptionPage() {
     }
   };
 
+  // 결제 콜백 처리
+  useEffect(() => {
+    const paymentId = searchParams.get("paymentId");
+    const verify = searchParams.get("verify");
+    const error = searchParams.get("error");
+
+    if (error) {
+      alert(`결제 실패: ${error}`);
+      // URL에서 에러 파라미터 제거
+      router.replace("/subscription");
+      return;
+    }
+
+    if (paymentId && verify === "true" && !isVerifying) {
+      setIsVerifying(true);
+      // 결제 검증
+      fetch("/api/payment/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success) {
+            alert("구독이 성공적으로 완료되었습니다!");
+            fetchUsage();
+          } else {
+            alert(result.error || "결제 검증에 실패했습니다");
+          }
+        })
+        .catch(() => {
+          alert("결제 검증 중 오류가 발생했습니다");
+        })
+        .finally(() => {
+          setIsVerifying(false);
+          // URL에서 파라미터 제거
+          router.replace("/subscription");
+        });
+    }
+  }, [searchParams, router, isVerifying]);
+
   useEffect(() => {
     fetchUsage();
   }, []);
 
   const handleCancelSubscription = async () => {
     const confirmed = window.confirm(
-      "정말 구독을 해지하시겠습니까?\n\n해지 시 즉시 무료 플랜으로 변경되며, 유료 기능을 사용할 수 없게 됩니다."
+      "정말 구독을 해지하시겠습니까?\n\n⚠️ 주의사항:\n• 해지 시 즉시 무료 플랜으로 변경됩니다\n• 남은 기간에 대한 환불은 제공되지 않습니다\n• 유료 기능을 즉시 사용할 수 없게 됩니다\n\n계속하시겠습니까?"
     );
 
     if (!confirmed) return;
@@ -75,7 +132,8 @@ export default function SubscriptionPage() {
   };
 
   const currentPlanId = usage?.planId || "free";
-  const currentPlan = PLANS[currentPlanId.toUpperCase() as keyof typeof PLANS] || PLANS.FREE;
+  const currentPlan =
+    PLANS[currentPlanId.toUpperCase() as keyof typeof PLANS] || PLANS.FREE;
   const isPaidPlan = currentPlanId !== "free";
 
   const formatLimit = (current: number, limit: number) => {
@@ -83,10 +141,15 @@ export default function SubscriptionPage() {
     return `${current} / ${limit}`;
   };
 
-  if (isLoading) {
+  if (isLoading || isVerifying) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        {isVerifying && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            결제를 검증하고 있습니다...
+          </p>
+        )}
       </div>
     );
   }
@@ -110,13 +173,15 @@ export default function SubscriptionPage() {
               {currentPlan.name} 플랜을 사용 중입니다
             </p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-sm font-medium ${
-            currentPlanId === "pro"
-              ? "bg-primary text-primary-foreground"
-              : currentPlanId === "enterprise"
-              ? "bg-purple-500 text-white"
-              : "bg-muted"
-          }`}>
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${
+              currentPlanId === "pro"
+                ? "bg-primary text-primary-foreground"
+                : currentPlanId === "enterprise"
+                  ? "bg-purple-500 text-white"
+                  : "bg-muted"
+            }`}
+          >
             {currentPlan.name}
           </span>
         </div>
@@ -124,13 +189,19 @@ export default function SubscriptionPage() {
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">프로젝트</p>
             <p className="mt-1 text-2xl font-bold">
-              {formatLimit(usage?.projects.current || 0, usage?.projects.limit ?? 3)}
+              {formatLimit(
+                usage?.projects.current || 0,
+                usage?.projects.limit ?? 3
+              )}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">월간 분석</p>
             <p className="mt-1 text-2xl font-bold">
-              {formatLimit(usage?.analysisThisMonth.current || 0, usage?.analysisThisMonth.limit ?? 10)}
+              {formatLimit(
+                usage?.analysisThisMonth.current || 0,
+                usage?.analysisThisMonth.limit ?? 10
+              )}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
@@ -280,7 +351,15 @@ export default function SubscriptionPage() {
 
       {/* Billing History */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">결제 내역</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">결제 내역</h2>
+          <a
+            href="/subscription/payments"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            전체 보기 →
+          </a>
+        </div>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <svg
@@ -301,6 +380,12 @@ export default function SubscriptionPage() {
           <p className="text-sm text-muted-foreground">
             유료 플랜을 구독하면 여기에 결제 내역이 표시됩니다
           </p>
+          <a
+            href="/subscription/payments"
+            className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            결제 관리 페이지로 이동
+          </a>
         </div>
       </div>
     </div>

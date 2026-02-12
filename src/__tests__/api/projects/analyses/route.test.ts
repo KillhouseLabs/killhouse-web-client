@@ -140,7 +140,8 @@ describe("Analyses API", () => {
           allowed: false,
           currentCount: 10,
           limit: 10,
-          message: "이번 달 분석 한도(10회)에 도달했습니다. 플랜을 업그레이드하세요.",
+          message:
+            "이번 달 분석 한도(10회)에 도달했습니다. 플랜을 업그레이드하세요.",
         });
 
         // WHEN

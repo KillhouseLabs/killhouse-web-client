@@ -23,7 +23,6 @@ interface Analysis {
   completedAt: Date | null;
 }
 
-
 interface Project {
   id: string;
   name: string;
@@ -67,7 +66,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
   const [showAddRepoModal, setShowAddRepoModal] = useState(false);
 
   // Helper to check if project uses new multi-repo structure
-  const hasRepositories = project.repositories && project.repositories.length > 0;
+  const hasRepositories =
+    project.repositories && project.repositories.length > 0;
 
   const handleDelete = async () => {
     setIsDeleting(true);

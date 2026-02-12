@@ -295,7 +295,9 @@ describe("Projects API (Multi-Repo)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.create as jest.Mock).mockResolvedValue(mockCreatedProject);
+        (prisma.project.create as jest.Mock).mockResolvedValue(
+          mockCreatedProject
+        );
 
         // WHEN
         const result = await prisma.project.create({
@@ -347,7 +349,9 @@ describe("Projects API (Multi-Repo)", () => {
           })),
         };
 
-        (prisma.project.create as jest.Mock).mockResolvedValue(mockCreatedProject);
+        (prisma.project.create as jest.Mock).mockResolvedValue(
+          mockCreatedProject
+        );
 
         // WHEN
         const result = await prisma.project.create({
@@ -362,7 +366,9 @@ describe("Projects API (Multi-Repo)", () => {
         });
 
         // THEN
-        const primaryRepos = result.repositories.filter((r: { isPrimary: boolean }) => r.isPrimary);
+        const primaryRepos = result.repositories.filter(
+          (r: { isPrimary: boolean }) => r.isPrimary
+        );
         expect(primaryRepos).toHaveLength(1);
         expect(primaryRepos[0].name).toBe("first-repo");
       });
@@ -384,7 +390,9 @@ describe("Projects API (Multi-Repo)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.create as jest.Mock).mockResolvedValue(mockCreatedProject);
+        (prisma.project.create as jest.Mock).mockResolvedValue(
+          mockCreatedProject
+        );
 
         // WHEN
         const result = await prisma.project.create({
@@ -526,7 +534,9 @@ describe("Projects API (Multi-Repo)", () => {
         });
 
         // THEN - Legacy fields should be computed from primary repository
-        const primaryRepo = result?.repositories.find((r: { isPrimary: boolean }) => r.isPrimary);
+        const primaryRepo = result?.repositories.find(
+          (r: { isPrimary: boolean }) => r.isPrimary
+        );
         expect(primaryRepo).toBeDefined();
 
         // These would be computed in the API response:
@@ -650,7 +660,8 @@ describe("Projects API (Multi-Repo)", () => {
           allowed: false,
           currentCount: 3,
           limit: 3,
-          message: "프로젝트 생성 한도(3개)에 도달했습니다. 플랜을 업그레이드하세요.",
+          message:
+            "프로젝트 생성 한도(3개)에 도달했습니다. 플랜을 업그레이드하세요.",
         });
 
         // WHEN

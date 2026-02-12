@@ -49,7 +49,9 @@ export function CreateProjectForm() {
       // Ensure first repository is primary if no primary is set
       const processedRepositories = repositories.map((repo, index) => ({
         ...repo,
-        isPrimary: repo.isPrimary || (index === 0 && !repositories.some(r => r.isPrimary)),
+        isPrimary:
+          repo.isPrimary ||
+          (index === 0 && !repositories.some((r) => r.isPrimary)),
       }));
 
       const response = await fetch("/api/projects", {
@@ -278,9 +280,9 @@ export function CreateProjectForm() {
                   provider={repo.provider}
                   className="h-5 w-5 text-muted-foreground"
                 />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">
+                    <span className="truncate font-medium">
                       {repo.owner}/{repo.name}
                     </span>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
@@ -351,9 +353,7 @@ export function CreateProjectForm() {
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            {repositories.length > 0
-              ? "저장소 추가"
-              : "저장소 검색 및 선택"}
+            {repositories.length > 0 ? "저장소 추가" : "저장소 검색 및 선택"}
           </button>
         </div>
       )}

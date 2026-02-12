@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-// PortOne 테스트 환경 설정
-const PORTONE_STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
-const PORTONE_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+// PortOne V1 (아임포트) 설정
+const IMP_CODE = process.env.NEXT_PUBLIC_IMP_CODE;
+const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
 
-// 테스트 모드: PortOne 환경변수가 설정되지 않으면 테스트 모드 사용
-const USE_TEST_MODE = !PORTONE_STORE_ID || !PORTONE_CHANNEL_KEY;
+// 테스트 모드: IMP_CODE가 설정되지 않으면 테스트 모드 사용
+const USE_TEST_MODE = !IMP_CODE;
 
 interface CheckoutButtonProps {
   planId: string;
@@ -30,6 +30,39 @@ interface CheckoutData {
   };
 }
 
+// 아임포트 V1 SDK 타입 정의
+interface IMP {
+  init: (impCode: string) => void;
+  request_pay: (
+    params: {
+      channelKey?: string;
+      pg: string;
+      pay_method: string;
+      merchant_uid: string;
+      name: string;
+      amount: number;
+      buyer_email: string;
+      buyer_name: string;
+      buyer_tel: string;
+    },
+    callback: (response: IMPResponse) => void
+  ) => void;
+}
+
+interface IMPResponse {
+  success: boolean;
+  imp_uid?: string;
+  merchant_uid?: string;
+  error_msg?: string;
+  error_code?: string;
+}
+
+declare global {
+  interface Window {
+    IMP?: IMP;
+  }
+}
+
 export function CheckoutButton({
   planId,
   planName,
@@ -38,21 +71,111 @@ export function CheckoutButton({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [portoneLoaded, setPortoneLoaded] = useState(false);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
 
-  // PortOne SDK 동적 로드
+  // 아임포트 SDK 동적 로드
   useEffect(() => {
-    async function loadPortOne() {
-      try {
-        const PortOne = await import("@portone/browser-sdk/v2");
-        (window as unknown as Record<string, unknown>).PortOne = PortOne;
-        setPortoneLoaded(true);
-      } catch (error) {
-        console.error("Failed to load PortOne SDK:", error);
-      }
+    if (USE_TEST_MODE) {
+      console.log("[Checkout] Test mode enabled - IMP SDK not loaded");
+      console.log("[Checkout] IMP_CODE:", IMP_CODE);
+      return;
     }
-    loadPortOne();
+
+    // 이미 로드된 경우
+    if (window.IMP) {
+      window.IMP.init(IMP_CODE!);
+      setSdkLoaded(true);
+      console.log("[Checkout] IMP SDK already loaded, initialized");
+      return;
+    }
+
+    // SDK 스크립트 로드
+    const script = document.createElement("script");
+    script.src = "https://cdn.iamport.kr/v1/iamport.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.IMP) {
+        window.IMP.init(IMP_CODE!);
+        setSdkLoaded(true);
+        console.log("[Checkout] IMP SDK loaded and initialized");
+      }
+    };
+    script.onerror = () => {
+      console.error("[Checkout] Failed to load IMP SDK");
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup: 스크립트는 제거하지 않음 (재사용)
+    };
   }, []);
+
+  // 테스트 모드 결제 처리 (SDK 없이)
+  const handleTestPayment = useCallback(
+    async (checkoutData: CheckoutData) => {
+      const confirmed = window.confirm(
+        `테스트 결제\n\n플랜: ${checkoutData.planName}\n금액: ₩${checkoutData.amount.toLocaleString()}\n\n결제를 진행하시겠습니까?`
+      );
+
+      if (!confirmed) {
+        setError("결제가 취소되었습니다");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const verifyResponse = await fetch("/api/payment/test-complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: checkoutData.orderId }),
+          credentials: "include",
+        });
+
+        const verifyResult = await verifyResponse.json();
+
+        if (!verifyResponse.ok || !verifyResult.success) {
+          setError(verifyResult.error || "결제 처리에 실패했습니다");
+          setIsLoading(false);
+          return;
+        }
+
+        setIsLoading(false);
+        alert(`${checkoutData.planName} 플랜으로 업그레이드되었습니다!`);
+        router.refresh();
+      } catch (err) {
+        console.error("[Checkout] Test payment error:", err);
+        setError(
+          `결제 처리 중 오류: ${err instanceof Error ? err.message : String(err)}`
+        );
+        setIsLoading(false);
+      }
+    },
+    [router]
+  );
+
+  // 결제 검증
+  const verifyPayment = useCallback(
+    async (impUid: string, merchantUid: string) => {
+      const verifyResponse = await fetch("/api/payment/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ impUid, merchantUid }),
+        credentials: "include",
+      });
+
+      const verifyResult = await verifyResponse.json();
+
+      if (!verifyResponse.ok || !verifyResult.success) {
+        setError(verifyResult.error || "결제 검증에 실패했습니다");
+        return false;
+      }
+
+      alert(`${planName} 플랜으로 업그레이드되었습니다!`);
+      router.refresh();
+      return true;
+    },
+    [planName, router]
+  );
 
   const handleCheckout = async () => {
     setIsLoading(true);
@@ -64,117 +187,74 @@ export function CheckoutButton({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId }),
+        credentials: "include",
       });
 
       const checkoutResult = await checkoutResponse.json();
 
       if (!checkoutResponse.ok || !checkoutResult.success) {
         setError(checkoutResult.error || "결제 준비에 실패했습니다");
-        return;
-      }
-
-      const checkoutData: CheckoutData = checkoutResult.data;
-
-      // 2. 테스트 모드 또는 SDK 미로드 시 테스트 결제 처리
-      if (USE_TEST_MODE || !portoneLoaded) {
-        console.log("[Checkout] Using test mode payment");
-        await handleTestPayment(checkoutData);
-        return;
-      }
-
-      // 3. PortOne 결제창 호출 (프로덕션)
-      const PortOne = (window as unknown as Record<string, unknown>).PortOne as {
-        requestPayment: (params: unknown) => Promise<{ code?: string; message?: string }>;
-      };
-
-      const paymentResponse = await PortOne.requestPayment({
-        storeId: PORTONE_STORE_ID,
-        channelKey: PORTONE_CHANNEL_KEY,
-        paymentId: `payment_${checkoutData.orderId}`,
-        orderName: checkoutData.orderName,
-        totalAmount: checkoutData.amount,
-        currency: checkoutData.currency,
-        payMethod: "CARD",
-        customer: {
-          fullName: checkoutData.customer.name,
-          email: checkoutData.customer.email,
-        },
-        customData: JSON.stringify({ orderId: checkoutData.orderId }),
-      });
-
-      // 4. 결제 결과 확인
-      if (paymentResponse.code) {
-        // 결제 실패 또는 취소
-        setError(paymentResponse.message || "결제가 취소되었습니다");
-        return;
-      }
-
-      // 5. 서버에서 결제 검증
-      await verifyPayment(`payment_${checkoutData.orderId}`);
-    } catch (err) {
-      console.error("Checkout error:", err);
-      setError("결제 처리 중 오류가 발생했습니다");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 테스트 모드 결제 처리 (SDK 없이)
-  const handleTestPayment = async (checkoutData: CheckoutData) => {
-    // 테스트 환경에서는 바로 성공 처리
-    const confirmed = window.confirm(
-      `테스트 결제\n\n플랜: ${checkoutData.planName}\n금액: ₩${checkoutData.amount.toLocaleString()}\n\n결제를 진행하시겠습니까?`
-    );
-
-    if (!confirmed) {
-      setError("결제가 취소되었습니다");
-      setIsLoading(false);
-      return;
-    }
-
-    // 테스트 모드: 직접 구독 업그레이드 처리
-    try {
-      const verifyResponse = await fetch("/api/payment/test-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: checkoutData.orderId }),
-      });
-
-      const verifyResult = await verifyResponse.json();
-
-      if (!verifyResponse.ok || !verifyResult.success) {
-        setError(verifyResult.error || "결제 처리에 실패했습니다");
         setIsLoading(false);
         return;
       }
 
-      // 성공 시 새로고침
-      setIsLoading(false);
-      alert(`${checkoutData.planName} 플랜으로 업그레이드되었습니다!`);
-      router.refresh();
-    } catch {
+      const checkoutData: CheckoutData = checkoutResult.data;
+      console.log("[Checkout] Order created:", checkoutData.orderId);
+
+      // 2. 테스트 모드 또는 SDK 미로드 시 테스트 결제 처리
+      if (USE_TEST_MODE || !sdkLoaded || !window.IMP) {
+        console.log(
+          "[Checkout] Using test mode payment, USE_TEST_MODE:",
+          USE_TEST_MODE,
+          "SDK loaded:",
+          sdkLoaded
+        );
+        await handleTestPayment(checkoutData);
+        return;
+      }
+
+      // 3. 아임포트 결제창 호출
+      console.log("[Checkout] Opening IMP payment window...");
+      console.log("[Checkout] IMP_CODE:", IMP_CODE);
+
+      window.IMP.request_pay(
+        {
+          channelKey: CHANNEL_KEY!, // 포트원 콘솔에서 생성된 채널 키
+          pg: "html5_inicis.INIpayTest", // KG이니시스 일반결제 테스트 MID
+          pay_method: "card",
+          merchant_uid: checkoutData.orderId,
+          name: checkoutData.orderName,
+          amount: checkoutData.amount,
+          buyer_email: checkoutData.customer.email,
+          buyer_name: checkoutData.customer.name,
+          buyer_tel: "010-0000-1234",
+        },
+        async (response: IMPResponse) => {
+          console.log("[Checkout] Payment response:", response);
+
+          if (response.success && response.imp_uid) {
+            // 4. 결제 성공 - 서버에서 검증
+            console.log("[Checkout] Payment success, verifying...");
+            const verified = await verifyPayment(
+              response.imp_uid,
+              response.merchant_uid || checkoutData.orderId
+            );
+            if (!verified) {
+              setIsLoading(false);
+            }
+          } else {
+            // 결제 실패 또는 취소
+            console.log("[Checkout] Payment failed:", response.error_msg);
+            setError(response.error_msg || "결제가 취소되었습니다");
+            setIsLoading(false);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("[Checkout] Error:", err);
       setError("결제 처리 중 오류가 발생했습니다");
       setIsLoading(false);
     }
-  };
-
-  const verifyPayment = async (paymentId: string) => {
-    const verifyResponse = await fetch("/api/payment/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentId }),
-    });
-
-    const verifyResult = await verifyResponse.json();
-
-    if (!verifyResponse.ok || !verifyResult.success) {
-      setError(verifyResult.error || "결제 검증에 실패했습니다");
-      return;
-    }
-
-    // 성공 시 새로고침
-    router.refresh();
-    alert(`${planName} 플랜으로 업그레이드되었습니다!`);
   };
 
   return (
@@ -194,7 +274,9 @@ export function CheckoutButton({
           `${planName} 플랜 구독하기`
         )}
       </button>
-      {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="mt-2 text-center text-sm text-destructive">{error}</p>
+      )}
     </div>
   );
 }

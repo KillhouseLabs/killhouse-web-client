@@ -109,9 +109,7 @@ describe("NewProjectButton", () => {
 
       // THEN
       await waitFor(() => {
-        expect(
-          screen.getByText("프로젝트 생성 한도 초과")
-        ).toBeInTheDocument();
+        expect(screen.getByText("프로젝트 생성 한도 초과")).toBeInTheDocument();
       });
       expect(mockPush).not.toHaveBeenCalled();
     });

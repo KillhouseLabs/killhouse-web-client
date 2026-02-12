@@ -23,7 +23,8 @@ export function UpgradeModal({
 }: UpgradeModalProps) {
   if (!isOpen) return null;
 
-  const title = type === "project" ? "프로젝트 생성 한도 초과" : "분석 한도 초과";
+  const title =
+    type === "project" ? "프로젝트 생성 한도 초과" : "분석 한도 초과";
   const description =
     type === "project"
       ? "무료 플랜의 프로젝트 생성 한도에 도달했습니다."
@@ -71,10 +72,7 @@ export function UpgradeModal({
             <span className="font-medium">{limitText}</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-amber-500"
-              style={{ width: "100%" }}
-            />
+            <div className="h-full bg-amber-500" style={{ width: "100%" }} />
           </div>
         </div>
 
@@ -96,7 +94,8 @@ export function UpgradeModal({
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>
-                <strong className="text-foreground">무제한</strong> 프로젝트 생성
+                <strong className="text-foreground">무제한</strong> 프로젝트
+                생성
               </span>
             </li>
             <li className="flex items-center gap-2">

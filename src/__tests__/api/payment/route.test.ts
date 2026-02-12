@@ -84,7 +84,7 @@ describe("Payment API", () => {
 
     it("GIVEN free 플랜 WHEN 가격 확인 THEN 0원이어야 한다", () => {
       // GIVEN
-      const planId = "free";
+      const _planId = "free";
 
       // WHEN
       const plan = PLANS.FREE;

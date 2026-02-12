@@ -52,7 +52,9 @@ describe("API Middleware", () => {
 
       it("GIVEN 인증된 사용자 WHEN 인증 확인 THEN 세션 정보 포함", async () => {
         // GIVEN
-        const mockSession = { user: { id: "user-123", email: "test@test.com" } };
+        const mockSession = {
+          user: { id: "user-123", email: "test@test.com" },
+        };
         (auth as jest.Mock).mockResolvedValue(mockSession);
 
         // WHEN
@@ -243,7 +245,9 @@ describe("API Middleware", () => {
       );
 
       // WHEN & THEN
-      await expect(canCreateProject("user-123")).rejects.toThrow("DB 연결 오류");
+      await expect(canCreateProject("user-123")).rejects.toThrow(
+        "DB 연결 오류"
+      );
     });
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Payment Verify API
+ * Payment Verify API (V1 - 아임포트)
  *
  * 결제 완료 검증 및 구독 업그레이드
  */
@@ -7,39 +7,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import { verifyPaymentSchema } from "@/domains/payment/dto/payment.dto";
+import { z } from "zod";
 
-const PORTONE_API_SECRET = process.env.PORTONE_API_SECRET || "test-secret";
+const PORTONE_REST_API_KEY = process.env.PORTONE_REST_API_KEY;
+const PORTONE_REST_API_SECRET = process.env.PORTONE_REST_API_SECRET;
 
-interface PortOnePaymentResponse {
-  status: string;
-  amount: {
-    total: number;
+// V1 검증 스키마
+const verifyPaymentSchemaV1 = z.object({
+  impUid: z.string().min(1),
+  merchantUid: z.string().min(1),
+});
+
+interface IMPPaymentResponse {
+  code: number;
+  message: string;
+  response?: {
+    imp_uid: string;
+    merchant_uid: string;
+    status: string;
+    amount: number;
+    paid_at: number;
   };
-  customData?: string;
 }
 
 /**
- * PortOne API로 결제 정보 조회
+ * 아임포트 액세스 토큰 발급
  */
-async function getPortOnePayment(
-  paymentId: string
-): Promise<PortOnePaymentResponse> {
+async function getIMPAccessToken(): Promise<string> {
+  const response = await fetch("https://api.iamport.kr/users/getToken", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      imp_key: PORTONE_REST_API_KEY,
+      imp_secret: PORTONE_REST_API_SECRET,
+    }),
+  });
+
+  const data = await response.json();
+  if (data.code !== 0) {
+    throw new Error(`Failed to get access token: ${data.message}`);
+  }
+
+  return data.response.access_token;
+}
+
+/**
+ * 아임포트 API로 결제 정보 조회
+ */
+async function getIMPPayment(impUid: string): Promise<IMPPaymentResponse> {
+  const accessToken = await getIMPAccessToken();
+
   const response = await fetch(
-    `https://api.portone.io/payments/${encodeURIComponent(paymentId)}`,
+    `https://api.iamport.kr/payments/${encodeURIComponent(impUid)}`,
     {
       headers: {
-        Authorization: `PortOne ${PORTONE_API_SECRET}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     }
   );
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      `PortOne API Error: ${JSON.stringify(errorData)}`
-    );
-  }
 
   return response.json();
 }
@@ -84,7 +109,7 @@ async function upgradeSubscription(userId: string, planId: string) {
 
 /**
  * POST /api/payment/verify
- * 결제 완료 검증
+ * 결제 완료 검증 (V1 아임포트)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -101,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     // 요청 파싱 및 검증
     const body = await request.json();
-    const validationResult = verifyPaymentSchema.safeParse(body);
+    const validationResult = verifyPaymentSchemaV1.safeParse(body);
 
     if (!validationResult.success) {
       return NextResponse.json(
@@ -114,38 +139,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { paymentId } = validationResult.data;
+    const { impUid, merchantUid } = validationResult.data;
 
-    // PortOne API로 결제 정보 조회
-    let portonePayment: PortOnePaymentResponse;
+    // 아임포트 API로 결제 정보 조회
+    let impPayment: IMPPaymentResponse;
     try {
-      portonePayment = await getPortOnePayment(paymentId);
+      impPayment = await getIMPPayment(impUid);
     } catch (error) {
-      console.error("[PortOne API Error]", error);
+      console.error("[IMP API Error]", error);
       return NextResponse.json(
         { success: false, error: "결제 정보 조회에 실패했습니다" },
         { status: 500 }
       );
     }
 
-    // customData에서 orderId 추출
-    let orderId: string | undefined;
-    if (portonePayment.customData) {
-      try {
-        const customData = JSON.parse(portonePayment.customData);
-        orderId = customData.orderId;
-      } catch {
-        // customData 파싱 실패
-      }
+    if (impPayment.code !== 0 || !impPayment.response) {
+      return NextResponse.json(
+        { success: false, error: impPayment.message || "결제 정보 조회 실패" },
+        { status: 400 }
+      );
     }
 
-    // 내부 결제 레코드 조회
+    const paymentInfo = impPayment.response;
+
+    // merchant_uid로 내부 결제 레코드 조회
     const payment = await prisma.payment.findFirst({
       where: {
-        OR: [
-          { portonePaymentId: paymentId },
-          { orderId: orderId },
-        ],
+        orderId: merchantUid,
         userId,
       },
     });
@@ -159,7 +179,6 @@ export async function POST(request: NextRequest) {
 
     // 이미 처리된 결제인지 확인
     if (payment.status === "COMPLETED") {
-      // 이미 완료된 결제 - 구독 정보 반환
       const subscription = await prisma.subscription.findUnique({
         where: { userId },
       });
@@ -174,12 +193,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 결제 상태 확인
-    if (portonePayment.status !== "PAID") {
+    if (paymentInfo.status !== "paid") {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: "FAILED",
-          portonePaymentId: paymentId,
+          portonePaymentId: impUid,
         },
       });
 
@@ -194,12 +213,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 금액 검증
-    if (portonePayment.amount.total !== payment.amount) {
+    if (paymentInfo.amount !== payment.amount) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: "FAILED",
-          portonePaymentId: paymentId,
+          portonePaymentId: impUid,
         },
       });
 
@@ -218,8 +237,8 @@ export async function POST(request: NextRequest) {
       where: { id: payment.id },
       data: {
         status: "COMPLETED",
-        portonePaymentId: paymentId,
-        paidAt: new Date(),
+        portonePaymentId: impUid,
+        paidAt: new Date(paymentInfo.paid_at * 1000),
       },
     });
 

@@ -69,7 +69,9 @@ describe("RepositoryList", () => {
       const repositories = mockRepositories;
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       // "frontend" and "backend" appear both as repo name and role badge
@@ -85,7 +87,9 @@ describe("RepositoryList", () => {
       const repositories = mockRepositories;
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       expect(screen.getByText("Primary")).toBeInTheDocument();
@@ -118,7 +122,9 @@ describe("RepositoryList", () => {
       );
 
       // THEN
-      expect(container.querySelector('[data-testid="github-icon"]')).toBeInTheDocument();
+      expect(
+        container.querySelector('[data-testid="github-icon"]')
+      ).toBeInTheDocument();
     });
 
     it("GIVEN GitLab 저장소 WHEN 렌더링 THEN GitLab 아이콘이 표시되어야 한다", () => {
@@ -131,7 +137,9 @@ describe("RepositoryList", () => {
       );
 
       // THEN
-      expect(container.querySelector('[data-testid="gitlab-icon"]')).toBeInTheDocument();
+      expect(
+        container.querySelector('[data-testid="gitlab-icon"]')
+      ).toBeInTheDocument();
     });
 
     it("GIVEN 저장소 URL 있음 WHEN 렌더링 THEN owner/name 형식으로 표시되어야 한다", () => {
@@ -139,7 +147,9 @@ describe("RepositoryList", () => {
       const repositories = [mockRepositories[0]];
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       expect(screen.getByText("owner/frontend")).toBeInTheDocument();
@@ -150,7 +160,9 @@ describe("RepositoryList", () => {
       const repositories = mockRepositories;
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       expect(screen.getByText("분석 5회")).toBeInTheDocument();
@@ -163,7 +175,9 @@ describe("RepositoryList", () => {
       const repositories = mockRepositories;
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       // Multiple "main" branches exist (frontend and shared-lib)
@@ -179,7 +193,9 @@ describe("RepositoryList", () => {
       const repositories: Repository[] = [];
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       expect(screen.getByText("등록된 저장소가 없습니다")).toBeInTheDocument();
@@ -190,7 +206,9 @@ describe("RepositoryList", () => {
       const repositories: Repository[] = [];
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
 
       // THEN
       expect(screen.getByText("저장소 추가")).toBeInTheDocument();
@@ -203,7 +221,9 @@ describe("RepositoryList", () => {
       const repositories = [mockRepositories[1]]; // Non-primary
 
       // WHEN
-      render(<RepositoryList projectId="project-1" repositories={repositories} />);
+      render(
+        <RepositoryList projectId="project-1" repositories={repositories} />
+      );
       const deleteButton = screen.getByRole("button", { name: /삭제/i });
       fireEvent.click(deleteButton);
 
@@ -224,7 +244,11 @@ describe("RepositoryList", () => {
 
       // WHEN
       render(
-        <RepositoryList projectId="project-1" repositories={repositories} onUpdate={onUpdate} />
+        <RepositoryList
+          projectId="project-1"
+          repositories={repositories}
+          onUpdate={onUpdate}
+        />
       );
       const deleteButtons = screen.getAllByRole("button", { name: /삭제/i });
       fireEvent.click(deleteButtons[0]); // First delete button in list
@@ -260,9 +284,15 @@ describe("RepositoryList", () => {
 
       // WHEN
       render(
-        <RepositoryList projectId="project-1" repositories={repositories} onUpdate={onUpdate} />
+        <RepositoryList
+          projectId="project-1"
+          repositories={repositories}
+          onUpdate={onUpdate}
+        />
       );
-      const setPrimaryButtons = screen.getAllByRole("button", { name: /Primary로 설정/i });
+      const setPrimaryButtons = screen.getAllByRole("button", {
+        name: /Primary로 설정/i,
+      });
       fireEvent.click(setPrimaryButtons[0]);
 
       // THEN
@@ -286,7 +316,11 @@ describe("RepositoryList", () => {
 
       // WHEN
       render(
-        <RepositoryList projectId="project-1" repositories={repositories} onAdd={onAdd} />
+        <RepositoryList
+          projectId="project-1"
+          repositories={repositories}
+          onAdd={onAdd}
+        />
       );
       const addButton = screen.getByRole("button", { name: /저장소 추가/i });
       fireEvent.click(addButton);

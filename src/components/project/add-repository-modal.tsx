@@ -203,7 +203,9 @@ export function AddRepositoryModal({
 
           {/* Provider Selection */}
           <div className="mt-6">
-            <label className="mb-2 block text-sm font-medium">저장소 타입</label>
+            <label className="mb-2 block text-sm font-medium">
+              저장소 타입
+            </label>
             <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
@@ -249,15 +251,17 @@ export function AddRepositoryModal({
           {/* Selected Repository (for GitHub/GitLab) */}
           {provider && provider !== "MANUAL" && pendingRepo && (
             <div className="mt-6">
-              <label className="mb-2 block text-sm font-medium">선택된 저장소</label>
+              <label className="mb-2 block text-sm font-medium">
+                선택된 저장소
+              </label>
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
                 <ProviderIcon
                   providerType={provider}
                   className="h-5 w-5 text-muted-foreground"
                 />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">
+                    <span className="truncate font-medium">
                       {pendingRepo.owner}/{pendingRepo.name}
                     </span>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
@@ -318,7 +322,10 @@ export function AddRepositoryModal({
           {provider === "MANUAL" && (
             <div className="mt-6 space-y-4">
               <div>
-                <label htmlFor="repo-name" className="mb-1 block text-sm font-medium">
+                <label
+                  htmlFor="repo-name"
+                  className="mb-1 block text-sm font-medium"
+                >
                   저장소 이름 *
                 </label>
                 <input
@@ -332,7 +339,10 @@ export function AddRepositoryModal({
               </div>
 
               <div>
-                <label htmlFor="default-branch" className="mb-1 block text-sm font-medium">
+                <label
+                  htmlFor="default-branch"
+                  className="mb-1 block text-sm font-medium"
+                >
                   기본 브랜치
                 </label>
                 <input
@@ -351,7 +361,10 @@ export function AddRepositoryModal({
           {provider && (pendingRepo || provider === "MANUAL") && (
             <div className="mt-6 space-y-4">
               <div>
-                <label htmlFor="repo-role" className="mb-1 block text-sm font-medium">
+                <label
+                  htmlFor="repo-role"
+                  className="mb-1 block text-sm font-medium"
+                >
                   역할 (선택)
                 </label>
                 <input

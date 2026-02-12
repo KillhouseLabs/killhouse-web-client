@@ -6,6 +6,12 @@ node_modules
 # Testing
 coverage
 
+# Playwright
+.features-gen/
+playwright-report/
+test-results/
+e2e/.auth/
+
 # Next.js
 .next/
 out/

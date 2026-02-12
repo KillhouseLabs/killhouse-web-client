@@ -35,8 +35,8 @@ describe("DeleteAccountButton", () => {
     });
   });
 
-  describe("1단계 확인", () => {
-    it("GIVEN 초기 상태 WHEN 계정 삭제 버튼 클릭 THEN 첫 번째 확인 메시지가 표시되어야 한다", async () => {
+  describe("확인 단계", () => {
+    it("GIVEN 초기 상태 WHEN 계정 삭제 버튼 클릭 THEN 확인 버튼들이 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       render(<DeleteAccountButton />);
@@ -46,15 +46,12 @@ describe("DeleteAccountButton", () => {
 
       // THEN
       expect(
-        screen.getByText("정말로 계정을 삭제하시겠습니까?")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "네, 삭제합니다" })
+        screen.getByRole("button", { name: "정말 삭제합니다" })
       ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "취소" })).toBeInTheDocument();
     });
 
-    it("GIVEN 1단계 확인 상태 WHEN 취소 버튼 클릭 THEN 초기 상태로 돌아가야 한다", async () => {
+    it("GIVEN 확인 상태 WHEN 취소 버튼 클릭 THEN 초기 상태로 돌아가야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       render(<DeleteAccountButton />);
@@ -65,49 +62,14 @@ describe("DeleteAccountButton", () => {
 
       // THEN
       expect(
-        screen.queryByText("정말로 계정을 삭제하시겠습니까?")
+        screen.queryByRole("button", { name: "정말 삭제합니다" })
       ).not.toBeInTheDocument();
       expect(screen.getByText("계정 삭제")).toBeInTheDocument();
     });
   });
 
-  describe("2단계 확인", () => {
-    it("GIVEN 1단계 확인 상태 WHEN '네, 삭제합니다' 클릭 THEN 두 번째 확인 메시지가 표시되어야 한다", async () => {
-      // GIVEN
-      const user = userEvent.setup();
-      render(<DeleteAccountButton />);
-      await user.click(screen.getByText("계정 삭제"));
-
-      // WHEN
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
-
-      // THEN
-      expect(
-        screen.getByText("마지막 확인입니다. 이 작업은 되돌릴 수 없습니다.")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "계정 영구 삭제" })
-      ).toBeInTheDocument();
-    });
-
-    it("GIVEN 2단계 확인 상태 WHEN 취소 버튼 클릭 THEN 초기 상태로 돌아가야 한다", async () => {
-      // GIVEN
-      const user = userEvent.setup();
-      render(<DeleteAccountButton />);
-      await user.click(screen.getByText("계정 삭제"));
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
-
-      // WHEN
-      await user.click(screen.getByRole("button", { name: "취소" }));
-
-      // THEN
-      expect(screen.queryByText("마지막 확인입니다")).not.toBeInTheDocument();
-      expect(screen.getByText("계정 삭제")).toBeInTheDocument();
-    });
-  });
-
   describe("계정 삭제 실행", () => {
-    it("GIVEN 2단계 확인 상태 WHEN '계정 영구 삭제' 클릭 THEN API가 호출되어야 한다", async () => {
+    it("GIVEN 확인 상태 WHEN '정말 삭제합니다' 클릭 THEN API가 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       (global.fetch as jest.Mock).mockResolvedValue({
@@ -116,10 +78,9 @@ describe("DeleteAccountButton", () => {
       });
       render(<DeleteAccountButton />);
       await user.click(screen.getByText("계정 삭제"));
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
 
       // WHEN
-      await user.click(screen.getByRole("button", { name: "계정 영구 삭제" }));
+      await user.click(screen.getByRole("button", { name: "정말 삭제합니다" }));
 
       // THEN
       await waitFor(() => {
@@ -138,10 +99,9 @@ describe("DeleteAccountButton", () => {
       });
       render(<DeleteAccountButton />);
       await user.click(screen.getByText("계정 삭제"));
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
 
       // WHEN
-      await user.click(screen.getByRole("button", { name: "계정 영구 삭제" }));
+      await user.click(screen.getByRole("button", { name: "정말 삭제합니다" }));
 
       // THEN
       await waitFor(() => {
@@ -157,20 +117,19 @@ describe("DeleteAccountButton", () => {
         json: () =>
           Promise.resolve({
             success: false,
-            error: "계정 삭제 중 오류가 발생했습니다",
+            error: "계정 삭제에 실패했습니다",
           }),
       });
       render(<DeleteAccountButton />);
       await user.click(screen.getByText("계정 삭제"));
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
 
       // WHEN
-      await user.click(screen.getByRole("button", { name: "계정 영구 삭제" }));
+      await user.click(screen.getByRole("button", { name: "정말 삭제합니다" }));
 
       // THEN
       await waitFor(() => {
         expect(
-          screen.getByText("계정 삭제 중 오류가 발생했습니다")
+          screen.getByText("계정 삭제에 실패했습니다")
         ).toBeInTheDocument();
       });
     });
@@ -193,10 +152,9 @@ describe("DeleteAccountButton", () => {
       );
       render(<DeleteAccountButton />);
       await user.click(screen.getByText("계정 삭제"));
-      await user.click(screen.getByRole("button", { name: "네, 삭제합니다" }));
 
       // WHEN
-      await user.click(screen.getByRole("button", { name: "계정 영구 삭제" }));
+      await user.click(screen.getByRole("button", { name: "정말 삭제합니다" }));
 
       // THEN
       await waitFor(() => {

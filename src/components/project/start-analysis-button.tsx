@@ -136,9 +136,7 @@ export function StartAnalysisButton({
         )}
       </button>
 
-      {error && (
-        <div className="mt-2 text-sm text-destructive">{error}</div>
-      )}
+      {error && <div className="mt-2 text-sm text-destructive">{error}</div>}
 
       <UpgradeModal
         isOpen={showUpgradeModal}
