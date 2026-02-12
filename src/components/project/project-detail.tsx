@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { RepositoryList, Repository } from "./repository-list";
 import { AddRepositoryModal } from "./add-repository-modal";
+import { StartAnalysisButton } from "./start-analysis-button";
 
 interface Analysis {
   id: string;
@@ -170,9 +171,10 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
           >
             삭제
           </button>
-          <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-            분석 시작
-          </button>
+          <StartAnalysisButton
+            projectId={project.id}
+            onStart={() => router.refresh()}
+          />
         </div>
       </div>
 
@@ -491,7 +493,10 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
             <p className="mb-6 text-sm text-muted-foreground">
               분석을 시작하여 취약점을 찾아보세요
             </p>
-            <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+            <StartAnalysisButton
+              projectId={project.id}
+              onStart={() => router.refresh()}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -501,11 +506,9 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="h-4 w-4"
-              >
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
+              />
               첫 분석 시작하기
-            </button>
+            </StartAnalysisButton>
           </div>
         ) : (
           <div className="divide-y divide-border">
