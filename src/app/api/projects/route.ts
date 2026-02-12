@@ -1,27 +1,23 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createProjectSchema,
   parseRepoUrl,
 } from "@/domains/project/dto/project.dto";
-import { canCreateProject } from "@/domains/subscription/usecase/subscription-limits";
+import {
+  authenticatedHandler,
+  projectCreationHandler,
+  type AuthenticatedContext,
+} from "@/lib/api/middleware";
 
 // GET /api/projects - List user's projects
-export async function GET() {
-  try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "인증이 필요합니다" },
-        { status: 401 }
-      );
-    }
+export const GET = authenticatedHandler(
+  async (_request: NextRequest, context: AuthenticatedContext) => {
+    const { userId } = context;
 
     const projects = await prisma.project.findMany({
       where: {
-        userId: session.user.id,
+        userId,
         status: { not: "DELETED" },
       },
       orderBy: { createdAt: "desc" },
@@ -53,43 +49,13 @@ export async function GET() {
       success: true,
       data: projectsWithLegacyFields,
     });
-  } catch (error) {
-    console.error("List projects error:", error);
-    return NextResponse.json(
-      { success: false, error: "프로젝트 목록 조회 중 오류가 발생했습니다" },
-      { status: 500 }
-    );
   }
-}
+);
 
 // POST /api/projects - Create new project
-export async function POST(request: Request) {
-  try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "인증이 필요합니다" },
-        { status: 401 }
-      );
-    }
-
-    // Check subscription limits
-    const limitCheck = await canCreateProject(session.user.id);
-    if (!limitCheck.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: limitCheck.message,
-          code: "LIMIT_EXCEEDED",
-          usage: {
-            current: limitCheck.currentCount,
-            limit: limitCheck.limit,
-          },
-        },
-        { status: 403 }
-      );
-    }
+export const POST = projectCreationHandler(
+  async (request: NextRequest, context: AuthenticatedContext) => {
+    const { userId } = context;
 
     const body = await request.json();
     const validationResult = createProjectSchema.safeParse(body);
@@ -138,7 +104,7 @@ export async function POST(request: Request) {
       data: {
         name,
         description,
-        userId: session.user.id,
+        userId,
         repositories: {
           create: processedRepositories,
         },
@@ -168,11 +134,5 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error("Create project error:", error);
-    return NextResponse.json(
-      { success: false, error: "프로젝트 생성 중 오류가 발생했습니다" },
-      { status: 500 }
-    );
   }
-}
+);
