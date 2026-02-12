@@ -24,6 +24,9 @@ jest.mock("@/infrastructure/database/prisma", () => ({
       createMany: jest.fn(),
       findMany: jest.fn(),
     },
+    subscription: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn((fn) =>
       fn({
         project: {
@@ -42,6 +45,13 @@ jest.mock("@/infrastructure/database/prisma", () => ({
 jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
+
+// Mock subscription limits
+jest.mock("@/domains/subscription/usecase/subscription-limits", () => ({
+  canCreateProject: jest.fn(),
+}));
+
+import { canCreateProject } from "@/domains/subscription/usecase/subscription-limits";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { auth } from "@/lib/auth";
@@ -625,6 +635,71 @@ describe("Projects API (Multi-Repo)", () => {
           where: { id: "project-1" },
           data: { status: "DELETED" },
         });
+      });
+    });
+  });
+
+  describe("구독 제한 검증", () => {
+    describe("프로젝트 생성 제한", () => {
+      it("GIVEN free 플랜 + 프로젝트 한도 도달 WHEN 프로젝트 생성 THEN 403 에러 반환", async () => {
+        // GIVEN
+        (auth as jest.Mock).mockResolvedValue({
+          user: { id: "user-1" },
+        });
+        (canCreateProject as jest.Mock).mockResolvedValue({
+          allowed: false,
+          currentCount: 3,
+          limit: 3,
+          message: "프로젝트 생성 한도(3개)에 도달했습니다. 플랜을 업그레이드하세요.",
+        });
+
+        // WHEN
+        const limitCheck = await canCreateProject("user-1");
+
+        // THEN
+        expect(limitCheck.allowed).toBe(false);
+        expect(limitCheck.currentCount).toBe(3);
+        expect(limitCheck.limit).toBe(3);
+        expect(limitCheck.message).toContain("한도");
+      });
+
+      it("GIVEN pro 플랜 WHEN 프로젝트 생성 THEN 제한 없이 생성 가능", async () => {
+        // GIVEN
+        (auth as jest.Mock).mockResolvedValue({
+          user: { id: "user-1" },
+        });
+        (canCreateProject as jest.Mock).mockResolvedValue({
+          allowed: true,
+          currentCount: 100,
+          limit: -1, // unlimited
+        });
+
+        // WHEN
+        const limitCheck = await canCreateProject("user-1");
+
+        // THEN
+        expect(limitCheck.allowed).toBe(true);
+        expect(limitCheck.limit).toBe(-1);
+      });
+
+      it("GIVEN free 플랜 + 프로젝트 2개 WHEN 프로젝트 생성 THEN 생성 가능", async () => {
+        // GIVEN
+        (auth as jest.Mock).mockResolvedValue({
+          user: { id: "user-1" },
+        });
+        (canCreateProject as jest.Mock).mockResolvedValue({
+          allowed: true,
+          currentCount: 2,
+          limit: 3,
+        });
+
+        // WHEN
+        const limitCheck = await canCreateProject("user-1");
+
+        // THEN
+        expect(limitCheck.allowed).toBe(true);
+        expect(limitCheck.currentCount).toBe(2);
+        expect(limitCheck.limit).toBe(3);
       });
     });
   });

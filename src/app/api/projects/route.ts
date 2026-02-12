@@ -5,6 +5,7 @@ import {
   createProjectSchema,
   parseRepoUrl,
 } from "@/domains/project/dto/project.dto";
+import { canCreateProject } from "@/domains/subscription/usecase/subscription-limits";
 
 // GET /api/projects - List user's projects
 export async function GET() {
@@ -70,6 +71,23 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: "인증이 필요합니다" },
         { status: 401 }
+      );
+    }
+
+    // Check subscription limits
+    const limitCheck = await canCreateProject(session.user.id);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: limitCheck.message,
+          code: "LIMIT_EXCEEDED",
+          usage: {
+            current: limitCheck.currentCount,
+            limit: limitCheck.limit,
+          },
+        },
+        { status: 403 }
       );
     }
 
