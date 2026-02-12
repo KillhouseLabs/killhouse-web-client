@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 // PortOne 테스트 환경 설정
-const PORTONE_STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID || "store-test";
-const PORTONE_CHANNEL_KEY =
-  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY || "channel-test";
+const PORTONE_STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
+const PORTONE_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+
+// 테스트 모드: PortOne 환경변수가 설정되지 않으면 테스트 모드 사용
+const USE_TEST_MODE = !PORTONE_STORE_ID || !PORTONE_CHANNEL_KEY;
 
 interface CheckoutButtonProps {
   planId: string;
@@ -73,13 +75,14 @@ export function CheckoutButton({
 
       const checkoutData: CheckoutData = checkoutResult.data;
 
-      // 2. PortOne 결제창 호출
-      if (!portoneLoaded) {
-        // SDK 로드 실패 시 테스트 모드로 처리
+      // 2. 테스트 모드 또는 SDK 미로드 시 테스트 결제 처리
+      if (USE_TEST_MODE || !portoneLoaded) {
+        console.log("[Checkout] Using test mode payment");
         await handleTestPayment(checkoutData);
         return;
       }
 
+      // 3. PortOne 결제창 호출 (프로덕션)
       const PortOne = (window as unknown as Record<string, unknown>).PortOne as {
         requestPayment: (params: unknown) => Promise<{ code?: string; message?: string }>;
       };
@@ -97,22 +100,16 @@ export function CheckoutButton({
           email: checkoutData.customer.email,
         },
         customData: JSON.stringify({ orderId: checkoutData.orderId }),
-        // 테스트 환경용 추가 설정
-        bypass: {
-          tosspayments: {
-            useInternationalCardOnly: false,
-          },
-        },
       });
 
-      // 3. 결제 결과 확인
+      // 4. 결제 결과 확인
       if (paymentResponse.code) {
         // 결제 실패 또는 취소
         setError(paymentResponse.message || "결제가 취소되었습니다");
         return;
       }
 
-      // 4. 서버에서 결제 검증
+      // 5. 서버에서 결제 검증
       await verifyPayment(`payment_${checkoutData.orderId}`);
     } catch (err) {
       console.error("Checkout error:", err);
@@ -131,6 +128,7 @@ export function CheckoutButton({
 
     if (!confirmed) {
       setError("결제가 취소되었습니다");
+      setIsLoading(false);
       return;
     }
 
@@ -146,16 +144,17 @@ export function CheckoutButton({
 
       if (!verifyResponse.ok || !verifyResult.success) {
         setError(verifyResult.error || "결제 처리에 실패했습니다");
+        setIsLoading(false);
         return;
       }
 
       // 성공 시 새로고침
+      setIsLoading(false);
+      alert(`${checkoutData.planName} 플랜으로 업그레이드되었습니다!`);
       router.refresh();
-      alert(
-        `${checkoutData.planName} 플랜으로 업그레이드되었습니다!`
-      );
     } catch {
       setError("결제 처리 중 오류가 발생했습니다");
+      setIsLoading(false);
     }
   };
 
