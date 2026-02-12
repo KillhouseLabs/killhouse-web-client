@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CheckoutButton } from "@/components/subscription/checkout-button";
 import { PLANS } from "@/config/constants";
 
@@ -19,29 +20,63 @@ interface UsageStats {
 }
 
 export default function SubscriptionPage() {
+  const router = useRouter();
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const fetchUsage = async () => {
+    try {
+      const response = await fetch("/api/subscription");
+      if (response.ok) {
+        const data = await response.json();
+        setUsage(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch usage:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchUsage() {
-      try {
-        const response = await fetch("/api/subscription");
-        if (response.ok) {
-          const data = await response.json();
-          setUsage(data.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch usage:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
     fetchUsage();
   }, []);
 
+  const handleCancelSubscription = async () => {
+    const confirmed = window.confirm(
+      "정말 구독을 해지하시겠습니까?\n\n해지 시 즉시 무료 플랜으로 변경되며, 유료 기능을 사용할 수 없게 됩니다."
+    );
+
+    if (!confirmed) return;
+
+    setIsCancelling(true);
+    try {
+      const response = await fetch("/api/subscription/cancel", {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        alert(result.error || "구독 해지에 실패했습니다");
+        return;
+      }
+
+      alert("구독이 해지되었습니다.");
+      router.refresh();
+      await fetchUsage();
+    } catch (error) {
+      console.error("Failed to cancel subscription:", error);
+      alert("구독 해지 중 오류가 발생했습니다");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const currentPlanId = usage?.planId || "free";
   const currentPlan = PLANS[currentPlanId.toUpperCase() as keyof typeof PLANS] || PLANS.FREE;
+  const isPaidPlan = currentPlanId !== "free";
 
   const formatLimit = (current: number, limit: number) => {
     if (limit === -1) return `${current} / 무제한`;
@@ -109,6 +144,23 @@ export default function SubscriptionPage() {
             </p>
           </div>
         </div>
+
+        {/* Cancel Subscription Button */}
+        {isPaidPlan && (
+          <div className="mt-6 border-t border-border pt-6">
+            <button
+              type="button"
+              onClick={handleCancelSubscription}
+              disabled={isCancelling}
+              className="rounded-lg border border-destructive px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50"
+            >
+              {isCancelling ? "해지 중..." : "구독 해지"}
+            </button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              구독을 해지하면 즉시 무료 플랜으로 변경됩니다.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Plans */}
