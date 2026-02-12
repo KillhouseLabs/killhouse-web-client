@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -80,14 +79,6 @@ jobs:
           DATABASE_URL: "file:./test.db"
           AUTH_SECRET: "test-secret-for-ci-only"
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-
   # ===========================================
   # Job 3: Build Verification
   # ===========================================
@@ -126,12 +117,5 @@ jobs:
         env:
           DATABASE_URL: "file:./build.db"
           AUTH_SECRET: "build-secret-for-ci-only"
-          NEXT_PUBLIC_APP_URL: "https://autopsy-agent.vercel.app"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3001"
           NEXT_PUBLIC_APP_NAME: "Autopsy Agent"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextjs-build
-          path: .next
-          retention-days: 1
