@@ -8,8 +8,9 @@
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Authentication**: NextAuth.js v5 (JWT strategy)
-- **Database**: Prisma + SQLite
-- **Testing**: Jest + React Testing Library
+- **Database**: Prisma + SQLite/PostgreSQL
+- **Payment**: PortOne V1 (아임포트)
+- **Testing**: Jest + Playwright-BDD
 
 ## Getting Started
 
@@ -36,115 +37,217 @@ npm run dev
 
 ### Environment Variables
 
-Create a `.env.local` file with the following variables:
+Copy `.env.example` to `.env.local` and configure:
 
-```env
-# Server
-PORT=3001
-
-# Database
-DATABASE_URL="file:./dev.db"
-
-# NextAuth
-AUTH_URL="http://localhost:3001"
-AUTH_SECRET="your-secret-key-here"
-
-# OAuth Providers
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
-GITLAB_CLIENT_ID="your-gitlab-client-id"
-GITLAB_CLIENT_SECRET="your-gitlab-client-secret"
+```bash
+cp .env.example .env.local
 ```
 
-포트를 변경하려면 `.env.local`의 `PORT` 값을 수정하세요.
+---
 
-## TODO: OAuth Redirect URI Configuration
+## Third-Party Integrations
 
-프로덕션 배포 시 각 OAuth 제공자의 Redirect URI를 업데이트해야 합니다.
+### 1. Authentication (NextAuth.js)
 
-### Google OAuth
+#### AUTH_SECRET 생성
 
-1. [Google Cloud Console](https://console.cloud.google.com/)에 접속
-2. APIs & Services > Credentials로 이동
-3. OAuth 2.0 Client ID 선택
-4. **Authorized redirect URIs**에 다음 추가:
-   - 개발: `http://localhost:3001/api/auth/callback/google`
-   - 프로덕션: `https://your-domain.com/api/auth/callback/google`
+```bash
+openssl rand -base64 32
+```
 
-### GitHub OAuth
+생성된 값을 `AUTH_SECRET`에 설정합니다.
 
-1. [GitHub Developer Settings](https://github.com/settings/developers)에 접속
-2. OAuth Apps에서 앱 선택 (또는 New OAuth App 클릭)
-3. **Authorization callback URL** 설정:
-   - 개발: `http://localhost:3001/api/auth/callback/github`
-   - 프로덕션: `https://your-domain.com/api/auth/callback/github`
-4. **Homepage URL** 설정:
-   - 개발: `http://localhost:3001`
-   - 프로덕션: `https://your-domain.com`
+### 2. Google OAuth
 
-### GitLab OAuth
+#### 설정 절차
 
-GitLab OAuth를 설정하여 GitLab 저장소에 접근할 수 있습니다.
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. 프로젝트 생성 또는 선택
+3. **APIs & Services > Credentials** 이동
+4. **Create Credentials > OAuth client ID** 클릭
+5. Application type: **Web application** 선택
+6. 다음 정보 입력:
+   - **Name**: `Autopsy Agent`
+   - **Authorized JavaScript origins**:
+     - `http://localhost:3001` (개발)
+     - `https://your-domain.com` (프로덕션)
+   - **Authorized redirect URIs**:
+     - `http://localhost:3001/api/auth/callback/google` (개발)
+     - `https://your-domain.com/api/auth/callback/google` (프로덕션)
+7. **Create** 클릭 후 Client ID와 Client Secret 복사
 
-#### 1. GitLab Application 생성
+#### 환경 변수
 
-1. [GitLab User Settings > Applications](https://gitlab.com/-/user_settings/applications)에 접속
+```env
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+```
+
+### 3. GitHub OAuth
+
+#### 설정 절차
+
+1. [GitHub Developer Settings](https://github.com/settings/developers) 접속
+2. **OAuth Apps > New OAuth App** 클릭
+3. 다음 정보 입력:
+   - **Application name**: `Autopsy Agent`
+   - **Homepage URL**: `http://localhost:3001`
+   - **Authorization callback URL**: `http://localhost:3001/api/auth/callback/github`
+4. **Register application** 클릭
+5. **Generate a new client secret** 클릭하여 Secret 생성
+6. Client ID와 Client Secret 복사
+
+#### 환경 변수
+
+```env
+GITHUB_CLIENT_ID="your-client-id"
+GITHUB_CLIENT_SECRET="your-client-secret"
+```
+
+### 4. GitLab OAuth
+
+#### 설정 절차
+
+1. [GitLab User Settings > Applications](https://gitlab.com/-/user_settings/applications) 접속
 2. **Add new application** 클릭
 3. 다음 정보 입력:
-   - **Name**: `Autopsy Agent` (원하는 이름)
+   - **Name**: `Autopsy Agent`
    - **Redirect URI**:
      ```
      http://localhost:3001/api/auth/callback/gitlab
+     https://your-domain.com/api/auth/callback/gitlab
      ```
-     (프로덕션 환경에서는 `https://your-domain.com/api/auth/callback/gitlab` 추가)
-   - **Confidential**: 체크 (서버 사이드 애플리케이션용)
-   - **Scopes**: 다음 항목 체크
-     - `read_api` - API 읽기 권한
-     - `read_user` - 사용자 정보 읽기
-     - `read_repository` - 저장소 읽기 권한
+   - **Confidential**: 체크
+   - **Scopes**: `read_api`, `read_user`, `read_repository`
 4. **Save application** 클릭
-5. 생성된 **Application ID**와 **Secret**을 복사
+5. Application ID와 Secret 복사
 
-#### 2. 환경 변수 설정
-
-`.env.local` 파일에 다음 추가:
+#### 환경 변수
 
 ```env
 GITLAB_CLIENT_ID="your-application-id"
 GITLAB_CLIENT_SECRET="your-secret"
 ```
 
-#### 3. 참고 문서
+### 5. PortOne 결제 (V1 아임포트)
 
-- [GitLab OAuth Provider 공식 문서](https://docs.gitlab.com/integration/oauth_provider/)
-- [User-owned Applications](https://docs.gitlab.com/integration/oauth_provider/#create-a-user-owned-application)
+#### 설정 절차
 
-### Important Notes
+1. [PortOne 관리자 콘솔](https://admin.portone.io/) 회원가입/로그인
+2. **결제 연동 > 테스트 연동 관리** 이동
+3. **KG이니시스** 선택 후 채널 추가
+4. **결제 연동 > 식별코드・API Keys** 이동
+5. 다음 정보 확인:
+   - **고객사 식별코드** (IMP_CODE): `impXXXXXXXX`
+   - **REST API Key**
+   - **REST API Secret**
+6. **채널 관리**에서 채널 키 확인
 
-- NextAuth.js v5는 `/api/auth/callback/[provider]` 형식의 callback URL을 사용합니다
-- `NEXTAUTH_URL` 환경 변수가 실제 배포 URL과 일치해야 합니다
-- 로컬 개발 시 `localhost:3001`을 사용하므로 OAuth 앱에도 이 URL을 등록해야 합니다
+#### PG사별 MID (테스트용)
+
+| PG사 | 일반결제 MID | 정기결제 MID |
+|------|-------------|-------------|
+| KG이니시스 | `INIpayTest` | `INIBillTst` |
+
+#### 환경 변수
+
+```env
+# PortOne V1 (아임포트)
+NEXT_PUBLIC_IMP_CODE="impXXXXXXXX"
+NEXT_PUBLIC_PORTONE_CHANNEL_KEY="channel-key-XXXX-XXXX"
+PORTONE_REST_API_KEY="your-rest-api-key"
+PORTONE_REST_API_SECRET="your-rest-api-secret"
+```
+
+#### 테스트 결제
+
+- **테스트 환경**: 실제 카드로 결제 (당일 23:00~23:50 자동 취소)
+- **신용카드 권장**: 체크카드는 즉시 출금되어 수동 환불 필요
+- **환불 API**: `/api/payment/refund` (일수 기반 부분 환불 지원)
+
+#### 참고 문서
+
+- [PortOne 개발자센터](https://developers.portone.io/)
+- [V1 API 문서](https://developers.portone.io/api/rest-v1)
+- [KG이니시스 연동 가이드](https://developers.portone.io/opi/ko/integration/start/v1/auth)
+
+---
+
+## Environment Variables Reference
+
+```env
+# ===================
+# Application
+# ===================
+PORT=3001
+NEXT_PUBLIC_APP_URL=http://localhost:3001
+
+# ===================
+# Database
+# ===================
+# SQLite (개발용)
+DATABASE_URL="file:./dev.db"
+
+# PostgreSQL (프로덕션용)
+# DATABASE_URL="postgresql://user:password@localhost:5432/autopsy_agent"
+
+# ===================
+# Authentication
+# ===================
+AUTH_SECRET="openssl rand -base64 32 로 생성"
+AUTH_URL="http://localhost:3001"
+
+# ===================
+# OAuth Providers
+# ===================
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+
+GITLAB_CLIENT_ID=""
+GITLAB_CLIENT_SECRET=""
+
+# ===================
+# Payment (PortOne V1)
+# ===================
+NEXT_PUBLIC_IMP_CODE=""
+NEXT_PUBLIC_PORTONE_CHANNEL_KEY=""
+PORTONE_REST_API_KEY=""
+PORTONE_REST_API_SECRET=""
+```
+
+---
 
 ## Available Scripts
 
 ```bash
-npm run dev          # Start development server (port 3001)
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run lint:fix     # Fix ESLint errors
-npm run format       # Format code with Prettier
-npm run type-check   # TypeScript type checking
-npm run test         # Run tests
-npm run test:watch   # Run tests in watch mode
-npm run test:coverage # Run tests with coverage
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push schema to database
-npm run db:migrate   # Run database migrations
-npm run db:studio    # Open Prisma Studio
+# Development
+npm run dev              # Start dev server (port 3001)
+npm run build            # Build for production
+npm run start            # Start production server
+
+# Code Quality
+npm run lint             # Run ESLint
+npm run lint:fix         # Fix ESLint errors
+npm run format           # Format with Prettier
+npm run type-check       # TypeScript check
+
+# Testing
+npm run test             # Run unit tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage
+npm run test:e2e         # Run E2E tests (Playwright)
+
+# Database
+npm run db:generate      # Generate Prisma client
+npm run db:push          # Push schema to database
+npm run db:migrate       # Run migrations
+npm run db:studio        # Open Prisma Studio
 ```
+
+---
 
 ## Project Structure
 
@@ -153,22 +256,35 @@ src/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/            # Auth routes (login, signup)
 │   ├── (dashboard)/       # Protected dashboard routes
-│   ├── (public)/          # Public pages (home, pricing, terms, privacy)
+│   ├── (public)/          # Public pages
 │   └── api/               # API routes
 ├── components/            # React components
-├── domains/               # Domain logic (DDD structure)
-├── infrastructure/        # Database and external services
-├── lib/                   # Utilities and auth config
-└── __tests__/            # Test files
+├── config/                # Configuration
+├── domains/               # Domain logic (DDD)
+├── infrastructure/        # External services
+├── lib/                   # Utilities
+└── types/                 # TypeScript types
+
+e2e/
+├── features/              # Gherkin feature files
+├── steps/                 # Step definitions
+└── pages/                 # Page objects
+
+docs/
+├── ARCHITECTURE.md        # Architecture guide
+└── e2e-test-architecture.md
 ```
+
+---
 
 ## Features
 
-- User authentication (credentials + OAuth)
+- User authentication (Credentials + OAuth)
 - GitHub/GitLab repository integration
+- Multi-repository project support
 - Security vulnerability scanning
-- Sandbox-based penetration testing
-- Vulnerability reports with severity levels
+- Subscription management with payment
+- Pro-rata refund calculation
 
 ## License
 
