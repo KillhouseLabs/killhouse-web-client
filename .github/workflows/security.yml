@@ -51,10 +51,12 @@ jobs:
 
   # ===========================================
   # Job 2: CodeQL Static Analysis
+  # Note: Requires GitHub Advanced Security to be enabled
   # ===========================================
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
