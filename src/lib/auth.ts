@@ -85,12 +85,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // Allow OAuth sign in
+      // OAuth 재로그인 시 토큰 갱신
       if (
-        account?.provider === "google" ||
         account?.provider === "github" ||
         account?.provider === "gitlab"
       ) {
+        // 기존 account가 있으면 토큰 업데이트
+        const existingAccount = await prisma.account.findFirst({
+          where: {
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+          },
+        });
+
+        if (existingAccount) {
+          await prisma.account.update({
+            where: { id: existingAccount.id },
+            data: {
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: account.expires_at,
+              scope: account.scope,
+            },
+          });
+        }
+        return true;
+      }
+      // Allow Google OAuth sign in
+      if (account?.provider === "google") {
         return true;
       }
       // Allow credentials sign in
