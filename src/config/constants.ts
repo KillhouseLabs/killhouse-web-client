@@ -53,6 +53,13 @@ export const API_ROUTES = {
   },
 } as const;
 
+// Subscription prices (in KRW)
+// Set to 1 for testing, change to actual prices in production
+export const SUBSCRIPTION_PRICES = {
+  PRO: 1, // 테스트용 1원 (프로덕션: 29000)
+  ENTERPRISE: -1, // contact sales
+} as const;
+
 // Subscription plans
 export const PLANS = {
   FREE: {
@@ -68,7 +75,7 @@ export const PLANS = {
   PRO: {
     id: "pro",
     name: "Pro",
-    price: 29000,
+    price: SUBSCRIPTION_PRICES.PRO,
     limits: {
       projects: -1, // unlimited
       analysisPerMonth: 100,
@@ -78,7 +85,7 @@ export const PLANS = {
   ENTERPRISE: {
     id: "enterprise",
     name: "Enterprise",
-    price: -1, // contact
+    price: SUBSCRIPTION_PRICES.ENTERPRISE, // contact
     limits: {
       projects: -1,
       analysisPerMonth: -1,

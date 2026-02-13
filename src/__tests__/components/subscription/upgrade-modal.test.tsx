@@ -6,6 +6,7 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
+import { PLANS } from "@/config/constants";
 
 // Mock next/link
 jest.mock("next/link", () => {
@@ -108,7 +109,8 @@ describe("UpgradeModal", () => {
       render(<UpgradeModal isOpen={true} onClose={jest.fn()} type="project" />);
 
       // THEN
-      expect(screen.getByText(/₩29,000/)).toBeInTheDocument();
+      const formattedPrice = PLANS.PRO.price.toLocaleString();
+      expect(screen.getByText(new RegExp(`₩${formattedPrice}`))).toBeInTheDocument();
     });
   });
 
