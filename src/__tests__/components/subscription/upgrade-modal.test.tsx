@@ -110,7 +110,9 @@ describe("UpgradeModal", () => {
 
       // THEN
       const formattedPrice = PLANS.PRO.price.toLocaleString();
-      expect(screen.getByText(new RegExp(`₩${formattedPrice}`))).toBeInTheDocument();
+      expect(
+        screen.getByText(new RegExp(`₩${formattedPrice}`))
+      ).toBeInTheDocument();
     });
   });
 

@@ -59,7 +59,7 @@ describe("Payment API", () => {
         id: "pay-123",
         orderId: "order_123_abc",
         planId: "pro",
-        amount: 29000,
+        amount: PLANS.PRO.price,
         status: "PENDING",
         userId,
       });
@@ -77,7 +77,7 @@ describe("Payment API", () => {
       });
 
       // THEN
-      expect(payment.amount).toBe(29000);
+      expect(payment.amount).toBe(PLANS.PRO.price);
       expect(payment.planId).toBe("pro");
       expect(payment.status).toBe("PENDING");
     });
@@ -105,7 +105,7 @@ describe("Payment API", () => {
         json: () =>
           Promise.resolve({
             status: "PAID",
-            amount: { total: 29000 },
+            amount: { total: PLANS.PRO.price },
             customData: JSON.stringify({ orderId: "order-123" }),
           }),
       });
@@ -115,7 +115,7 @@ describe("Payment API", () => {
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: 29000,
+        amount: PLANS.PRO.price,
         status: "PENDING",
         userId,
       });
@@ -192,7 +192,7 @@ describe("Payment API", () => {
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: 29000,
+        amount: PLANS.PRO.price,
         status: "PENDING",
         userId,
       });
@@ -221,7 +221,7 @@ describe("Payment API", () => {
         json: () =>
           Promise.resolve({
             status: "FAILED",
-            amount: { total: 29000 },
+            amount: { total: PLANS.PRO.price },
           }),
       });
 
@@ -254,7 +254,7 @@ describe("Payment API", () => {
         json: () =>
           Promise.resolve({
             status: "PAID",
-            amount: { total: 29000 },
+            amount: { total: PLANS.PRO.price },
             customData: JSON.stringify({ orderId: "order-123" }),
           }),
       });
@@ -264,7 +264,7 @@ describe("Payment API", () => {
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: 29000,
+        amount: PLANS.PRO.price,
         status: "PENDING",
         userId: "user-123",
       });

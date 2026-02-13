@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PLANS, formatLimit, formatPrice } from "@/config/constants";
 
 export const metadata = {
   title: "가격 - Autopsy Agent",
@@ -72,16 +73,19 @@ export default function PricingPage() {
                 개인 프로젝트에 적합
               </p>
               <p className="mt-6">
-                <span className="text-4xl font-bold">₩0</span>
+                <span className="text-4xl font-bold">
+                  {formatPrice(PLANS.FREE.price)}
+                </span>
                 <span className="text-muted-foreground">/월</span>
               </p>
               <ul className="mt-8 space-y-4">
                 <li className="flex items-center gap-3 text-sm">
                   <CheckIcon />
-                  최대 3개 프로젝트
+                  최대 {formatLimit(PLANS.FREE.limits.projects)}개 프로젝트
                 </li>
                 <li className="flex items-center gap-3 text-sm">
-                  <CheckIcon />월 10회 분석
+                  <CheckIcon />월{" "}
+                  {formatLimit(PLANS.FREE.limits.analysisPerMonth)}회 분석
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckIcon />
@@ -118,16 +122,25 @@ export default function PricingPage() {
                 팀과 스타트업에 적합
               </p>
               <p className="mt-6">
-                <span className="text-4xl font-bold">₩29,000</span>
+                <span className="text-4xl font-bold">
+                  {formatPrice(PLANS.PRO.price)}
+                </span>
                 <span className="text-muted-foreground">/월</span>
               </p>
               <ul className="mt-8 space-y-4">
                 <li className="flex items-center gap-3 text-sm">
                   <CheckIcon />
-                  무제한 프로젝트
+                  {formatLimit(PLANS.PRO.limits.projects) === "무제한"
+                    ? "무제한"
+                    : `최대 ${formatLimit(PLANS.PRO.limits.projects)}개`}{" "}
+                  프로젝트
                 </li>
                 <li className="flex items-center gap-3 text-sm">
-                  <CheckIcon />월 100회 분석
+                  <CheckIcon />월{" "}
+                  {formatLimit(PLANS.PRO.limits.analysisPerMonth) === "무제한"
+                    ? "무제한"
+                    : `${formatLimit(PLANS.PRO.limits.analysisPerMonth)}회`}{" "}
+                  분석
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckIcon />

@@ -3,7 +3,12 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckoutButton } from "@/components/subscription/checkout-button";
-import { PLANS } from "@/config/constants";
+import {
+  PLANS,
+  formatLimit,
+  formatStorage,
+  formatPrice,
+} from "@/config/constants";
 
 interface UsageStats {
   planId: string;
@@ -136,7 +141,7 @@ function SubscriptionPageContent() {
     PLANS[currentPlanId.toUpperCase() as keyof typeof PLANS] || PLANS.FREE;
   const isPaidPlan = currentPlanId !== "free";
 
-  const formatLimit = (current: number, limit: number) => {
+  const formatUsage = (current: number, limit: number) => {
     if (limit === -1) return `${current} / 무제한`;
     return `${current} / ${limit}`;
   };
@@ -189,7 +194,7 @@ function SubscriptionPageContent() {
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">프로젝트</p>
             <p className="mt-1 text-2xl font-bold">
-              {formatLimit(
+              {formatUsage(
                 usage?.projects.current || 0,
                 usage?.projects.limit ?? 3
               )}
@@ -198,7 +203,7 @@ function SubscriptionPageContent() {
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">월간 분석</p>
             <p className="mt-1 text-2xl font-bold">
-              {formatLimit(
+              {formatUsage(
                 usage?.analysisThisMonth.current || 0,
                 usage?.analysisThisMonth.limit ?? 10
               )}
@@ -245,13 +250,21 @@ function SubscriptionPageContent() {
               개인 프로젝트에 적합
             </p>
             <p className="mt-4">
-              <span className="text-3xl font-bold">₩0</span>
+              <span className="text-3xl font-bold">
+                {formatPrice(PLANS.FREE.price)}
+              </span>
               <span className="text-muted-foreground">/월</span>
             </p>
             <ul className="mt-6 space-y-3">
-              <PlanFeature>최대 3개 프로젝트</PlanFeature>
-              <PlanFeature>월 10회 분석</PlanFeature>
-              <PlanFeature>100MB 스토리지</PlanFeature>
+              <PlanFeature>
+                최대 {formatLimit(PLANS.FREE.limits.projects)}개 프로젝트
+              </PlanFeature>
+              <PlanFeature>
+                월 {formatLimit(PLANS.FREE.limits.analysisPerMonth)}회 분석
+              </PlanFeature>
+              <PlanFeature>
+                {formatStorage(PLANS.FREE.limits.storageMB)} 스토리지
+              </PlanFeature>
             </ul>
             <button
               type="button"
@@ -277,13 +290,28 @@ function SubscriptionPageContent() {
               팀과 스타트업에 적합
             </p>
             <p className="mt-4">
-              <span className="text-3xl font-bold">₩29,000</span>
+              <span className="text-3xl font-bold">
+                {formatPrice(PLANS.PRO.price)}
+              </span>
               <span className="text-muted-foreground">/월</span>
             </p>
             <ul className="mt-6 space-y-3">
-              <PlanFeature>무제한 프로젝트</PlanFeature>
-              <PlanFeature>월 100회 분석</PlanFeature>
-              <PlanFeature>10GB 스토리지</PlanFeature>
+              <PlanFeature>
+                {formatLimit(PLANS.PRO.limits.projects) === "무제한"
+                  ? "무제한"
+                  : `최대 ${formatLimit(PLANS.PRO.limits.projects)}개`}{" "}
+                프로젝트
+              </PlanFeature>
+              <PlanFeature>
+                월{" "}
+                {formatLimit(PLANS.PRO.limits.analysisPerMonth) === "무제한"
+                  ? "무제한"
+                  : `${formatLimit(PLANS.PRO.limits.analysisPerMonth)}회`}{" "}
+                분석
+              </PlanFeature>
+              <PlanFeature>
+                {formatStorage(PLANS.PRO.limits.storageMB)} 스토리지
+              </PlanFeature>
               <PlanFeature>우선 지원</PlanFeature>
             </ul>
             <div className="mt-6">

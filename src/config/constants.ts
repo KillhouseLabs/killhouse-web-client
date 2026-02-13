@@ -94,6 +94,22 @@ export const PLANS = {
   },
 } as const;
 
+// Helper functions for plan limits
+export function formatLimit(value: number): string {
+  return value === -1 ? "무제한" : value.toString();
+}
+
+export function formatStorage(mb: number): string {
+  if (mb === -1) return "무제한";
+  if (mb >= 1024) return `${mb / 1024}GB`;
+  return `${mb}MB`;
+}
+
+export function formatPrice(price: number): string {
+  if (price === -1) return "문의";
+  return `₩${price.toLocaleString()}`;
+}
+
 // Vulnerability severity levels
 export const SEVERITY = {
   CRITICAL: "critical",
