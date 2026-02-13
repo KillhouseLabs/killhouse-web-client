@@ -92,7 +92,9 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user,repo,user:email",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(existingAccount);
+      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
+        existingAccount
+      );
       (prisma.account.update as jest.Mock).mockResolvedValue({
         ...existingAccount,
         access_token: newAccount.access_token,
@@ -162,14 +164,19 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user,repo,user:email",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(existingAccount);
+      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
+        existingAccount
+      );
       (prisma.account.update as jest.Mock).mockResolvedValue({
         ...existingAccount,
         access_token: refreshedAccount.access_token,
       });
 
       // WHEN
-      const result = await handleOAuthSignIn({ id: "user-expired" }, refreshedAccount);
+      const result = await handleOAuthSignIn(
+        { id: "user-expired" },
+        refreshedAccount
+      );
 
       // THEN
       expect(result).toBe(true);
@@ -204,7 +211,9 @@ describe("OAuth Token Refresh", () => {
         scope: "read_api read_user read_repository",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(existingAccount);
+      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
+        existingAccount
+      );
       (prisma.account.update as jest.Mock).mockResolvedValue({
         ...existingAccount,
         ...newAccount,
@@ -240,7 +249,10 @@ describe("OAuth Token Refresh", () => {
       };
 
       // WHEN
-      const result = await handleOAuthSignIn({ id: "user-google" }, googleAccount);
+      const result = await handleOAuthSignIn(
+        { id: "user-google" },
+        googleAccount
+      );
 
       // THEN
       expect(result).toBe(true);
@@ -262,7 +274,10 @@ describe("OAuth Token Refresh", () => {
       };
 
       // WHEN
-      const result = await handleOAuthSignIn({ id: "user-cred" }, credentialsAccount);
+      const result = await handleOAuthSignIn(
+        { id: "user-cred" },
+        credentialsAccount
+      );
 
       // THEN
       expect(result).toBe(true);

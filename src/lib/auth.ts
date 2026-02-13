@@ -86,10 +86,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       // OAuth 재로그인 시 토큰 갱신
-      if (
-        account?.provider === "github" ||
-        account?.provider === "gitlab"
-      ) {
+      if (account?.provider === "github" || account?.provider === "gitlab") {
         // 기존 account가 있으면 토큰 업데이트
         const existingAccount = await prisma.account.findFirst({
           where: {
