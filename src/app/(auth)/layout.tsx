@@ -25,7 +25,7 @@ export default function AuthLayout({
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
               </svg>
             </div>
-            <span className="text-xl font-bold">Autopsy Agent</span>
+            <span className="text-xl font-bold">Killhouse</span>
           </Link>
         </div>
       </header>

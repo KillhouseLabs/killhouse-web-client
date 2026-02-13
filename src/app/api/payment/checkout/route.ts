@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         amount: payment.amount,
         currency: "KRW",
         // PortOne 결제창 호출에 필요한 정보
-        orderName: `Autopsy Agent ${plan.name} 플랜`,
+        orderName: `Killhouse ${plan.name} 플랜`,
         customer: {
           email: session.user.email,
           name: session.user.name || "고객",

@@ -2,8 +2,8 @@
  * Application constants
  */
 
-export const APP_NAME = "Autopsy Agent";
-export const APP_DESCRIPTION = "AI-powered vulnerability analysis platform";
+export const APP_NAME = "Killhouse";
+export const APP_DESCRIPTION = "AI-powered security vulnerability analysis platform";
 
 // Routes
 export const ROUTES = {

@@ -10,8 +10,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Autopsy Agent - Vulnerability Analysis Platform",
-    template: "%s | Autopsy Agent",
+    default: "Killhouse - Security Vulnerability Analysis Platform",
+    template: "%s | Killhouse",
   },
   description:
     "Analyze your code and containers for security vulnerabilities with AI-powered analysis",

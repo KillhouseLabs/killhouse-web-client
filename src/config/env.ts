@@ -14,7 +14,7 @@ const getEnvVar = (key: string, defaultValue?: string): string => {
 export const env = {
   // App
   APP_URL: getEnvVar("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
-  APP_NAME: getEnvVar("NEXT_PUBLIC_APP_NAME", "Autopsy Agent"),
+  APP_NAME: getEnvVar("NEXT_PUBLIC_APP_NAME", "Killhouse"),
 
   // Node environment
   NODE_ENV: process.env.NODE_ENV ?? "development",

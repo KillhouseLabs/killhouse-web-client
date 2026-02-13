@@ -2,8 +2,8 @@ import Link from "next/link";
 import { PLANS, formatLimit, formatPrice } from "@/config/constants";
 
 export const metadata = {
-  title: "가격 - Autopsy Agent",
-  description: "Autopsy Agent의 가격 플랜을 확인하세요",
+  title: "가격 - Killhouse",
+  description: "Killhouse의 가격 플랜을 확인하세요",
 };
 
 export default function PricingPage() {
@@ -27,7 +27,7 @@ export default function PricingPage() {
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
               </svg>
             </div>
-            <span className="text-xl font-bold">Autopsy Agent</span>
+            <span className="text-xl font-bold">Killhouse</span>
           </Link>
           <nav className="flex items-center gap-6">
             <Link
@@ -203,7 +203,7 @@ export default function PricingPage() {
                 </li>
               </ul>
               <Link
-                href="mailto:sales@autopsy-agent.com"
+                href="mailto:sales@killhouse.com"
                 className="mt-8 block w-full rounded-lg border border-border py-3 text-center text-sm font-medium transition-colors hover:bg-accent"
               >
                 문의하기
@@ -255,7 +255,7 @@ export default function PricingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Autopsy Agent. All rights reserved.</p>
+          <p>&copy; 2024 Killhouse. All rights reserved.</p>
         </div>
       </footer>
     </div>

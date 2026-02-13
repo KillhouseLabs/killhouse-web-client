@@ -367,7 +367,7 @@ function SubscriptionPageContent() {
               </button>
             ) : (
               <a
-                href="mailto:sales@autopsy-agent.io"
+                href="mailto:sales@killhouse.io"
                 className="mt-6 block w-full rounded-lg border border-border py-2 text-center text-sm font-medium transition-colors hover:bg-accent"
               >
                 문의하기

@@ -118,4 +118,4 @@ jobs:
           DATABASE_URL: "file:./build.db"
           AUTH_SECRET: "build-secret-for-ci-only"
           NEXT_PUBLIC_APP_URL: "http://localhost:3001"
-          NEXT_PUBLIC_APP_NAME: "Autopsy Agent"
+          NEXT_PUBLIC_APP_NAME: "Killhouse"

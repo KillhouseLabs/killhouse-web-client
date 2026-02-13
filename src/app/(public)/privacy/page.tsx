@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "개인정보처리방침 - Autopsy Agent",
-  description: "Autopsy Agent 개인정보처리방침",
+  title: "개인정보처리방침 - Killhouse",
+  description: "Killhouse 개인정보처리방침",
 };
 
 export default function PrivacyPage() {
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
               </svg>
             </div>
-            <span className="text-xl font-bold">Autopsy Agent</span>
+            <span className="text-xl font-bold">Killhouse</span>
           </Link>
           <nav className="flex items-center gap-6">
             <Link
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
             <section className="mt-8">
               <h2 className="text-xl font-semibold">1. 수집하는 개인정보</h2>
               <p className="mt-2 text-muted-foreground">
-                Autopsy Agent는 서비스 제공을 위해 다음과 같은 개인정보를
+                Killhouse는 서비스 제공을 위해 다음과 같은 개인정보를
                 수집합니다:
               </p>
               <ul className="mt-2 list-disc space-y-2 pl-6 text-muted-foreground">
@@ -185,7 +185,7 @@ export default function PrivacyPage() {
                 <p>
                   <strong>개인정보 보호책임자</strong>
                 </p>
-                <p>이메일: privacy@autopsy-agent.com</p>
+                <p>이메일: privacy@killhouse.com</p>
               </div>
             </section>
 
@@ -214,7 +214,7 @@ export default function PrivacyPage() {
               개인정보처리방침
             </Link>
           </div>
-          <p>&copy; 2024 Autopsy Agent. All rights reserved.</p>
+          <p>&copy; 2024 Killhouse. All rights reserved.</p>
         </div>
       </footer>
     </div>

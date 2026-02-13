@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "이용약관 - Autopsy Agent",
-  description: "Autopsy Agent 서비스 이용약관",
+  title: "이용약관 - Killhouse",
+  description: "Killhouse 서비스 이용약관",
 };
 
 export default function TermsPage() {
@@ -26,7 +26,7 @@ export default function TermsPage() {
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
               </svg>
             </div>
-            <span className="text-xl font-bold">Autopsy Agent</span>
+            <span className="text-xl font-bold">Killhouse</span>
           </Link>
           <nav className="flex items-center gap-6">
             <Link
@@ -62,7 +62,7 @@ export default function TermsPage() {
             <section className="mt-8">
               <h2 className="text-xl font-semibold">제1조 (목적)</h2>
               <p className="mt-2 text-muted-foreground">
-                본 약관은 Autopsy Agent(이하 &quot;회사&quot;)가 제공하는 보안
+                본 약관은 Killhouse(이하 &quot;회사&quot;)가 제공하는 보안
                 분석 서비스(이하 &quot;서비스&quot;)의 이용조건 및 절차, 회사와
                 이용자의 권리, 의무 및 책임사항 등 기본적인 사항을 규정함을
                 목적으로 합니다.
@@ -161,7 +161,7 @@ export default function TermsPage() {
               개인정보처리방침
             </Link>
           </div>
-          <p>&copy; 2024 Autopsy Agent. All rights reserved.</p>
+          <p>&copy; 2024 Killhouse. All rights reserved.</p>
         </div>
       </footer>
     </div>

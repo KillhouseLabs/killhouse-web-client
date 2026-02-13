@@ -1,4 +1,4 @@
-# Autopsy Agent - Architecture Guide
+# Killhouse - Architecture Guide
 
 ## Project Structure
 

@@ -21,7 +21,7 @@ export default function HomePage() {
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
               </svg>
             </div>
-            <span className="text-xl font-bold">Autopsy Agent</span>
+            <span className="text-xl font-bold">Killhouse</span>
           </div>
           <nav className="flex items-center gap-6">
             <Link
@@ -174,7 +174,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Autopsy Agent. All rights reserved.</p>
+          <p>&copy; 2024 Killhouse. All rights reserved.</p>
         </div>
       </footer>
     </div>

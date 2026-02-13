@@ -197,7 +197,7 @@ function PlanCard({
             </button>
           ) : isEnterprise ? (
             <a
-              href="mailto:sales@autopsy-agent.io"
+              href="mailto:sales@killhouse.io"
               className="block w-full rounded-lg border border-primary bg-transparent py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/10"
             >
               문의하기
