@@ -247,10 +247,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           data: { status: "SCANNING" },
         });
       } else {
-        console.error(
-          "Scanner engine call failed:",
-          await scanResponse.text()
-        );
+        console.error("Scanner engine call failed:", await scanResponse.text());
       }
     } catch (scanError) {
       console.error("Scanner API call failed:", scanError);

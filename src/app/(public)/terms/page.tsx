@@ -62,8 +62,8 @@ export default function TermsPage() {
             <section className="mt-8">
               <h2 className="text-xl font-semibold">제1조 (목적)</h2>
               <p className="mt-2 text-muted-foreground">
-                본 약관은 Killhouse(이하 &quot;회사&quot;)가 제공하는 보안
-                분석 서비스(이하 &quot;서비스&quot;)의 이용조건 및 절차, 회사와
+                본 약관은 Killhouse(이하 &quot;회사&quot;)가 제공하는 보안 분석
+                서비스(이하 &quot;서비스&quot;)의 이용조건 및 절차, 회사와
                 이용자의 권리, 의무 및 책임사항 등 기본적인 사항을 규정함을
                 목적으로 합니다.
               </p>
