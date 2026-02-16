@@ -138,11 +138,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // If repositoryId is provided, verify it belongs to this project
     // Otherwise, auto-select a repository with build config (Dockerfile/Compose)
-    let targetRepository = null;
+    let targetRepository: (typeof project.repositories)[number] | null = null;
     if (repositoryId) {
-      targetRepository = project.repositories.find(
-        (r: { id: string }) => r.id === repositoryId
-      );
+      targetRepository =
+        project.repositories.find((r) => r.id === repositoryId) ?? null;
       if (!targetRepository) {
         return NextResponse.json(
           { success: false, error: "저장소를 찾을 수 없습니다" },
@@ -150,11 +149,10 @@ export async function POST(request: Request, { params }: RouteParams) {
         );
       }
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       targetRepository =
         project.repositories.find(
-          (r: any) => r.dockerfileContent || r.composeContent
-        ) || null;
+          (r) => r.dockerfileContent || r.composeContent
+        ) ?? null;
     }
 
     // Create new analysis
@@ -178,6 +176,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
     // Trigger sandbox environment creation if repository has build config
+    let sandboxTargetUrl: string | null = null;
     if (
       targetRepository?.dockerfileContent ||
       targetRepository?.composeContent
@@ -198,6 +197,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
         if (sandboxResponse.ok) {
           const sandboxData = await sandboxResponse.json();
+          sandboxTargetUrl = sandboxData.target_url || null;
           await prisma.analysis.update({
             where: { id: analysis.id },
             data: {
@@ -214,6 +214,47 @@ export async function POST(request: Request, { params }: RouteParams) {
       } catch (sandboxError) {
         console.error("Sandbox API call failed:", sandboxError);
       }
+    }
+
+    // Trigger security scan via scanner-engine
+    try {
+      const scannerUrl =
+        process.env.SCANNER_API_URL || "http://localhost:8082";
+      const scanPayload: Record<string, string | undefined> = {
+        analysis_id: analysis.id,
+        callback_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/analyses/webhook`,
+      };
+
+      // Add repo URL for SAST scan
+      if (targetRepository?.url) {
+        scanPayload.repo_url = targetRepository.url;
+        scanPayload.branch = branch;
+      }
+
+      // Add target URL for DAST scan (from sandbox response)
+      if (sandboxTargetUrl) {
+        scanPayload.target_url = sandboxTargetUrl;
+      }
+
+      const scanResponse = await fetch(`${scannerUrl}/api/scans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scanPayload),
+      });
+
+      if (scanResponse.ok) {
+        await prisma.analysis.update({
+          where: { id: analysis.id },
+          data: { status: "SCANNING" },
+        });
+      } else {
+        console.error(
+          "Scanner engine call failed:",
+          await scanResponse.text()
+        );
+      }
+    } catch (scanError) {
+      console.error("Scanner API call failed:", scanError);
     }
 
     return NextResponse.json(
