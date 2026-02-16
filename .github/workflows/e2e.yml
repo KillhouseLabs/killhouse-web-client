@@ -1,0 +1,79 @@
+# E2E Tests - Manual trigger only
+# Runs Playwright tests against running services
+
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Playwright project to run"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - scanner-only
+          - scan-flow
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  e2e:
+    name: E2E Tests (${{ github.event.inputs.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Run Playwright tests (all)
+        if: github.event.inputs.project == 'all'
+        run: npx playwright test
+        env:
+          DATABASE_URL: "file:./e2e.db"
+          AUTH_SECRET: "e2e-secret-for-ci-only"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3001"
+          SANDBOX_API_URL: "http://localhost:8000"
+          SCANNER_API_URL: "http://localhost:8082"
+          SCANNER_API_KEY: "e2e-test-key"
+          NEXTAUTH_URL: "http://localhost:3001"
+
+      - name: Run Playwright tests (specific project)
+        if: github.event.inputs.project != 'all'
+        run: npx playwright test --project=${{ github.event.inputs.project }}
+        env:
+          DATABASE_URL: "file:./e2e.db"
+          AUTH_SECRET: "e2e-secret-for-ci-only"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3001"
+          SANDBOX_API_URL: "http://localhost:8000"
+          SCANNER_API_URL: "http://localhost:8082"
+          SCANNER_API_KEY: "e2e-test-key"
+          NEXTAUTH_URL: "http://localhost:3001"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.event.inputs.project }}
+          path: playwright-report/
+          retention-days: 14

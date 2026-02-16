@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { canRunAnalysis } from "@/domains/subscription/usecase/subscription-limits";
+import { serverEnv } from "@/config/env";
 
 // Request validation schema
 const startAnalysisSchema = z.object({
@@ -182,8 +183,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       targetRepository?.composeContent
     ) {
       try {
-        const sandboxUrl =
-          process.env.SANDBOX_API_URL || "http://localhost:8000";
+        const sandboxUrl = serverEnv.SANDBOX_API_URL();
         const sandboxResponse = await fetch(`${sandboxUrl}/api/environments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -218,11 +218,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Trigger security scan via scanner-engine
     try {
-      const scannerUrl =
-        process.env.SCANNER_API_URL || "http://localhost:8082";
+      const scannerUrl = serverEnv.SCANNER_API_URL();
       const scanPayload: Record<string, string | undefined> = {
         analysis_id: analysis.id,
-        callback_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/analyses/webhook`,
+        callback_url: `${serverEnv.NEXTAUTH_URL()}/api/analyses/webhook`,
       };
 
       // Add repo URL for SAST scan

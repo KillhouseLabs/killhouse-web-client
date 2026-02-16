@@ -52,4 +52,11 @@ export const serverEnv = {
   // Analysis API
   ANALYSIS_API_URL: () => process.env.ANALYSIS_API_URL,
   ANALYSIS_API_KEY: () => process.env.ANALYSIS_API_KEY,
+
+  // Sandbox API
+  SANDBOX_API_URL: () => process.env.SANDBOX_API_URL ?? "http://localhost:8000",
+
+  // Scanner Engine API
+  SCANNER_API_URL: () => process.env.SCANNER_API_URL ?? "http://localhost:8082",
+  SCANNER_API_KEY: () => process.env.SCANNER_API_KEY,
 } as const;

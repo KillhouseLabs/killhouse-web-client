@@ -119,3 +119,7 @@ jobs:
           AUTH_SECRET: "build-secret-for-ci-only"
           NEXT_PUBLIC_APP_URL: "http://localhost:3001"
           NEXT_PUBLIC_APP_NAME: "Killhouse"
+          SANDBOX_API_URL: "http://localhost:8000"
+          SCANNER_API_URL: "http://localhost:8082"
+          SCANNER_API_KEY: "ci-test-key"
+          NEXTAUTH_URL: "http://localhost:3001"
