@@ -41,6 +41,25 @@ export default defineConfig({
       testDir: "e2e",
       testMatch: "global-setup.ts",
     },
+    // Scanner integration tests (no auth needed)
+    {
+      name: "scanner-only",
+      testDir: "e2e",
+      testMatch: "scanner-integration.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    // Full scan flow tests (needs auth + all services)
+    {
+      name: "scan-flow",
+      testDir: "e2e",
+      testMatch: "scan-flow.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+      dependencies: ["setup"],
+    },
     // Auth tests run without stored authentication
     {
       name: "chromium-no-auth",

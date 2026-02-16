@@ -28,6 +28,9 @@
     "e2e:report": "npx playwright show-report",
     "e2e:wip": "npx bddgen && npx playwright test --grep @wip",
     "e2e:smoke": "npx bddgen && npx playwright test --grep @smoke",
+    "e2e:scan": "npx playwright test --project=e2e-api scan-flow.spec.ts",
+    "e2e:scanner": "npx playwright test --project=e2e-api scanner-integration.spec.ts",
+    "e2e:integration": "npx playwright test --project=e2e-api",
     "bddgen": "npx bddgen"
   },
   "dependencies": {
