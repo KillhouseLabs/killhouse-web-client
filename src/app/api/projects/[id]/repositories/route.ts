@@ -102,8 +102,16 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const { provider, url, name, defaultBranch, isPrimary, role } =
-      validationResult.data;
+    const {
+      provider,
+      url,
+      name,
+      defaultBranch,
+      isPrimary,
+      role,
+      dockerfileContent,
+      composeContent,
+    } = validationResult.data;
 
     // Parse repo URL to extract owner
     let owner: string | null = null;
@@ -151,6 +159,8 @@ export async function POST(request: Request, { params }: RouteParams) {
         defaultBranch,
         isPrimary,
         role,
+        dockerfileContent: dockerfileContent || null,
+        composeContent: composeContent || null,
         projectId,
       },
     });

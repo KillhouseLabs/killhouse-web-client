@@ -137,11 +137,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     const { repositoryId, branch, commitHash } = validationResult.data;
 
     // If repositoryId is provided, verify it belongs to this project
+    let targetRepository = null;
     if (repositoryId) {
-      const repository = project.repositories.find(
+      targetRepository = project.repositories.find(
         (r: { id: string }) => r.id === repositoryId
       );
-      if (!repository) {
+      if (!targetRepository) {
         return NextResponse.json(
           { success: false, error: "저장소를 찾을 수 없습니다" },
           { status: 404 }
@@ -168,6 +169,45 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
       },
     });
+
+    // Trigger sandbox environment creation if repository has build config
+    if (
+      targetRepository?.dockerfileContent ||
+      targetRepository?.composeContent
+    ) {
+      try {
+        const sandboxUrl =
+          process.env.SANDBOX_API_URL || "http://localhost:8000";
+        const sandboxResponse = await fetch(`${sandboxUrl}/api/environments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repo_url: targetRepository.url || undefined,
+            branch,
+            dockerfile_content: targetRepository.dockerfileContent || undefined,
+            compose_content: targetRepository.composeContent || undefined,
+          }),
+        });
+
+        if (sandboxResponse.ok) {
+          const sandboxData = await sandboxResponse.json();
+          await prisma.analysis.update({
+            where: { id: analysis.id },
+            data: {
+              sandboxContainerId: sandboxData.environment_id || null,
+              sandboxStatus: "CREATING",
+            },
+          });
+        } else {
+          console.error(
+            "Sandbox environment creation failed:",
+            await sandboxResponse.text()
+          );
+        }
+      } catch (sandboxError) {
+        console.error("Sandbox API call failed:", sandboxError);
+      }
+    }
 
     return NextResponse.json(
       {

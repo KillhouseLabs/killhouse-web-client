@@ -13,6 +13,8 @@ interface RepositoryData {
   defaultBranch: string;
   role?: string;
   isPrimary?: boolean;
+  dockerfileContent?: string;
+  composeContent?: string;
 }
 
 interface AddRepositoryModalProps {
@@ -39,6 +41,8 @@ export function AddRepositoryModal({
   // Manual input state
   const [manualName, setManualName] = useState("");
   const [manualDefaultBranch, setManualDefaultBranch] = useState("main");
+  const [dockerfileContent, setDockerfileContent] = useState("");
+  const [composeContent, setComposeContent] = useState("");
 
   const resetForm = () => {
     setProvider(null);
@@ -48,6 +52,8 @@ export function AddRepositoryModal({
     setError("");
     setManualName("");
     setManualDefaultBranch("main");
+    setDockerfileContent("");
+    setComposeContent("");
   };
 
   const handleClose = () => {
@@ -112,6 +118,8 @@ export function AddRepositoryModal({
               defaultBranch: manualDefaultBranch,
               role: role || undefined,
               isPrimary,
+              dockerfileContent: dockerfileContent || undefined,
+              composeContent: composeContent || undefined,
             }
           : {
               provider: pendingRepo!.provider,
@@ -353,6 +361,50 @@ export function AddRepositoryModal({
                   placeholder="main"
                   className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="dockerfile-content"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Dockerfile (선택)
+                </label>
+                <textarea
+                  id="dockerfile-content"
+                  value={dockerfileContent}
+                  onChange={(e) => setDockerfileContent(e.target.value)}
+                  placeholder={
+                    'FROM node:18-alpine\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD ["npm", "start"]'
+                  }
+                  rows={5}
+                  className="w-full rounded-lg border border-border bg-background px-4 py-2 font-mono text-sm focus:border-primary focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  샌드박스에서 빌드할 Dockerfile 내용을 입력하세요
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="compose-content"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  docker-compose.yml (선택)
+                </label>
+                <textarea
+                  id="compose-content"
+                  value={composeContent}
+                  onChange={(e) => setComposeContent(e.target.value)}
+                  placeholder={
+                    "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - '3000:3000'"
+                  }
+                  rows={5}
+                  className="w-full rounded-lg border border-border bg-background px-4 py-2 font-mono text-sm focus:border-primary focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  서비스 구성을 위한 docker-compose.yml 내용을 입력하세요
+                </p>
               </div>
             </div>
           )}
