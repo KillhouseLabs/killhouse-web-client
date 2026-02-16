@@ -23,6 +23,8 @@ export const createRepositorySchema = z.object({
   defaultBranch: z.string().default("main"),
   isPrimary: z.boolean().default(false),
   role: z.string().max(50, "역할은 50자 이하여야 합니다").optional(),
+  dockerfileContent: z.string().optional(),
+  composeContent: z.string().optional(),
 });
 
 /**

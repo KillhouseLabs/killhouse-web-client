@@ -194,6 +194,62 @@ describe("Projects Repositories API", () => {
         // THEN
         expect(result.success).toBe(false);
       });
+
+      it("GIVEN MANUAL + dockerfileContent WHEN 스키마 검증 THEN 성공해야 한다", () => {
+        // GIVEN
+        const input = {
+          provider: "MANUAL",
+          name: "custom-app",
+          dockerfileContent: 'FROM python:3.11-slim\nCMD ["python", "main.py"]',
+        };
+
+        // WHEN
+        const result = createRepositorySchema.safeParse(input);
+
+        // THEN
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.dockerfileContent).toContain("FROM");
+        }
+      });
+
+      it("GIVEN MANUAL + composeContent WHEN 스키마 검증 THEN 성공해야 한다", () => {
+        // GIVEN
+        const input = {
+          provider: "MANUAL",
+          name: "custom-app",
+          composeContent: "services:\n  db:\n    image: postgres:15\n",
+        };
+
+        // WHEN
+        const result = createRepositorySchema.safeParse(input);
+
+        // THEN
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.composeContent).toContain("postgres");
+        }
+      });
+
+      it("GIVEN dockerfileContent + composeContent 동시 제공 WHEN 스키마 검증 THEN 성공해야 한다", () => {
+        // GIVEN
+        const input = {
+          provider: "MANUAL",
+          name: "full-config-app",
+          dockerfileContent: 'FROM node:20\nCMD ["node", "index.js"]',
+          composeContent: "services:\n  redis:\n    image: redis:7\n",
+        };
+
+        // WHEN
+        const result = createRepositorySchema.safeParse(input);
+
+        // THEN
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.dockerfileContent).toBeDefined();
+          expect(result.data.composeContent).toBeDefined();
+        }
+      });
     });
 
     describe("저장소 추가", () => {
@@ -228,6 +284,39 @@ describe("Projects Repositories API", () => {
         expect(result.id).toBe("new-repo-id");
         expect(result.name).toBe("new-repo");
         expect(result.provider).toBe("GITHUB");
+      });
+
+      it("GIVEN MANUAL + dockerfileContent WHEN 추가 THEN dockerfileContent가 저장되어야 한다", async () => {
+        // GIVEN
+        const mockProject = { id: "project-1", userId: "user-1" };
+        const repositoryData = {
+          provider: "MANUAL",
+          name: "custom-app",
+          defaultBranch: "main",
+          isPrimary: false,
+          dockerfileContent: 'FROM python:3.11\nCMD ["python", "app.py"]',
+          composeContent: "services:\n  db:\n    image: postgres:15\n",
+          projectId: "project-1",
+        };
+
+        (auth as jest.Mock).mockResolvedValue({
+          user: { id: "user-1" },
+        });
+        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (prisma.repository.findFirst as jest.Mock).mockResolvedValue(null);
+        (prisma.repository.create as jest.Mock).mockResolvedValue({
+          id: "manual-repo-id",
+          ...repositoryData,
+        });
+
+        // WHEN
+        const result = await prisma.repository.create({
+          data: repositoryData,
+        });
+
+        // THEN
+        expect(result.dockerfileContent).toContain("FROM");
+        expect(result.composeContent).toContain("postgres");
       });
 
       it("GIVEN 중복 URL WHEN 추가 THEN 에러가 발생해야 한다", async () => {

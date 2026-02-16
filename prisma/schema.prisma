@@ -88,10 +88,12 @@ model Repository {
   name          String
   defaultBranch String     @default("main")
   isPrimary     Boolean    @default(false)
-  role          String?
-  projectId     String
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  role              String?
+  dockerfileContent String?
+  composeContent    String?
+  projectId         String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   analyses      Analysis[]
   project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
