@@ -128,6 +128,8 @@ export function AddRepositoryModal({
               defaultBranch: pendingRepo!.defaultBranch,
               role: role || undefined,
               isPrimary,
+              dockerfileContent: dockerfileContent || undefined,
+              composeContent: composeContent || undefined,
             };
 
       const response = await fetch(`/api/projects/${projectId}/repositories`, {
@@ -362,7 +364,12 @@ export function AddRepositoryModal({
                   className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none"
                 />
               </div>
+            </div>
+          )}
 
+          {/* Additional Options (Role, Primary, Dockerfile, Compose) */}
+          {provider && (pendingRepo || provider === "MANUAL") && (
+            <div className="mt-6 space-y-4">
               <div>
                 <label
                   htmlFor="dockerfile-content"
@@ -406,12 +413,6 @@ export function AddRepositoryModal({
                   서비스 구성을 위한 docker-compose.yml 내용을 입력하세요
                 </p>
               </div>
-            </div>
-          )}
-
-          {/* Additional Options (Role & Primary) */}
-          {provider && (pendingRepo || provider === "MANUAL") && (
-            <div className="mt-6 space-y-4">
               <div>
                 <label
                   htmlFor="repo-role"
