@@ -137,6 +137,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const { repositoryId, branch, commitHash } = validationResult.data;
 
     // If repositoryId is provided, verify it belongs to this project
+    // Otherwise, auto-select a repository with build config (Dockerfile/Compose)
     let targetRepository = null;
     if (repositoryId) {
       targetRepository = project.repositories.find(
@@ -148,13 +149,19 @@ export async function POST(request: Request, { params }: RouteParams) {
           { status: 404 }
         );
       }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      targetRepository =
+        project.repositories.find(
+          (r: any) => r.dockerfileContent || r.composeContent
+        ) || null;
     }
 
     // Create new analysis
     const analysis = await prisma.analysis.create({
       data: {
         projectId,
-        repositoryId: repositoryId || null,
+        repositoryId: repositoryId || targetRepository?.id || null,
         branch,
         commitHash: commitHash || null,
         status: "PENDING",
