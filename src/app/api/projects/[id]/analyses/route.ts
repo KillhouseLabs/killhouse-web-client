@@ -150,10 +150,14 @@ export async function POST(request: Request, { params }: RouteParams) {
         );
       }
     } else {
+      // Prefer repository with build config, fallback to primary or first repo
       targetRepository =
         project.repositories.find(
           (r) => r.dockerfileContent || r.composeContent
-        ) ?? null;
+        ) ??
+        project.repositories.find((r) => r.isPrimary) ??
+        project.repositories[0] ??
+        null;
     }
 
     // Create new analysis
