@@ -160,12 +160,18 @@ export async function POST(request: Request, { params }: RouteParams) {
         null;
     }
 
+    // Use repository's default branch if user didn't specify one
+    const effectiveBranch =
+      branch !== "main"
+        ? branch
+        : targetRepository?.defaultBranch || branch;
+
     // Create new analysis
     const analysis = await prisma.analysis.create({
       data: {
         projectId,
         repositoryId: repositoryId || targetRepository?.id || null,
-        branch,
+        branch: effectiveBranch,
         commitHash: commitHash || null,
         status: "PENDING",
       },
@@ -193,7 +199,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             repo_url: targetRepository.url || undefined,
-            branch,
+            branch: effectiveBranch,
             dockerfile_content: targetRepository.dockerfileContent || undefined,
             compose_content: targetRepository.composeContent || undefined,
           }),
@@ -231,7 +237,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Add repo URL for SAST scan
       if (targetRepository?.url) {
         scanPayload.repo_url = targetRepository.url;
-        scanPayload.branch = branch;
+        scanPayload.branch = effectiveBranch;
       }
 
       // Add target URL for DAST scan (from sandbox response)
