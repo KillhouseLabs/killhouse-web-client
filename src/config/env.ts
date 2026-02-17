@@ -59,4 +59,7 @@ export const serverEnv = {
   // Scanner Engine API
   SCANNER_API_URL: () => process.env.SCANNER_API_URL ?? "http://localhost:8082",
   SCANNER_API_KEY: () => process.env.SCANNER_API_KEY,
+
+  // OpenAI
+  OPENAI_API_KEY: () => process.env.OPENAI_API_KEY,
 } as const;

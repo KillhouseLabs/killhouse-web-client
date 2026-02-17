@@ -12,14 +12,21 @@ const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
 
 interface Finding {
   id?: string;
+  tool?: string;
+  type?: string;
   severity: string;
-  file?: string;
+  title?: string;
+  description?: string;
+  file_path?: string;
   line?: number;
+  url?: string;
+  cwe?: string;
+  reference?: string;
+  // backward compat with old data
+  file?: string;
   rule_id?: string;
   rule?: string;
   message?: string;
-  description?: string;
-  url?: string;
   template_id?: string;
   name?: string;
 }
@@ -107,6 +114,23 @@ function normalizeSeverity(severity: string): string {
     .toUpperCase()
     .replace("WARNING", "MEDIUM")
     .replace("ERROR", "HIGH");
+}
+
+function shortRuleName(fullRule: string): string {
+  const segments = fullRule.split(".");
+  return segments[segments.length - 1] || fullRule;
+}
+
+function findingFilePath(f: Finding): string {
+  return f.file_path || f.file || "";
+}
+
+function findingRuleName(f: Finding): string {
+  return f.title || f.rule_id || f.rule || f.template_id || f.name || "";
+}
+
+function findingDescription(f: Finding): string {
+  return f.description || f.message || "";
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -225,7 +249,236 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
   );
 }
 
+interface FixSuggestion {
+  explanation: string;
+  suggestion: string;
+  exampleCode: string;
+}
+
+function FindingDetailModal({
+  finding,
+  onClose,
+}: {
+  finding: Finding;
+  onClose: () => void;
+}) {
+  const [fixSuggestion, setFixSuggestion] = useState<FixSuggestion | null>(
+    null
+  );
+  const [isLoadingFix, setIsLoadingFix] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
+
+  const filePath = findingFilePath(finding);
+  const ruleName = findingRuleName(finding);
+  const desc = findingDescription(finding);
+
+  const handleGetFixSuggestion = async () => {
+    setIsLoadingFix(true);
+    setFixError(null);
+    try {
+      const response = await fetch("/api/analyses/fix-suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finding),
+      });
+      if (!response.ok) {
+        throw new Error("AI 수정 제안을 가져오는데 실패했습니다");
+      }
+      const data = await response.json();
+      if (data.success) {
+        setFixSuggestion(data.data);
+      } else {
+        throw new Error(data.error || "알 수 없는 오류");
+      }
+    } catch (err) {
+      setFixError(
+        err instanceof Error ? err.message : "오류가 발생했습니다"
+      );
+    } finally {
+      setIsLoadingFix(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="mx-4 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl bg-card p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <SeverityBadge severity={finding.severity} />
+            <h3 className="text-lg font-semibold">취약점 상세</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-accent"
+            aria-label="닫기"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Metadata */}
+        <div className="space-y-2 mb-4">
+          {ruleName && (
+            <div className="text-sm">
+              <span className="font-medium text-muted-foreground">규칙: </span>
+              <span className="font-mono">{ruleName}</span>
+            </div>
+          )}
+          {filePath && (
+            <div className="text-sm">
+              <span className="font-medium text-muted-foreground">파일: </span>
+              <span className="font-mono">
+                {filePath}
+                {finding.line ? `:${finding.line}` : ""}
+              </span>
+            </div>
+          )}
+          {finding.url && (
+            <div className="text-sm">
+              <span className="font-medium text-muted-foreground">URL: </span>
+              <span className="font-mono">{finding.url}</span>
+            </div>
+          )}
+          {finding.cwe && (
+            <div className="text-sm">
+              <span className="font-medium text-muted-foreground">CWE: </span>
+              <span>{finding.cwe}</span>
+            </div>
+          )}
+          {finding.reference && (
+            <div className="text-sm">
+              <span className="font-medium text-muted-foreground">
+                참고 자료:{" "}
+              </span>
+              <a
+                href={finding.reference}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 underline hover:text-blue-600"
+              >
+                {finding.reference}
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        {desc && (
+          <div className="mb-4">
+            <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+              설명
+            </h4>
+            <p className="whitespace-pre-wrap text-sm">{desc}</p>
+          </div>
+        )}
+
+        <hr className="border-border my-4" />
+
+        {/* AI Fix Suggestion */}
+        {!fixSuggestion && !isLoadingFix && !fixError && (
+          <button
+            onClick={handleGetFixSuggestion}
+            className="w-full rounded-lg border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            AI 수정 제안 받기
+          </button>
+        )}
+
+        {isLoadingFix && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4 animate-spin text-muted-foreground"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <span className="text-sm text-muted-foreground">
+              AI 수정 제안을 생성하고 있습니다...
+            </span>
+          </div>
+        )}
+
+        {fixError && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+            <p className="text-sm text-red-600">{fixError}</p>
+            <button
+              onClick={handleGetFixSuggestion}
+              className="mt-2 text-sm font-medium text-red-600 underline hover:text-red-700"
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
+
+        {fixSuggestion && (
+          <div className="space-y-3">
+            <div>
+              <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                문제 설명
+              </h4>
+              <p className="text-sm">{fixSuggestion.explanation}</p>
+            </div>
+            <div>
+              <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                수정 제안
+              </h4>
+              <p className="text-sm">{fixSuggestion.suggestion}</p>
+            </div>
+            {fixSuggestion.exampleCode && (
+              <div>
+                <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                  예시 코드
+                </h4>
+                <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs font-mono">
+                  <code>{fixSuggestion.exampleCode}</code>
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FindingsTable({ title, report }: { title: string; report: Report }) {
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+
   if (!report.findings || report.findings.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
@@ -270,41 +523,66 @@ function FindingsTable({ title, report }: { title: string; report: Report }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {report.findings.map((finding, idx) => (
-              <tr key={finding.id || idx} className="hover:bg-muted/50">
-                <td className="px-4 py-3">
-                  <SeverityBadge severity={finding.severity} />
-                </td>
-                {isSast ? (
-                  <>
-                    <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs">
-                      {finding.file || "-"}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {finding.line || "-"}
-                    </td>
-                    <td className="max-w-[150px] truncate px-4 py-3 text-xs">
-                      {finding.rule_id || finding.rule || "-"}
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs">
-                      {finding.url || "-"}
-                    </td>
-                    <td className="max-w-[150px] truncate px-4 py-3 text-xs">
-                      {finding.template_id || finding.name || "-"}
-                    </td>
-                  </>
-                )}
-                <td className="max-w-[300px] truncate px-4 py-3 text-xs text-muted-foreground">
-                  {finding.message || finding.description || "-"}
-                </td>
-              </tr>
-            ))}
+            {report.findings.map((finding, idx) => {
+              const filePath = findingFilePath(finding);
+              const ruleName = findingRuleName(finding);
+              const desc = findingDescription(finding);
+
+              return (
+                <tr
+                  key={finding.id || idx}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setSelectedFinding(finding)}
+                >
+                  <td className="px-4 py-3">
+                    <SeverityBadge severity={finding.severity} />
+                  </td>
+                  {isSast ? (
+                    <>
+                      <td
+                        className="max-w-[200px] truncate px-4 py-3 font-mono text-xs"
+                        title={filePath}
+                      >
+                        {filePath || "-"}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {finding.line || "-"}
+                      </td>
+                      <td
+                        className="max-w-[150px] truncate px-4 py-3 text-xs"
+                        title={ruleName}
+                      >
+                        {ruleName ? shortRuleName(ruleName) : "-"}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs">
+                        {finding.url || "-"}
+                      </td>
+                      <td
+                        className="max-w-[150px] truncate px-4 py-3 text-xs"
+                        title={ruleName}
+                      >
+                        {ruleName ? shortRuleName(ruleName) : "-"}
+                      </td>
+                    </>
+                  )}
+                  <td className="max-w-[300px] px-4 py-3 text-xs text-muted-foreground">
+                    <span className="line-clamp-2">{desc || "-"}</span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      {selectedFinding && (
+        <FindingDetailModal
+          finding={selectedFinding}
+          onClose={() => setSelectedFinding(null)}
+        />
+      )}
     </div>
   );
 }
