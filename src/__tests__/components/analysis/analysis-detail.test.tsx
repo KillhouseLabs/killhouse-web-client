@@ -248,9 +248,36 @@ describe("AnalysisDetail", () => {
   });
 
   describe("완료된 분석 - 취약점 없음", () => {
-    it("GIVEN 취약점이 없는 완료된 분석 WHEN 컴포넌트 렌더링 THEN 안전 메시지가 표시되어야 한다", () => {
-      // GIVEN
+    it("GIVEN 리포트가 없는 완료된 분석 WHEN 컴포넌트 렌더링 THEN 스캔 미실행 메시지가 표시되어야 한다", () => {
+      // GIVEN - reports are null, so no scan actually ran
       const analysis = mockAnalysisWithoutVulnerabilities;
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN
+      expect(
+        screen.getByText("스캔이 실행되지 않았습니다")
+      ).toBeInTheDocument();
+    });
+
+    it("GIVEN 성공한 스캔에서 취약점이 없는 분석 WHEN 컴포넌트 렌더링 THEN 안전 메시지가 표시되어야 한다", () => {
+      // GIVEN - reports exist with step_result success, but 0 findings
+      const analysis: Analysis = {
+        ...mockAnalysisWithoutVulnerabilities,
+        staticAnalysisReport: JSON.stringify({
+          tool: "semgrep",
+          findings: [],
+          total: 0,
+          step_result: { status: "success", findings_count: 0 },
+        }),
+      };
 
       // WHEN
       render(
@@ -265,7 +292,6 @@ describe("AnalysisDetail", () => {
       expect(
         screen.getByText("취약점이 발견되지 않았습니다")
       ).toBeInTheDocument();
-      expect(screen.getByText("안전한 코드베이스입니다.")).toBeInTheDocument();
     });
 
     it("GIVEN 취약점이 없는 완료된 분석 WHEN 컴포넌트 렌더링 THEN 취약점 요약 카드가 표시되지 않아야 한다", () => {
