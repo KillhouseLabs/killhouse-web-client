@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
+import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
@@ -255,14 +256,28 @@ interface FixSuggestion {
   exampleCode: string;
 }
 
+interface CodeFixResult {
+  originalCode: string;
+  fixedCode: string;
+  unifiedDiff: string;
+  explanation: string;
+  filePath: string;
+  startLine: number;
+}
+
 function FindingDetailModal({
   finding,
+  analysisId,
   onClose,
 }: {
   finding: Finding;
+  analysisId?: string;
   onClose: () => void;
 }) {
   const [fixSuggestion, setFixSuggestion] = useState<FixSuggestion | null>(
+    null
+  );
+  const [codeFixResult, setCodeFixResult] = useState<CodeFixResult | null>(
     null
   );
   const [isLoadingFix, setIsLoadingFix] = useState(false);
@@ -271,24 +286,44 @@ function FindingDetailModal({
   const filePath = findingFilePath(finding);
   const ruleName = findingRuleName(finding);
   const desc = findingDescription(finding);
+  const isSastFinding = !!filePath;
 
   const handleGetFixSuggestion = async () => {
     setIsLoadingFix(true);
     setFixError(null);
     try {
-      const response = await fetch("/api/analyses/fix-suggestion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finding),
-      });
-      if (!response.ok) {
-        throw new Error("AI 수정 제안을 가져오는데 실패했습니다");
-      }
-      const data = await response.json();
-      if (data.success) {
-        setFixSuggestion(data.data);
+      if (isSastFinding && analysisId) {
+        // SAST: use code-fix API for diff view
+        const response = await fetch("/api/analyses/code-fix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analysisId, finding }),
+        });
+        if (!response.ok) {
+          throw new Error("코드 수정 제안을 가져오는데 실패했습니다");
+        }
+        const data = await response.json();
+        if (data.success) {
+          setCodeFixResult(data.data);
+        } else {
+          throw new Error(data.error || "알 수 없는 오류");
+        }
       } else {
-        throw new Error(data.error || "알 수 없는 오류");
+        // DAST: use text-based fix-suggestion API
+        const response = await fetch("/api/analyses/fix-suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(finding),
+        });
+        if (!response.ok) {
+          throw new Error("AI 수정 제안을 가져오는데 실패했습니다");
+        }
+        const data = await response.json();
+        if (data.success) {
+          setFixSuggestion(data.data);
+        } else {
+          throw new Error(data.error || "알 수 없는 오류");
+        }
       }
     } catch (err) {
       setFixError(err instanceof Error ? err.message : "오류가 발생했습니다");
@@ -297,13 +332,17 @@ function FindingDetailModal({
     }
   };
 
+  const hasResult = fixSuggestion || codeFixResult;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div
-        className="mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-6"
+        className={`mx-4 max-h-[85vh] w-full overflow-y-auto rounded-xl bg-card p-6 ${
+          codeFixResult ? "max-w-4xl" : "max-w-2xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -391,13 +430,15 @@ function FindingDetailModal({
 
         <hr className="my-4 border-border" />
 
-        {/* AI Fix Suggestion */}
-        {!fixSuggestion && !isLoadingFix && !fixError && (
+        {/* AI Fix Suggestion Button */}
+        {!hasResult && !isLoadingFix && !fixError && (
           <button
             onClick={handleGetFixSuggestion}
             className="w-full rounded-lg border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
           >
-            AI 수정 제안 받기
+            {isSastFinding && analysisId
+              ? "코드 수정 제안 보기"
+              : "AI 수정 제안 받기"}
           </button>
         )}
 
@@ -416,7 +457,9 @@ function FindingDetailModal({
               <path d="M21 12a9 9 0 1 1-6.219-8.56" />
             </svg>
             <span className="text-sm text-muted-foreground">
-              AI 수정 제안을 생성하고 있습니다...
+              {isSastFinding
+                ? "소스코드를 분석하고 수정 코드를 생성하고 있습니다..."
+                : "AI 수정 제안을 생성하고 있습니다..."}
             </span>
           </div>
         )}
@@ -433,6 +476,18 @@ function FindingDetailModal({
           </div>
         )}
 
+        {/* SAST: Code Diff View */}
+        {codeFixResult && (
+          <CodeDiffViewer
+            originalCode={codeFixResult.originalCode}
+            fixedCode={codeFixResult.fixedCode}
+            filePath={codeFixResult.filePath}
+            startLine={codeFixResult.startLine}
+            explanation={codeFixResult.explanation}
+          />
+        )}
+
+        {/* DAST: Text Suggestion View */}
         {fixSuggestion && (
           <div className="space-y-3">
             <div>
@@ -474,7 +529,15 @@ function FindingDetailModal({
   );
 }
 
-function FindingsTable({ title, report }: { title: string; report: Report }) {
+function FindingsTable({
+  title,
+  report,
+  analysisId,
+}: {
+  title: string;
+  report: Report;
+  analysisId?: string;
+}) {
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
 
   if (!report.findings || report.findings.length === 0) {
@@ -578,6 +641,7 @@ function FindingsTable({ title, report }: { title: string; report: Report }) {
       {selectedFinding && (
         <FindingDetailModal
           finding={selectedFinding}
+          analysisId={analysisId}
           onClose={() => setSelectedFinding(null)}
         />
       )}
@@ -864,6 +928,7 @@ export function AnalysisDetail({
                 <FindingsTable
                   title="SAST 분석 결과 (정적 분석)"
                   report={sastReport}
+                  analysisId={analysis.id}
                 />
               )}
 
@@ -872,6 +937,7 @@ export function AnalysisDetail({
                 <FindingsTable
                   title="DAST 분석 결과 (침투 테스트)"
                   report={dastReport}
+                  analysisId={analysis.id}
                 />
               )}
             </>

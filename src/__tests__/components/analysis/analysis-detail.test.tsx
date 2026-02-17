@@ -7,6 +7,25 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { AnalysisDetail } from "@/components/analysis/analysis-detail";
 
+// Mock react-diff-viewer-continued (ESM module incompatible with Jest)
+jest.mock("react-diff-viewer-continued", () => {
+  return {
+    __esModule: true,
+    default: ({
+      oldValue,
+      newValue,
+    }: {
+      oldValue: string;
+      newValue: string;
+    }) => (
+      <div data-testid="diff-viewer">
+        <pre>{oldValue}</pre>
+        <pre>{newValue}</pre>
+      </div>
+    ),
+  };
+});
+
 // Mock useAnalysisPolling hook
 jest.mock("@/hooks/use-analysis-polling", () => ({
   useAnalysisPolling: jest.fn().mockReturnValue({
@@ -664,7 +683,7 @@ describe("AnalysisDetail", () => {
         expect(
           screen.getByText("CWE-79: Cross-site Scripting")
         ).toBeInTheDocument();
-        expect(screen.getByText("AI 수정 제안 받기")).toBeInTheDocument();
+        expect(screen.getByText("코드 수정 제안 보기")).toBeInTheDocument();
       });
     });
 

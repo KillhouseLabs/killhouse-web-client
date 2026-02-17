@@ -81,3 +81,25 @@ export async function getRepositoryBranches(
     protected: branch.protected,
   }));
 }
+
+export async function getFileContent(
+  client: Octokit,
+  owner: string,
+  repo: string,
+  path: string,
+  ref?: string
+): Promise<string> {
+  const response = await client.repos.getContent({
+    owner,
+    repo,
+    path,
+    ref,
+  });
+
+  const data = response.data;
+  if (Array.isArray(data) || data.type !== "file") {
+    throw new Error(`Path "${path}" is not a file`);
+  }
+
+  return Buffer.from(data.content, "base64").toString("utf-8");
+}
