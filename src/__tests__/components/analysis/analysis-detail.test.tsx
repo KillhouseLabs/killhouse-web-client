@@ -63,18 +63,21 @@ const mockAnalysisWithVulnerabilities: Analysis = {
       {
         id: "finding-1",
         severity: "CRITICAL",
-        file: "src/app.ts",
+        file_path: "src/app.ts",
         line: 42,
-        rule_id: "javascript.express.security.audit.xss",
-        message: "Potential XSS vulnerability",
+        title: "javascript.express.security.audit.xss",
+        description: "Potential XSS vulnerability",
+        cwe: "CWE-79: Cross-site Scripting",
+        reference: "https://owasp.org/www-community/attacks/xss/",
       },
       {
         id: "finding-2",
         severity: "HIGH",
-        file: "src/auth.ts",
+        file_path: "src/auth.ts",
         line: 15,
-        rule_id: "javascript.jwt.security.jwt-hardcode",
-        message: "Hardcoded JWT secret",
+        title: "javascript.jwt.security.jwt-hardcode",
+        description: "Hardcoded JWT secret",
+        cwe: "CWE-798: Use of Hard-coded Credentials",
       },
     ],
     total: 2,
@@ -88,12 +91,42 @@ const mockAnalysisWithVulnerabilities: Analysis = {
         severity: "MEDIUM",
         url: "https://example.com/api",
         template_id: "http-missing-security-headers",
-        message: "Missing security headers",
+        description: "Missing security headers",
       },
     ],
     total: 1,
     summary: "DAST scan completed",
   }),
+  startedAt: new Date("2024-02-17T10:00:00Z"),
+  completedAt: new Date("2024-02-17T10:15:00Z"),
+  repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
+};
+
+const mockAnalysisWithOldFields: Analysis = {
+  id: "analysis-old",
+  status: "COMPLETED",
+  branch: "main",
+  commitHash: "old1234",
+  vulnerabilitiesFound: 1,
+  criticalCount: 0,
+  highCount: 1,
+  mediumCount: 0,
+  lowCount: 0,
+  staticAnalysisReport: JSON.stringify({
+    tool: "semgrep",
+    findings: [
+      {
+        id: "finding-old",
+        severity: "HIGH",
+        file: "src/legacy.ts",
+        line: 10,
+        rule_id: "old-style.rule",
+        message: "Old format finding message",
+      },
+    ],
+    total: 1,
+  }),
+  penetrationTestReport: null,
   startedAt: new Date("2024-02-17T10:00:00Z"),
   completedAt: new Date("2024-02-17T10:15:00Z"),
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
@@ -199,6 +232,9 @@ describe("AnalysisDetail", () => {
       ).toBeInTheDocument();
       expect(screen.getByText("src/app.ts")).toBeInTheDocument();
       expect(screen.getByText("src/auth.ts")).toBeInTheDocument();
+      // shortRuleName extracts last segment from dotted rule name
+      expect(screen.getByText("xss")).toBeInTheDocument();
+      expect(screen.getByText("jwt-hardcode")).toBeInTheDocument();
       expect(
         screen.getByText("Potential XSS vulnerability")
       ).toBeInTheDocument();
@@ -577,6 +613,86 @@ describe("AnalysisDetail", () => {
 
       // THEN
       expect(screen.getByText("분석 진행 상태")).toBeInTheDocument();
+    });
+  });
+
+  describe("구 데이터 호환성", () => {
+    it("GIVEN 구 필드명(file, rule_id, message)으로 된 데이터 WHEN 컴포넌트 렌더링 THEN 정상적으로 표시되어야 한다", () => {
+      // GIVEN
+      const analysis = mockAnalysisWithOldFields;
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN
+      expect(screen.getByText("src/legacy.ts")).toBeInTheDocument();
+      expect(screen.getByText("rule")).toBeInTheDocument(); // shortRuleName of "old-style.rule"
+      expect(
+        screen.getByText("Old format finding message")
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("상세 모달", () => {
+    it("GIVEN 취약점 테이블 WHEN 행 클릭 THEN 취약점 상세 모달이 표시되어야 한다", async () => {
+      // GIVEN
+      const analysis = mockAnalysisWithVulnerabilities;
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+      const row = screen.getByText("src/app.ts").closest("tr");
+      fireEvent.click(row!);
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("취약점 상세")).toBeInTheDocument();
+        expect(
+          screen.getByText("javascript.express.security.audit.xss")
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText("CWE-79: Cross-site Scripting")
+        ).toBeInTheDocument();
+        expect(screen.getByText("AI 수정 제안 받기")).toBeInTheDocument();
+      });
+    });
+
+    it("GIVEN 열린 상세 모달 WHEN 닫기 버튼 클릭 THEN 모달이 사라져야 한다", async () => {
+      // GIVEN
+      const analysis = mockAnalysisWithVulnerabilities;
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+      const row = screen.getByText("src/app.ts").closest("tr");
+      fireEvent.click(row!);
+
+      await waitFor(() => {
+        expect(screen.getByText("취약점 상세")).toBeInTheDocument();
+      });
+
+      // WHEN
+      const closeButton = screen.getByLabelText("닫기");
+      fireEvent.click(closeButton);
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.queryByText("취약점 상세")).not.toBeInTheDocument();
+      });
     });
   });
 
