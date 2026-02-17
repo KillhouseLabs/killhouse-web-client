@@ -49,13 +49,31 @@ export async function POST(request: Request) {
     }
 
     // Build update data
+    const VALID_STATUSES = [
+      "CLONING",
+      "STATIC_ANALYSIS",
+      "BUILDING",
+      "PENETRATION_TEST",
+      "COMPLETED",
+      "FAILED",
+    ];
+    const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
+
+    const isCurrentTerminal = TERMINAL_STATUSES.includes(analysis.status);
+    const isNewStatusValid = VALID_STATUSES.includes(status);
+    const isNewTerminal = TERMINAL_STATUSES.includes(status);
+
+    // Allow intermediate status updates only if current status is not terminal.
+    // Always allow COMPLETED/FAILED to override non-terminal states.
+    const resolvedStatus =
+      isNewTerminal && isNewStatusValid
+        ? status
+        : !isCurrentTerminal && isNewStatusValid
+          ? status
+          : analysis.status;
+
     const updateData: Record<string, unknown> = {
-      status:
-        status === "COMPLETED"
-          ? "COMPLETED"
-          : status === "FAILED"
-            ? "FAILED"
-            : analysis.status,
+      status: resolvedStatus,
     };
 
     if (static_analysis_report) {

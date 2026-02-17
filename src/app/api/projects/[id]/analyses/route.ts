@@ -162,9 +162,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Use repository's default branch if user didn't specify one
     const effectiveBranch =
-      branch !== "main"
-        ? branch
-        : targetRepository?.defaultBranch || branch;
+      branch !== "main" ? branch : targetRepository?.defaultBranch || branch;
 
     // Create new analysis
     const analysis = await prisma.analysis.create({

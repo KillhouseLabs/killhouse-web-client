@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -8,6 +8,8 @@ import { ko } from "date-fns/locale";
 import { RepositoryList, Repository } from "./repository-list";
 import { AddRepositoryModal } from "./add-repository-modal";
 import { StartAnalysisButton } from "./start-analysis-button";
+import { AnalysisPipeline } from "./analysis-pipeline";
+import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 interface Analysis {
   id: string;
@@ -48,6 +50,8 @@ interface ProjectDetailProps {
   project: Project;
 }
 
+const TERMINAL_STATUSES_SET = ["COMPLETED", "FAILED", "CANCELLED"];
+
 const statusLabels: Record<string, string> = {
   PENDING: "대기 중",
   CLONING: "저장소 클론 중",
@@ -64,6 +68,31 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddRepoModal, setShowAddRepoModal] = useState(false);
+
+  // Find the latest non-terminal analysis for polling
+  const activeAnalysis = useMemo(
+    () =>
+      project.analyses.find((a) => !TERMINAL_STATUSES_SET.includes(a.status)),
+    [project.analyses]
+  );
+
+  const { analysis: polledAnalysis, isTerminal } = useAnalysisPolling(
+    project.id,
+    activeAnalysis?.id ?? null,
+    !!activeAnalysis
+  );
+
+  // Refresh the page data when polling detects a terminal status
+  useEffect(() => {
+    if (isTerminal) {
+      router.refresh();
+    }
+  }, [isTerminal, router]);
+
+  // Determine the latest analysis status to show in the pipeline
+  const latestAnalysis = project.analyses[0]; // most recent by startedAt desc
+  const pipelineStatus =
+    polledAnalysis?.status ?? latestAnalysis?.status ?? "PENDING";
 
   // Helper to check if project uses new multi-repo structure
   const hasRepositories =
@@ -364,106 +393,10 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
         </div>
       </div>
 
-      {/* Analysis Flow Info */}
+      {/* Analysis Pipeline */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">분석 프로세스</h2>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">클론</p>
-          </div>
-          <div className="h-px flex-1 bg-border" />
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-              </svg>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">SAST</p>
-          </div>
-          <div className="h-px flex-1 bg-border" />
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              </svg>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">빌드</p>
-          </div>
-          <div className="h-px flex-1 bg-border" />
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">침투 테스트</p>
-          </div>
-          <div className="h-px flex-1 bg-border" />
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">리포트</p>
-          </div>
-        </div>
+        <AnalysisPipeline currentStatus={pipelineStatus} />
       </div>
 
       {/* Recent Analyses */}
@@ -616,9 +549,12 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                       )}
                     </div>
                   )}
-                  <button className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent">
+                  <Link
+                    href={`/projects/${project.id}/analyses/${analysis.id}`}
+                    className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+                  >
                     상세 보기
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))}
