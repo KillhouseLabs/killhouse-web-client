@@ -196,15 +196,14 @@ describe("AnalysisPipeline", () => {
   });
 
   describe("FAILED 상태", () => {
-    it("GIVEN FAILED 상태 WHEN 컴포넌트 렌더링 THEN 모든 단계가 pending 상태여야 한다", () => {
+    it("GIVEN FAILED 상태 stepResults 없이 WHEN 컴포넌트 렌더링 THEN 첫 스텝이 failed, 나머지 pending이어야 한다", () => {
       // GIVEN & WHEN
-      // Note: FAILED는 PIPELINE_STEPS에 없으므로 getStepIndex가 -1을 반환하여 모든 단계가 pending이 됨
       render(<AnalysisPipeline currentStatus="FAILED" />);
 
       // THEN
       expect(screen.getByTestId("pipeline-step-CLONING")).toHaveAttribute(
         "data-status",
-        "pending"
+        "failed"
       );
       expect(
         screen.getByTestId("pipeline-step-STATIC_ANALYSIS")
@@ -219,6 +218,96 @@ describe("AnalysisPipeline", () => {
       expect(screen.getByTestId("pipeline-step-COMPLETED")).toHaveAttribute(
         "data-status",
         "pending"
+      );
+    });
+
+    it("GIVEN FAILED 상태 + stepResults WHEN 렌더링 THEN 실패한 스텝에 failed 표시", () => {
+      // GIVEN
+      const stepResults = {
+        cloning: { status: "success" as const },
+        sast: { status: "success" as const, findings_count: 3 },
+        building: { status: "skipped" as const },
+        dast: { status: "failed" as const, error: "nuclei timeout" },
+      };
+
+      // WHEN
+      render(
+        <AnalysisPipeline currentStatus="FAILED" stepResults={stepResults} />
+      );
+
+      // THEN
+      expect(screen.getByTestId("pipeline-step-CLONING")).toHaveAttribute(
+        "data-status",
+        "completed"
+      );
+      expect(
+        screen.getByTestId("pipeline-step-STATIC_ANALYSIS")
+      ).toHaveAttribute("data-status", "completed");
+      expect(screen.getByTestId("pipeline-step-BUILDING")).toHaveAttribute(
+        "data-status",
+        "completed"
+      );
+      expect(
+        screen.getByTestId("pipeline-step-PENETRATION_TEST")
+      ).toHaveAttribute("data-status", "failed");
+      expect(screen.getByTestId("pipeline-step-COMPLETED")).toHaveAttribute(
+        "data-status",
+        "pending"
+      );
+    });
+  });
+
+  describe("COMPLETED_WITH_ERRORS 상태", () => {
+    it("GIVEN COMPLETED_WITH_ERRORS + stepResults WHEN 렌더링 THEN 실패한 스텝만 failed 표시", () => {
+      // GIVEN
+      const stepResults = {
+        cloning: { status: "success" as const },
+        sast: { status: "success" as const, findings_count: 5 },
+        building: { status: "skipped" as const },
+        dast: { status: "failed" as const, error: "nuclei timeout" },
+      };
+
+      // WHEN
+      render(
+        <AnalysisPipeline
+          currentStatus="COMPLETED_WITH_ERRORS"
+          stepResults={stepResults}
+        />
+      );
+
+      // THEN
+      expect(screen.getByTestId("pipeline-step-CLONING")).toHaveAttribute(
+        "data-status",
+        "completed"
+      );
+      expect(
+        screen.getByTestId("pipeline-step-STATIC_ANALYSIS")
+      ).toHaveAttribute("data-status", "completed");
+      expect(screen.getByTestId("pipeline-step-BUILDING")).toHaveAttribute(
+        "data-status",
+        "completed"
+      );
+      expect(
+        screen.getByTestId("pipeline-step-PENETRATION_TEST")
+      ).toHaveAttribute("data-status", "failed");
+      expect(screen.getByTestId("pipeline-step-COMPLETED")).toHaveAttribute(
+        "data-status",
+        "completed"
+      );
+    });
+
+    it("GIVEN COMPLETED_WITH_ERRORS stepResults 없이 WHEN 렌더링 THEN 모든 스텝이 completed 표시", () => {
+      // GIVEN & WHEN
+      render(
+        <AnalysisPipeline currentStatus="COMPLETED_WITH_ERRORS" />
+      );
+
+      // THEN - without stepResults, falls through to active step logic
+      // COMPLETED_WITH_ERRORS is not in PIPELINE_STEPS so all default to pending
+      // But with our fix, it's treated separately
+      expect(screen.getByTestId("pipeline-step-CLONING")).toHaveAttribute(
+        "data-status",
+        "completed"
       );
     });
   });

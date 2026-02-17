@@ -10,37 +10,98 @@ const PIPELINE_STEPS = [
 
 type StepStatus = "completed" | "active" | "failed" | "pending";
 
+interface StepResult {
+  status: "success" | "failed" | "skipped" | "pending";
+  findings_count?: number;
+  error?: string;
+}
+
 interface AnalysisPipelineProps {
   currentStatus: string;
+  stepResults?: Record<string, StepResult>;
 }
 
 function getStepIndex(status: string): number {
   return PIPELINE_STEPS.findIndex((s) => s.key === status);
 }
 
-function getStepStatuses(currentStatus: string): StepStatus[] {
-  const isFailed = currentStatus === "FAILED";
+function getStepStatuses(
+  currentStatus: string,
+  stepResults?: Record<string, StepResult>
+): StepStatus[] {
   const isCompleted = currentStatus === "COMPLETED";
+  const isCompletedWithErrors = currentStatus === "COMPLETED_WITH_ERRORS";
   const isCancelled = currentStatus === "CANCELLED";
   const isPending = currentStatus === "PENDING" || currentStatus === "SCANNING";
-  const currentIndex = getStepIndex(currentStatus);
+  const isFailed = currentStatus === "FAILED";
 
-  return PIPELINE_STEPS.map((_, i) => {
-    if (isCompleted) return "completed";
-    if (isCancelled || isPending) return "pending";
+  // For COMPLETED_WITH_ERRORS, use stepResults to determine per-step status
+  if (isCompletedWithErrors) {
+    if (stepResults) {
+      const stepKeyToResultKey: Record<string, string> = {
+        CLONING: "cloning",
+        STATIC_ANALYSIS: "sast",
+        BUILDING: "building",
+        PENETRATION_TEST: "dast",
+        COMPLETED: "completed",
+      };
 
-    if (isFailed) {
-      // Mark the step that was active when failure occurred
-      if (currentIndex >= 0 && i < currentIndex) return "completed";
-      if (currentIndex >= 0 && i === currentIndex) return "failed";
-      return "pending";
+      return PIPELINE_STEPS.map((step) => {
+        const resultKey = stepKeyToResultKey[step.key];
+        const result = resultKey ? stepResults[resultKey] : undefined;
+
+        if (step.key === "COMPLETED") return "completed";
+        if (!result) return "completed";
+        if (result.status === "failed") return "failed";
+        return "completed";
+      });
     }
+    // Without stepResults, show all as completed (analysis finished but with some errors)
+    return PIPELINE_STEPS.map(() => "completed");
+  }
 
+  if (isCompleted) return PIPELINE_STEPS.map(() => "completed");
+  if (isCancelled || isPending) return PIPELINE_STEPS.map(() => "pending");
+
+  // For FAILED, mark all preceding steps as completed and last active as failed
+  if (isFailed) {
+    const currentIndex = getStepIndex(currentStatus);
+    if (currentIndex === -1) {
+      // FAILED is not a pipeline step — find the last known step from stepResults
+      if (stepResults) {
+        const stepOrder = ["cloning", "sast", "building", "dast"];
+        let lastActiveIndex = -1;
+        for (let i = stepOrder.length - 1; i >= 0; i--) {
+          const result = stepResults[stepOrder[i]];
+          if (result && (result.status === "failed" || result.status === "success")) {
+            lastActiveIndex = i;
+            break;
+          }
+        }
+        return PIPELINE_STEPS.map((_, i) => {
+          if (lastActiveIndex === -1) return "pending";
+          if (i < lastActiveIndex) return "completed";
+          if (i === lastActiveIndex) return "failed";
+          return "pending";
+        });
+      }
+      // No stepResults: show all as failed at first step
+      return PIPELINE_STEPS.map((_, i) => (i === 0 ? "failed" : "pending"));
+    }
+    return PIPELINE_STEPS.map((_, i) => {
+      if (i < currentIndex) return "completed";
+      if (i === currentIndex) return "failed";
+      return "pending";
+    });
+  }
+
+  // Active intermediate step
+  const currentIndex = getStepIndex(currentStatus);
+  return PIPELINE_STEPS.map((_, i) => {
     if (currentIndex >= 0) {
       if (i < currentIndex) return "completed";
       if (i === currentIndex) return "active";
     }
-
     return "pending";
   });
 }
@@ -195,8 +256,8 @@ const stepStyles: Record<
   },
 };
 
-export function AnalysisPipeline({ currentStatus }: AnalysisPipelineProps) {
-  const statuses = getStepStatuses(currentStatus);
+export function AnalysisPipeline({ currentStatus, stepResults }: AnalysisPipelineProps) {
+  const statuses = getStepStatuses(currentStatus, stepResults);
 
   return (
     <div className="flex items-center justify-between">

@@ -331,6 +331,61 @@ describe("Analyses Webhook API - Intermediate Status", () => {
     });
 
     describe("터미널 상태 전환", () => {
+      it("GIVEN PENETRATION_TEST 상태 WHEN status=COMPLETED_WITH_ERRORS THEN DB가 COMPLETED_WITH_ERRORS로 업데이트되고 completedAt이 설정되어야 한다", async () => {
+        // GIVEN
+        const mockAnalysis = {
+          id: "analysis-1",
+          status: "PENETRATION_TEST",
+        };
+        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+          mockAnalysis
+        );
+
+        const updatedAnalysis = {
+          id: "analysis-1",
+          status: "COMPLETED_WITH_ERRORS",
+          completedAt: new Date(),
+        };
+        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+          updatedAnalysis
+        );
+
+        const request = new Request("http://localhost/api/analyses/webhook", {
+          method: "POST",
+          headers: {
+            "x-api-key": "test-api-key",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            analysis_id: "analysis-1",
+            status: "COMPLETED_WITH_ERRORS",
+            vulnerabilities_found: 3,
+            critical_count: 0,
+            high_count: 1,
+            medium_count: 1,
+            low_count: 1,
+          }),
+        });
+
+        // WHEN
+        const response = await POST(request);
+        const data = await response.json();
+
+        // THEN
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.status).toBe("COMPLETED_WITH_ERRORS");
+        expect(prisma.analysis.update).toHaveBeenCalledWith({
+          where: { id: "analysis-1" },
+          data: expect.objectContaining({
+            status: "COMPLETED_WITH_ERRORS",
+            completedAt: expect.any(Date),
+            sandboxStatus: "COMPLETED",
+            vulnerabilitiesFound: 3,
+          }),
+        });
+      });
+
       it("GIVEN PENETRATION_TEST 상태 WHEN status=COMPLETED THEN DB가 COMPLETED로 업데이트되고 completedAt이 설정되어야 한다", async () => {
         // GIVEN
         const mockAnalysis = {

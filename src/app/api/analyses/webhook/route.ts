@@ -55,9 +55,10 @@ export async function POST(request: Request) {
       "BUILDING",
       "PENETRATION_TEST",
       "COMPLETED",
+      "COMPLETED_WITH_ERRORS",
       "FAILED",
     ];
-    const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
+    const TERMINAL_STATUSES = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"];
 
     const isCurrentTerminal = TERMINAL_STATUSES.includes(analysis.status);
     const isNewStatusValid = VALID_STATUSES.includes(status);
@@ -107,6 +108,11 @@ export async function POST(request: Request) {
     }
 
     if (status === "COMPLETED") {
+      updateData.completedAt = new Date();
+      updateData.sandboxStatus = "COMPLETED";
+    }
+
+    if (status === "COMPLETED_WITH_ERRORS") {
       updateData.completedAt = new Date();
       updateData.sandboxStatus = "COMPLETED";
     }

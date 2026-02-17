@@ -50,7 +50,7 @@ interface ProjectDetailProps {
   project: Project;
 }
 
-const TERMINAL_STATUSES_SET = ["COMPLETED", "FAILED", "CANCELLED"];
+const TERMINAL_STATUSES_SET = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"];
 
 const statusLabels: Record<string, string> = {
   PENDING: "대기 중",
@@ -59,6 +59,7 @@ const statusLabels: Record<string, string> = {
   BUILDING: "빌드 중",
   PENETRATION_TEST: "침투 테스트 중",
   COMPLETED: "완료",
+  COMPLETED_WITH_ERRORS: "부분 완료",
   FAILED: "실패",
   CANCELLED: "취소됨",
 };
@@ -357,10 +358,11 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
             발견된 취약점
           </div>
           <p className="mt-2 text-lg font-semibold">
-            {project.analyses.reduce(
-              (acc, a) => acc + a.vulnerabilitiesFound,
-              0
-            )}
+            {project.analyses.find(
+              (a) =>
+                a.status === "COMPLETED" ||
+                a.status === "COMPLETED_WITH_ERRORS"
+            )?.vulnerabilitiesFound ?? 0}
             개
           </p>
         </div>
@@ -455,12 +457,14 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                     className={`flex h-8 w-8 items-center justify-center rounded-full ${
                       analysis.status === "COMPLETED"
                         ? "bg-green-500/10 text-green-600"
-                        : analysis.status === "FAILED"
-                          ? "bg-red-500/10 text-red-600"
-                          : "bg-yellow-500/10 text-yellow-600"
+                        : analysis.status === "COMPLETED_WITH_ERRORS"
+                          ? "bg-yellow-500/10 text-yellow-600"
+                          : analysis.status === "FAILED"
+                            ? "bg-red-500/10 text-red-600"
+                            : "bg-yellow-500/10 text-yellow-600"
                     }`}
                   >
-                    {analysis.status === "COMPLETED" ? (
+                    {analysis.status === "COMPLETED" || analysis.status === "COMPLETED_WITH_ERRORS" ? (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -525,7 +529,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {analysis.status === "COMPLETED" && (
+                  {(analysis.status === "COMPLETED" || analysis.status === "COMPLETED_WITH_ERRORS") && (
                     <div className="flex items-center gap-2 text-xs">
                       {analysis.criticalCount > 0 && (
                         <span className="rounded bg-red-500/10 px-2 py-1 text-red-600">

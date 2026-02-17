@@ -186,6 +186,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Trigger sandbox environment creation if repository has build config
     let sandboxTargetUrl: string | null = null;
+    let sandboxNetworkName: string | null = null;
     if (
       targetRepository?.dockerfileContent ||
       targetRepository?.composeContent ||
@@ -207,6 +208,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         if (sandboxResponse.ok) {
           const sandboxData = await sandboxResponse.json();
           sandboxTargetUrl = sandboxData.target_url || null;
+          sandboxNetworkName = sandboxData.network_name || null;
           await prisma.analysis.update({
             where: { id: analysis.id },
             data: {
@@ -219,9 +221,17 @@ export async function POST(request: Request, { params }: RouteParams) {
             "Sandbox environment creation failed:",
             await sandboxResponse.text()
           );
+          await prisma.analysis.update({
+            where: { id: analysis.id },
+            data: { sandboxStatus: "FAILED" },
+          });
         }
       } catch (sandboxError) {
         console.error("Sandbox API call failed:", sandboxError);
+        await prisma.analysis.update({
+          where: { id: analysis.id },
+          data: { sandboxStatus: "FAILED" },
+        });
       }
     }
 
@@ -242,6 +252,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Add target URL for DAST scan (from sandbox response)
       if (sandboxTargetUrl) {
         scanPayload.target_url = sandboxTargetUrl;
+      }
+
+      if (sandboxNetworkName) {
+        scanPayload.network_name = sandboxNetworkName;
       }
 
       const scanResponse = await fetch(`${scannerUrl}/api/scans`, {
