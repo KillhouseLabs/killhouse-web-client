@@ -188,7 +188,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     let sandboxTargetUrl: string | null = null;
     if (
       targetRepository?.dockerfileContent ||
-      targetRepository?.composeContent
+      targetRepository?.composeContent ||
+      targetRepository?.url
     ) {
       try {
         const sandboxUrl = serverEnv.SANDBOX_API_URL();
