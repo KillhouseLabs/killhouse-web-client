@@ -73,7 +73,10 @@ function getStepStatuses(
         let lastActiveIndex = -1;
         for (let i = stepOrder.length - 1; i >= 0; i--) {
           const result = stepResults[stepOrder[i]];
-          if (result && (result.status === "failed" || result.status === "success")) {
+          if (
+            result &&
+            (result.status === "failed" || result.status === "success")
+          ) {
             lastActiveIndex = i;
             break;
           }
@@ -256,7 +259,10 @@ const stepStyles: Record<
   },
 };
 
-export function AnalysisPipeline({ currentStatus, stepResults }: AnalysisPipelineProps) {
+export function AnalysisPipeline({
+  currentStatus,
+  stepResults,
+}: AnalysisPipelineProps) {
   const statuses = getStepStatuses(currentStatus, stepResults);
 
   return (

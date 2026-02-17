@@ -298,9 +298,7 @@ describe("AnalysisPipeline", () => {
 
     it("GIVEN COMPLETED_WITH_ERRORS stepResults 없이 WHEN 렌더링 THEN 모든 스텝이 completed 표시", () => {
       // GIVEN & WHEN
-      render(
-        <AnalysisPipeline currentStatus="COMPLETED_WITH_ERRORS" />
-      );
+      render(<AnalysisPipeline currentStatus="COMPLETED_WITH_ERRORS" />);
 
       // THEN - without stepResults, falls through to active step logic
       // COMPLETED_WITH_ERRORS is not in PIPELINE_STEPS so all default to pending

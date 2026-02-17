@@ -50,7 +50,12 @@ interface ProjectDetailProps {
   project: Project;
 }
 
-const TERMINAL_STATUSES_SET = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"];
+const TERMINAL_STATUSES_SET = [
+  "COMPLETED",
+  "COMPLETED_WITH_ERRORS",
+  "FAILED",
+  "CANCELLED",
+];
 
 const statusLabels: Record<string, string> = {
   PENDING: "대기 중",
@@ -360,8 +365,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
           <p className="mt-2 text-lg font-semibold">
             {project.analyses.find(
               (a) =>
-                a.status === "COMPLETED" ||
-                a.status === "COMPLETED_WITH_ERRORS"
+                a.status === "COMPLETED" || a.status === "COMPLETED_WITH_ERRORS"
             )?.vulnerabilitiesFound ?? 0}
             개
           </p>
@@ -464,7 +468,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                             : "bg-yellow-500/10 text-yellow-600"
                     }`}
                   >
-                    {analysis.status === "COMPLETED" || analysis.status === "COMPLETED_WITH_ERRORS" ? (
+                    {analysis.status === "COMPLETED" ||
+                    analysis.status === "COMPLETED_WITH_ERRORS" ? (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -529,7 +534,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {(analysis.status === "COMPLETED" || analysis.status === "COMPLETED_WITH_ERRORS") && (
+                  {(analysis.status === "COMPLETED" ||
+                    analysis.status === "COMPLETED_WITH_ERRORS") && (
                     <div className="flex items-center gap-2 text-xs">
                       {analysis.criticalCount > 0 && (
                         <span className="rounded bg-red-500/10 px-2 py-1 text-red-600">

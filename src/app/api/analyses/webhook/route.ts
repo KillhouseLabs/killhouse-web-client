@@ -58,7 +58,12 @@ export async function POST(request: Request) {
       "COMPLETED_WITH_ERRORS",
       "FAILED",
     ];
-    const TERMINAL_STATUSES = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"];
+    const TERMINAL_STATUSES = [
+      "COMPLETED",
+      "COMPLETED_WITH_ERRORS",
+      "FAILED",
+      "CANCELLED",
+    ];
 
     const isCurrentTerminal = TERMINAL_STATUSES.includes(analysis.status);
     const isNewStatusValid = VALID_STATUSES.includes(status);
