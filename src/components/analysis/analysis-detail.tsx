@@ -291,9 +291,7 @@ function FindingDetailModal({
         throw new Error(data.error || "알 수 없는 오류");
       }
     } catch (err) {
-      setFixError(
-        err instanceof Error ? err.message : "오류가 발생했습니다"
-      );
+      setFixError(err instanceof Error ? err.message : "오류가 발생했습니다");
     } finally {
       setIsLoadingFix(false);
     }
@@ -305,11 +303,11 @@ function FindingDetailModal({
       onClick={onClose}
     >
       <div
-        className="mx-4 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl bg-card p-6"
+        className="mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <SeverityBadge severity={finding.severity} />
             <h3 className="text-lg font-semibold">취약점 상세</h3>
@@ -336,7 +334,7 @@ function FindingDetailModal({
         </div>
 
         {/* Metadata */}
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {ruleName && (
             <div className="text-sm">
               <span className="font-medium text-muted-foreground">규칙: </span>
@@ -391,7 +389,7 @@ function FindingDetailModal({
           </div>
         )}
 
-        <hr className="border-border my-4" />
+        <hr className="my-4 border-border" />
 
         {/* AI Fix Suggestion */}
         {!fixSuggestion && !isLoadingFix && !fixError && (
@@ -454,7 +452,7 @@ function FindingDetailModal({
                 <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                   예시 코드
                 </h4>
-                <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs font-mono">
+                <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">
                   <code>{fixSuggestion.exampleCode}</code>
                 </pre>
               </div>
