@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -123,3 +124,19 @@ jobs:
           SCANNER_API_URL: "http://localhost:8082"
           SCANNER_API_KEY: "ci-test-key"
           NEXTAUTH_URL: "http://localhost:3001"
+
+  # ===========================================
+  # Job 4: Deploy (main branch push only)
+  # ===========================================
+  deploy:
+    name: Deploy
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    uses: KillhouseLabs/.github/.github/workflows/deploy.yml@main
+    with:
+      service_name: web-client
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+    permissions:
+      id-token: write
+      contents: read
