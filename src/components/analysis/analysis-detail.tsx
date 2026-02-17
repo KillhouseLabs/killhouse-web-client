@@ -24,11 +24,18 @@ interface Finding {
   name?: string;
 }
 
+interface StepResult {
+  status: "success" | "failed" | "skipped";
+  findings_count?: number;
+  error?: string;
+}
+
 interface Report {
   tool: string;
   findings: Finding[];
   total: number;
   summary?: string;
+  step_result?: StepResult;
 }
 
 interface Analysis {
@@ -83,6 +90,18 @@ function parseReport(raw: string | null): Report | null {
   }
 }
 
+function hasAnySuccessfulScan(
+  sastReport: Report | null,
+  dastReport: Report | null
+): boolean {
+  const sastSuccess = sastReport?.step_result?.status === "success";
+  const dastSuccess = dastReport?.step_result?.status === "success";
+  // If no step_result info, assume scan ran (backward compat with old data)
+  const sastRan = !sastReport?.step_result || sastSuccess;
+  const dastRan = !dastReport?.step_result || dastSuccess;
+  return (sastReport !== null && sastRan) || (dastReport !== null && dastRan);
+}
+
 function normalizeSeverity(severity: string): string {
   return severity
     .toUpperCase()
@@ -100,6 +119,69 @@ function SeverityBadge({ severity }: { severity: string }) {
       {normalized}
     </span>
   );
+}
+
+function StepStatusBanner({
+  label,
+  stepResult,
+}: {
+  label: string;
+  stepResult: StepResult;
+}) {
+  if (stepResult.status === "failed") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4 text-red-500"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+        <span className="text-sm font-medium text-red-600">{label} 실패</span>
+        {stepResult.error && (
+          <span className="text-xs text-red-500/80">: {stepResult.error}</span>
+        )}
+      </div>
+    );
+  }
+
+  if (stepResult.status === "skipped") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4 text-muted-foreground"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+        <span className="text-sm font-medium text-muted-foreground">
+          {label} 건너뜀
+        </span>
+        {stepResult.error && (
+          <span className="text-xs text-muted-foreground">
+            : {stepResult.error}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
@@ -434,27 +516,69 @@ export function AnalysisDetail({
       {/* Vulnerability Summary */}
       {currentStatus === "COMPLETED" && (
         <>
+          {/* Step status banners for failed/skipped steps */}
+          {sastReport?.step_result &&
+            sastReport.step_result.status !== "success" && (
+              <StepStatusBanner
+                label="SAST 정적 분석"
+                stepResult={sastReport.step_result}
+              />
+            )}
+          {dastReport?.step_result &&
+            dastReport.step_result.status !== "success" && (
+              <StepStatusBanner
+                label="DAST 침투 테스트"
+                stepResult={dastReport.step_result}
+              />
+            )}
+
           {analysis.vulnerabilitiesFound === 0 ? (
-            <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-6 text-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto mb-2 h-8 w-8 text-green-600"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              <p className="text-lg font-semibold text-green-600">
-                취약점이 발견되지 않았습니다
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                안전한 코드베이스입니다.
-              </p>
-            </div>
+            hasAnySuccessfulScan(sastReport, dastReport) ? (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-6 text-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mx-auto mb-2 h-8 w-8 text-green-600"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <p className="text-lg font-semibold text-green-600">
+                  취약점이 발견되지 않았습니다
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  실행된 스캔에서 취약점이 발견되지 않았습니다.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-6 text-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mx-auto mb-2 h-8 w-8 text-yellow-600"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-lg font-semibold text-yellow-600">
+                  스캔이 실행되지 않았습니다
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  모든 스캔 단계가 건너뛰어졌거나 실패했습니다. 위 상태를
+                  확인하세요.
+                </p>
+              </div>
+            )
           ) : (
             <>
               <VulnerabilitySummaryCards analysis={analysis} />
