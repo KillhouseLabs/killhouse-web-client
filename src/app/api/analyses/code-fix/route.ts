@@ -135,10 +135,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Extract relevant lines
+    // 4. Normalize line endings and extract relevant lines
+    const normalizedContent = fullContent.replace(/\r\n/g, "\n");
     const targetLine = finding.line || 1;
     const { text: originalCode, startLine } = extractLines(
-      fullContent,
+      normalizedContent,
       targetLine,
       CONTEXT_LINES
     );

@@ -66,7 +66,8 @@ export function CodeDiffViewer({
           leftTitle="원본 코드"
           rightTitle="수정 코드"
           summary={filePath}
-          showDiffOnly={false}
+          showDiffOnly={true}
+          extraLinesSurroundingDiff={3}
           styles={{
             contentText: {
               fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
