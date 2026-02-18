@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
+import {
+  buildDedupKey,
+  parseReportFindings,
+  isCriticalSeverity,
+} from "@/lib/vulnerability-dedup";
 
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET() {
@@ -22,36 +27,62 @@ export async function GET() {
       },
     });
 
-    // Get analyses statistics
+    // Get completed analyses with reports for dedup
     const analyses = await prisma.analysis.findMany({
       where: {
         project: {
           userId: session.user.id,
           status: { not: "DELETED" },
         },
+        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
       },
       select: {
         status: true,
         vulnerabilitiesFound: true,
         criticalCount: true,
+        staticAnalysisReport: true,
+        penetrationTestReport: true,
       },
     });
 
-    const completedAnalyses = analyses.filter(
-      (a: { status: string }) => a.status === "COMPLETED"
-    ).length;
+    // Count all analyses (including non-completed) for completedAnalyses stat
+    const completedAnalyses = analyses.length;
 
-    const totalVulnerabilities = analyses.reduce(
-      (sum: number, a: { vulnerabilitiesFound: number | null }) =>
-        sum + (a.vulnerabilitiesFound || 0),
-      0
-    );
+    // Deduplicate findings across all analyses
+    const seenKeys = new Set<string>();
+    let totalVulnerabilities = 0;
+    let criticalVulnerabilities = 0;
 
-    const criticalVulnerabilities = analyses.reduce(
-      (sum: number, a: { criticalCount: number | null }) =>
-        sum + (a.criticalCount || 0),
-      0
-    );
+    for (const analysis of analyses) {
+      const sastFindings = parseReportFindings(
+        analysis.staticAnalysisReport as string | null
+      );
+      const dastFindings = parseReportFindings(
+        analysis.penetrationTestReport as string | null
+      );
+
+      const allFindings = [
+        ...sastFindings.map((f) => ({ ...f, type: f.type || "sast" })),
+        ...dastFindings.map((f) => ({ ...f, type: f.type || "dast" })),
+      ];
+
+      if (allFindings.length > 0) {
+        for (const finding of allFindings) {
+          const key = buildDedupKey(finding);
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            totalVulnerabilities++;
+            if (isCriticalSeverity(finding.severity)) {
+              criticalVulnerabilities++;
+            }
+          }
+        }
+      } else if (analysis.vulnerabilitiesFound || analysis.criticalCount) {
+        // Legacy fallback: no JSON report but has counts — best-effort, no dedup possible
+        totalVulnerabilities += analysis.vulnerabilitiesFound || 0;
+        criticalVulnerabilities += analysis.criticalCount || 0;
+      }
+    }
 
     // Get recent activities
     const recentAnalyses = await prisma.analysis.findMany({
