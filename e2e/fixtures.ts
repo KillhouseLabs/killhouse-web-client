@@ -6,6 +6,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { SubscriptionPage } from "./pages/SubscriptionPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 // Fixture types
 type TestFixtures = {
@@ -13,6 +15,8 @@ type TestFixtures = {
   dashboardPage: DashboardPage;
   projectPage: ProjectPage;
   subscriptionPage: SubscriptionPage;
+  forgotPasswordPage: ForgotPasswordPage;
+  resetPasswordPage: ResetPasswordPage;
   authenticatedPage: Page;
 };
 
@@ -32,6 +36,14 @@ export const test = base.extend<TestFixtures>({
 
   subscriptionPage: async ({ page }, use) => {
     await use(new SubscriptionPage(page));
+  },
+
+  forgotPasswordPage: async ({ page }, use) => {
+    await use(new ForgotPasswordPage(page));
+  },
+
+  resetPasswordPage: async ({ page }, use) => {
+    await use(new ResetPasswordPage(page));
   },
 
   // Pre-authenticated page using stored state
