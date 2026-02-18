@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { DeleteAccountButton } from "./delete-account-button";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function MypageContent() {
   const { data: session } = useSession();
@@ -83,28 +84,19 @@ export function MypageContent() {
             <label className="mb-1 block text-sm font-medium">
               현재 비밀번호
             </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <PasswordInput />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
               새 비밀번호
             </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <PasswordInput />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
               새 비밀번호 확인
             </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <PasswordInput />
           </div>
           <button
             type="button"

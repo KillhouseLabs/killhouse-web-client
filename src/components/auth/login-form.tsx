@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -109,13 +110,11 @@ export function LoginForm() {
                 비밀번호 찾기
               </Link>
             </div>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
               required
               disabled={isLoading}
             />

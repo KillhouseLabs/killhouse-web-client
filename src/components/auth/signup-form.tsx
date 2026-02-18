@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function SignupForm() {
   const router = useRouter();
@@ -130,13 +131,11 @@ export function SignupForm() {
             >
               비밀번호
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="8자 이상, 대소문자 및 숫자 포함"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
               required
               minLength={8}
               disabled={isLoading}
@@ -150,13 +149,11 @@ export function SignupForm() {
             >
               비밀번호 확인
             </label>
-            <input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               placeholder="비밀번호를 다시 입력하세요"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
               required
               disabled={isLoading}
             />
