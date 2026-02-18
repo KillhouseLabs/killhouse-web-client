@@ -61,6 +61,9 @@ interface Analysis {
   lowCount: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
+  executiveSummary: string | null;
+  stepResults: string | null;
+  exploitSessionId: string | null;
   startedAt: Date;
   completedAt: Date | null;
   repository?: { id: string; name: string; provider: string } | null;
@@ -116,6 +119,9 @@ const mockAnalysisWithVulnerabilities: Analysis = {
     total: 1,
     summary: "DAST scan completed",
   }),
+  executiveSummary: null,
+  stepResults: null,
+  exploitSessionId: null,
   startedAt: new Date("2024-02-17T10:00:00Z"),
   completedAt: new Date("2024-02-17T10:15:00Z"),
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
@@ -146,6 +152,9 @@ const mockAnalysisWithOldFields: Analysis = {
     total: 1,
   }),
   penetrationTestReport: null,
+  executiveSummary: null,
+  stepResults: null,
+  exploitSessionId: null,
   startedAt: new Date("2024-02-17T10:00:00Z"),
   completedAt: new Date("2024-02-17T10:15:00Z"),
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
@@ -163,6 +172,9 @@ const mockAnalysisWithoutVulnerabilities: Analysis = {
   lowCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
+  executiveSummary: null,
+  stepResults: null,
+  exploitSessionId: null,
   startedAt: new Date("2024-02-17T11:00:00Z"),
   completedAt: new Date("2024-02-17T11:10:00Z"),
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
@@ -180,6 +192,9 @@ const mockAnalysisInProgress: Analysis = {
   lowCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
+  executiveSummary: null,
+  stepResults: null,
+  exploitSessionId: null,
   startedAt: new Date("2024-02-17T12:00:00Z"),
   completedAt: null,
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },
@@ -197,6 +212,9 @@ const mockAnalysisFailed: Analysis = {
   lowCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
+  executiveSummary: null,
+  stepResults: null,
+  exploitSessionId: null,
   startedAt: new Date("2024-02-17T13:00:00Z"),
   completedAt: new Date("2024-02-17T13:05:00Z"),
   repository: { id: "repo-1", name: "test-repo", provider: "GITHUB" },

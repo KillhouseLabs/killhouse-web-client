@@ -112,6 +112,9 @@ model Analysis {
   commitHash            String?
   staticAnalysisReport  String?
   penetrationTestReport String?
+  executiveSummary      String?
+  stepResults           String?
+  exploitSessionId      String?
   vulnerabilitiesFound  Int         @default(0)
   criticalCount         Int         @default(0)
   highCount             Int         @default(0)
