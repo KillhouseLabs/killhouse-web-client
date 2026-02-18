@@ -9,7 +9,12 @@ import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
 import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
-const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
+const TERMINAL_STATUSES = [
+  "COMPLETED",
+  "COMPLETED_WITH_ERRORS",
+  "FAILED",
+  "CANCELLED",
+];
 
 interface Finding {
   id?: string;
@@ -58,6 +63,9 @@ interface Analysis {
   lowCount: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
+  executiveSummary: string | null;
+  stepResults: string | null;
+  exploitSessionId: string | null;
   startedAt: Date;
   completedAt: Date | null;
   repository?: { id: string; name: string; provider: string } | null;
@@ -76,7 +84,9 @@ const statusLabels: Record<string, string> = {
   STATIC_ANALYSIS: "정적 분석 중",
   BUILDING: "빌드 중",
   PENETRATION_TEST: "침투 테스트 중",
+  EXPLOIT_VERIFICATION: "모의 침투 검증 중",
   COMPLETED: "완료",
+  COMPLETED_WITH_ERRORS: "일부 오류와 함께 완료",
   FAILED: "실패",
   CANCELLED: "취소됨",
 };
@@ -250,6 +260,248 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
   );
 }
 
+function ExecutiveSummaryCard({ summary }: { summary: string }) {
+  return (
+    <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5 text-indigo-600"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <h3 className="text-base font-semibold text-indigo-700">경영진 요약</h3>
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+    </div>
+  );
+}
+
+function AISummaryCard({
+  title,
+  summary,
+  type,
+}: {
+  title: string;
+  summary: string;
+  type: "sast" | "dast";
+}) {
+  const colors =
+    type === "sast"
+      ? "border-blue-500/20 bg-blue-500/5 text-blue-700"
+      : "border-emerald-500/20 bg-emerald-500/5 text-emerald-700";
+  const iconColor = type === "sast" ? "text-blue-600" : "text-emerald-600";
+
+  return (
+    <div className={`rounded-xl border p-5 ${colors}`}>
+      <div className="mb-2 flex items-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`h-4 w-4 ${iconColor}`}
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+    </div>
+  );
+}
+
+function parseStepResults(
+  raw: string | null
+): Record<string, StepResult> | null {
+  if (!raw) return null;
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+}
+
+interface ExploitSessionData {
+  session_id: string;
+  status: string;
+  total_vulnerabilities: number;
+  exploited_count: number;
+  failed_count: number;
+  current_iteration: number;
+}
+
+const EXPLOIT_TERMINAL_STATUSES = ["success", "failed", "stopped", "error"];
+
+function ExploitSessionProgress({
+  exploitSessionId,
+}: {
+  exploitSessionId: string;
+}) {
+  const [session, setSession] = useState<ExploitSessionData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const exploitAgentUrl = process.env.NEXT_PUBLIC_EXPLOIT_AGENT_URL || "";
+        if (!exploitAgentUrl) return;
+
+        const response = await fetch(
+          `${exploitAgentUrl}/api/sessions/${exploitSessionId}`
+        );
+        if (!response.ok) {
+          setError("모의 침투 세션을 불러올 수 없습니다");
+          return;
+        }
+        const data = await response.json();
+        setSession(data);
+
+        if (EXPLOIT_TERMINAL_STATUSES.includes(data.status)) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        }
+      } catch {
+        // Retry on next interval
+      }
+    };
+
+    fetchSession();
+    intervalRef.current = setInterval(fetchSession, 5000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [exploitSessionId]);
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+        <p className="text-sm text-yellow-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (!session) return null;
+
+  const statusLabelsExploit: Record<string, string> = {
+    pending: "대기 중",
+    running: "실행 중",
+    success: "성공",
+    failed: "실패",
+    stopped: "중지됨",
+    error: "오류",
+  };
+
+  const isRunning =
+    session.status === "running" || session.status === "pending";
+  const total = session.total_vulnerabilities;
+  const done = session.exploited_count + session.failed_count;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5 text-red-500"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <h3 className="text-base font-semibold">모의 침투 테스트</h3>
+          {isRunning && (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4 animate-spin text-muted-foreground"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          )}
+        </div>
+        <span
+          className={`rounded-full px-2 py-1 text-xs font-medium ${
+            session.status === "success"
+              ? "bg-red-500/10 text-red-600"
+              : session.status === "failed"
+                ? "bg-gray-500/10 text-gray-600"
+                : session.status === "running"
+                  ? "bg-blue-500/10 text-blue-600"
+                  : "bg-yellow-500/10 text-yellow-600"
+          }`}
+        >
+          {statusLabelsExploit[session.status] || session.status}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-3">
+        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+          <span>
+            {done}/{total} 취약점 검증 완료
+          </span>
+          <span>{progress}%</span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-red-500 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Result summary */}
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="rounded-lg bg-muted/50 p-2">
+          <p className="text-lg font-bold text-red-600">
+            {session.exploited_count}
+          </p>
+          <p className="text-xs text-muted-foreground">성공</p>
+        </div>
+        <div className="rounded-lg bg-muted/50 p-2">
+          <p className="text-lg font-bold text-gray-600">
+            {session.failed_count}
+          </p>
+          <p className="text-xs text-muted-foreground">실패</p>
+        </div>
+        <div className="rounded-lg bg-muted/50 p-2">
+          <p className="text-lg font-bold text-muted-foreground">
+            {total - done}
+          </p>
+          <p className="text-xs text-muted-foreground">대기</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface FixSuggestion {
   explanation: string;
   suggestion: string;
@@ -272,6 +524,11 @@ function findingCacheKey(f: Finding): string {
   const line = f.line || 0;
   const rule = f.title || f.rule_id || f.template_id || "";
   return `${path}:${line}:${rule}`;
+}
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 function FindingDetailModal({
@@ -301,6 +558,12 @@ function FindingDetailModal({
   );
   const [isLoadingFix, setIsLoadingFix] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
+
+  // AI Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const filePath = findingFilePath(finding);
   const ruleName = findingRuleName(finding);
@@ -352,6 +615,48 @@ function FindingDetailModal({
       setIsLoadingFix(false);
     }
   };
+
+  const handleAskAI = async (question: string) => {
+    if (!question.trim()) return;
+    setChatMessages((prev) => [...prev, { role: "user", content: question }]);
+    setChatInput("");
+    setIsChatLoading(true);
+    try {
+      const response = await fetch("/api/analyses/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finding, question }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.data.answer },
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "오류가 발생했습니다. 다시 시도해주세요.",
+          },
+        ]);
+      }
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "네트워크 오류가 발생했습니다." },
+      ]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  const presetQuestions = [
+    "이 취약점의 영향도를 분석해주세요",
+    "공격 시나리오를 설명해주세요",
+    "개선 코드를 제안해주세요",
+  ];
 
   const hasResult = fixSuggestion || codeFixResult;
 
@@ -535,6 +840,117 @@ function FindingDetailModal({
             )}
           </div>
         )}
+
+        {/* AI Chat Section */}
+        <div className="mt-4 border-t border-border pt-4">
+          {!showChat ? (
+            <button
+              onClick={() => setShowChat(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              AI에게 질문하기
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold">AI 질의</h4>
+
+              {/* Preset questions */}
+              {chatMessages.length === 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {presetQuestions.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => handleAskAI(q)}
+                      disabled={isChatLoading}
+                      className="rounded-full border border-border px-3 py-1.5 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Chat messages */}
+              {chatMessages.length > 0 && (
+                <div className="max-h-60 space-y-2 overflow-y-auto">
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`rounded-lg p-3 text-sm ${
+                        msg.role === "user"
+                          ? "ml-8 bg-primary/10"
+                          : "mr-8 bg-muted"
+                      }`}
+                    >
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        {msg.role === "user" ? "질문" : "AI 응답"}
+                      </p>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  ))}
+                  {isChatLoading && (
+                    <div className="mr-8 rounded-lg bg-muted p-3">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-3 w-3 animate-spin text-muted-foreground"
+                        >
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                        <span className="text-xs text-muted-foreground">
+                          응답 생성 중...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Chat input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAskAI(chatInput);
+                    }
+                  }}
+                  placeholder="취약점에 대해 질문하세요..."
+                  disabled={isChatLoading}
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                />
+                <button
+                  onClick={() => handleAskAI(chatInput)}
+                  disabled={isChatLoading || !chatInput.trim()}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                >
+                  전송
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="mt-6 flex justify-end">
@@ -756,6 +1172,10 @@ export function AnalysisDetail({
     () => parseReport(analysis.penetrationTestReport),
     [analysis.penetrationTestReport]
   );
+  const stepResults = useMemo(
+    () => parseStepResults(analysis.stepResults),
+    [analysis.stepResults]
+  );
 
   return (
     <div className="space-y-6">
@@ -786,10 +1206,12 @@ export function AnalysisDetail({
                 className={`rounded-full px-2 py-1 text-xs font-medium ${
                   currentStatus === "COMPLETED"
                     ? "bg-green-500/10 text-green-600"
-                    : currentStatus === "FAILED" ||
-                        currentStatus === "CANCELLED"
-                      ? "bg-red-500/10 text-red-600"
-                      : "bg-yellow-500/10 text-yellow-600"
+                    : currentStatus === "COMPLETED_WITH_ERRORS"
+                      ? "bg-orange-500/10 text-orange-600"
+                      : currentStatus === "FAILED" ||
+                          currentStatus === "CANCELLED"
+                        ? "bg-red-500/10 text-red-600"
+                        : "bg-yellow-500/10 text-yellow-600"
                 }`}
               >
                 {statusLabels[currentStatus] || currentStatus}
@@ -858,7 +1280,10 @@ export function AnalysisDetail({
       {/* Pipeline */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">분석 진행 상태</h2>
-        <AnalysisPipeline currentStatus={currentStatus} />
+        <AnalysisPipeline
+          currentStatus={currentStatus}
+          stepResults={stepResults ?? undefined}
+        />
       </div>
 
       {/* In-progress message */}
@@ -883,8 +1308,14 @@ export function AnalysisDetail({
       )}
 
       {/* Vulnerability Summary */}
-      {currentStatus === "COMPLETED" && (
+      {(currentStatus === "COMPLETED" ||
+        currentStatus === "COMPLETED_WITH_ERRORS") && (
         <>
+          {/* Executive Summary */}
+          {analysis.executiveSummary && (
+            <ExecutiveSummaryCard summary={analysis.executiveSummary} />
+          )}
+
           {/* Step status banners for failed/skipped steps */}
           {sastReport?.step_result &&
             sastReport.step_result.status !== "success" && (
@@ -952,6 +1383,26 @@ export function AnalysisDetail({
             <>
               <VulnerabilitySummaryCards analysis={analysis} />
 
+              {/* AI Summary Cards */}
+              {(sastReport?.summary || dastReport?.summary) && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {sastReport?.summary && (
+                    <AISummaryCard
+                      title="SAST 분석 요약"
+                      summary={sastReport.summary}
+                      type="sast"
+                    />
+                  )}
+                  {dastReport?.summary && (
+                    <AISummaryCard
+                      title="DAST 분석 요약"
+                      summary={dastReport.summary}
+                      type="dast"
+                    />
+                  )}
+                </div>
+              )}
+
               {/* SAST Results */}
               {sastReport && (
                 <FindingsTable
@@ -970,6 +1421,13 @@ export function AnalysisDetail({
                 />
               )}
             </>
+          )}
+
+          {/* Exploit Session Progress */}
+          {analysis.exploitSessionId && (
+            <ExploitSessionProgress
+              exploitSessionId={analysis.exploitSessionId}
+            />
           )}
         </>
       )}

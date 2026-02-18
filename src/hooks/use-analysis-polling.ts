@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"];
+const TERMINAL_STATUSES = [
+  "COMPLETED",
+  "COMPLETED_WITH_ERRORS",
+  "FAILED",
+  "CANCELLED",
+];
 const POLLING_INTERVAL = 3000;
 
 interface PollingAnalysis {

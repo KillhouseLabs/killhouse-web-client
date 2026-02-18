@@ -21,6 +21,9 @@ export async function POST(request: Request) {
       status,
       static_analysis_report,
       penetration_test_report,
+      executive_summary,
+      step_results,
+      exploit_session_id,
       vulnerabilities_found,
       critical_count,
       high_count,
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
       "STATIC_ANALYSIS",
       "BUILDING",
       "PENETRATION_TEST",
+      "EXPLOIT_VERIFICATION",
       "COMPLETED",
       "COMPLETED_WITH_ERRORS",
       "FAILED",
@@ -110,6 +114,21 @@ export async function POST(request: Request) {
     }
     if (low_count !== undefined) {
       updateData.lowCount = low_count;
+    }
+
+    if (executive_summary) {
+      updateData.executiveSummary = executive_summary;
+    }
+
+    if (step_results) {
+      updateData.stepResults =
+        typeof step_results === "string"
+          ? step_results
+          : JSON.stringify(step_results);
+    }
+
+    if (exploit_session_id) {
+      updateData.exploitSessionId = exploit_session_id;
     }
 
     if (status === "COMPLETED") {
