@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const protectedRoutes = ["/dashboard", "/projects", "/mypage", "/subscription"];
 
 // Routes that should redirect to dashboard if already authenticated
-const authRoutes = ["/login", "/signup"];
+const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 export default auth((req) => {
   const { nextUrl } = req;
