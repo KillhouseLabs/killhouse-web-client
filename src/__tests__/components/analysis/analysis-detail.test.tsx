@@ -713,6 +713,169 @@ describe("AnalysisDetail", () => {
         expect(screen.queryByText("취약점 상세")).not.toBeInTheDocument();
       });
     });
+
+    it("GIVEN SAST finding의 수정 결과가 캐시됨 WHEN 모달을 닫고 같은 finding을 다시 클릭 THEN 코드 diff가 즉시 표시되어야 한다", async () => {
+      // GIVEN
+      const mockCodeFixResult = {
+        originalCode: "const secret = 'hardcoded';",
+        fixedCode: "const secret = process.env.SECRET;",
+        unifiedDiff:
+          "--- a/src/app.ts\n+++ b/src/app.ts\n-const secret = 'hardcoded';\n+const secret = process.env.SECRET;",
+        explanation: "환경변수를 사용하세요",
+        filePath: "src/app.ts",
+        startLine: 42,
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: mockCodeFixResult }),
+      });
+
+      const analysis = mockAnalysisWithVulnerabilities;
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // 첫 번째: finding 클릭 → 수정 제안 요청 → 결과 수신
+      const row = screen.getByText("src/app.ts").closest("tr");
+      fireEvent.click(row!);
+      await waitFor(() => {
+        expect(screen.getByText("코드 수정 제안 보기")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText("코드 수정 제안 보기"));
+      await waitFor(() => {
+        expect(screen.getByTestId("diff-viewer")).toBeInTheDocument();
+      });
+
+      // 모달 닫기
+      const closeButton = screen.getByLabelText("닫기");
+      fireEvent.click(closeButton);
+      await waitFor(() => {
+        expect(screen.queryByText("취약점 상세")).not.toBeInTheDocument();
+      });
+
+      // WHEN: 같은 finding 다시 클릭
+      const row2 = screen.getByText("src/app.ts").closest("tr");
+      fireEvent.click(row2!);
+
+      // THEN: diff가 즉시 표시됨 (API 재호출 없음)
+      await waitFor(() => {
+        expect(screen.getByTestId("diff-viewer")).toBeInTheDocument();
+      });
+      // fetch는 최초 1회만 호출되어야 함
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("GIVEN DAST finding의 수정 결과가 캐시됨 WHEN 모달을 닫고 같은 finding을 다시 클릭 THEN 수정 제안 텍스트가 즉시 표시되어야 한다", async () => {
+      // GIVEN
+      const mockFixSuggestion = {
+        explanation: "보안 헤더가 누락되어 있습니다",
+        suggestion: "X-Content-Type-Options 헤더를 추가하세요",
+        exampleCode: 'response.setHeader("X-Content-Type-Options", "nosniff");',
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: mockFixSuggestion }),
+      });
+
+      const analysis = mockAnalysisWithVulnerabilities;
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // 첫 번째: DAST finding 클릭 → 수정 제안 요청 → 결과 수신
+      const row = screen.getByText("https://example.com/api").closest("tr");
+      fireEvent.click(row!);
+      await waitFor(() => {
+        expect(screen.getByText("AI 수정 제안 받기")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText("AI 수정 제안 받기"));
+      await waitFor(() => {
+        expect(
+          screen.getByText("보안 헤더가 누락되어 있습니다")
+        ).toBeInTheDocument();
+      });
+
+      // 모달 닫기
+      const closeButton = screen.getByLabelText("닫기");
+      fireEvent.click(closeButton);
+      await waitFor(() => {
+        expect(screen.queryByText("취약점 상세")).not.toBeInTheDocument();
+      });
+
+      // WHEN: 같은 finding 다시 클릭
+      const row2 = screen.getByText("https://example.com/api").closest("tr");
+      fireEvent.click(row2!);
+
+      // THEN: 수정 제안이 즉시 표시됨 (API 재호출 없음)
+      await waitFor(() => {
+        expect(
+          screen.getByText("보안 헤더가 누락되어 있습니다")
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText("X-Content-Type-Options 헤더를 추가하세요")
+        ).toBeInTheDocument();
+      });
+      // fetch는 최초 1회만 호출되어야 함
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("GIVEN finding A의 수정 결과가 캐시됨 WHEN finding B를 클릭 THEN 코드 수정 제안 보기 버튼이 표시되어야 한다", async () => {
+      // GIVEN: finding A (src/app.ts) 수정 결과 캐시
+      const mockCodeFixResult = {
+        originalCode: "const secret = 'hardcoded';",
+        fixedCode: "const secret = process.env.SECRET;",
+        unifiedDiff: "--- a/src/app.ts\n+++ b/src/app.ts",
+        explanation: "환경변수를 사용하세요",
+        filePath: "src/app.ts",
+        startLine: 42,
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: mockCodeFixResult }),
+      });
+
+      const analysis = mockAnalysisWithVulnerabilities;
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // finding A 클릭 → 수정 제안 받기 → 닫기
+      const rowA = screen.getByText("src/app.ts").closest("tr");
+      fireEvent.click(rowA!);
+      await waitFor(() => {
+        expect(screen.getByText("코드 수정 제안 보기")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText("코드 수정 제안 보기"));
+      await waitFor(() => {
+        expect(screen.getByTestId("diff-viewer")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByLabelText("닫기"));
+      await waitFor(() => {
+        expect(screen.queryByText("취약점 상세")).not.toBeInTheDocument();
+      });
+
+      // WHEN: finding B (src/auth.ts) 클릭
+      const rowB = screen.getByText("src/auth.ts").closest("tr");
+      fireEvent.click(rowB!);
+
+      // THEN: 캐시 미적용 - 수정 제안 버튼이 표시됨
+      await waitFor(() => {
+        expect(screen.getByText("코드 수정 제안 보기")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("diff-viewer")).not.toBeInTheDocument();
+    });
   });
 
   describe("헤더 정보", () => {

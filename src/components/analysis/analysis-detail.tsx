@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
@@ -265,20 +265,39 @@ interface CodeFixResult {
   startLine: number;
 }
 
+type FixCacheValue = CodeFixResult | FixSuggestion;
+
+function findingCacheKey(f: Finding): string {
+  const path = f.file_path || f.file || f.url || "";
+  const line = f.line || 0;
+  const rule = f.title || f.rule_id || f.template_id || "";
+  return `${path}:${line}:${rule}`;
+}
+
 function FindingDetailModal({
   finding,
   analysisId,
   onClose,
+  cachedResult,
+  onCacheResult,
 }: {
   finding: Finding;
   analysisId?: string;
   onClose: () => void;
+  cachedResult?: FixCacheValue | null;
+  onCacheResult?: (result: FixCacheValue) => void;
 }) {
   const [fixSuggestion, setFixSuggestion] = useState<FixSuggestion | null>(
-    null
+    () =>
+      cachedResult && "suggestion" in cachedResult
+        ? (cachedResult as FixSuggestion)
+        : null
   );
   const [codeFixResult, setCodeFixResult] = useState<CodeFixResult | null>(
-    null
+    () =>
+      cachedResult && "unifiedDiff" in cachedResult
+        ? (cachedResult as CodeFixResult)
+        : null
   );
   const [isLoadingFix, setIsLoadingFix] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
@@ -305,6 +324,7 @@ function FindingDetailModal({
         const data = await response.json();
         if (data.success) {
           setCodeFixResult(data.data);
+          onCacheResult?.(data.data);
         } else {
           throw new Error(data.error || "알 수 없는 오류");
         }
@@ -321,6 +341,7 @@ function FindingDetailModal({
         const data = await response.json();
         if (data.success) {
           setFixSuggestion(data.data);
+          onCacheResult?.(data.data);
         } else {
           throw new Error(data.error || "알 수 없는 오류");
         }
@@ -539,6 +560,7 @@ function FindingsTable({
   analysisId?: string;
 }) {
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const fixCacheRef = useRef<Map<string, FixCacheValue>>(new Map());
 
   if (!report.findings || report.findings.length === 0) {
     return (
@@ -643,6 +665,12 @@ function FindingsTable({
           finding={selectedFinding}
           analysisId={analysisId}
           onClose={() => setSelectedFinding(null)}
+          cachedResult={fixCacheRef.current.get(
+            findingCacheKey(selectedFinding)
+          )}
+          onCacheResult={(result) => {
+            fixCacheRef.current.set(findingCacheKey(selectedFinding), result);
+          }}
         />
       )}
     </div>
