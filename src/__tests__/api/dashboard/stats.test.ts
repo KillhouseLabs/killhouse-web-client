@@ -241,7 +241,9 @@ describe("Dashboard Stats API", () => {
         cwe: "CWE-89",
         url: "https://example.com/api",
       };
-      expect(buildDedupKey(finding)).toBe("dast:CWE-89:https://example.com/api");
+      expect(buildDedupKey(finding)).toBe(
+        "dast:CWE-89:https://example.com/api"
+      );
     });
 
     it("GIVEN DAST finding without CWE WHEN buildDedupKey THEN dast:{title}:{url} 형식이어야 한다", () => {
@@ -514,10 +516,7 @@ describe("Dashboard Stats API", () => {
               }
             }
           }
-        } else if (
-          analysis.vulnerabilitiesFound ||
-          analysis.criticalCount
-        ) {
+        } else if (analysis.vulnerabilitiesFound || analysis.criticalCount) {
           totalVulnerabilities += analysis.vulnerabilitiesFound || 0;
           criticalVulnerabilities += analysis.criticalCount || 0;
         }
@@ -602,10 +601,7 @@ describe("Dashboard Stats API", () => {
               }
             }
           }
-        } else if (
-          analysis.vulnerabilitiesFound ||
-          analysis.criticalCount
-        ) {
+        } else if (analysis.vulnerabilitiesFound || analysis.criticalCount) {
           totalVulnerabilities += analysis.vulnerabilitiesFound || 0;
           criticalVulnerabilities += analysis.criticalCount || 0;
         }
