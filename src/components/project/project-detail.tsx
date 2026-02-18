@@ -463,7 +463,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                         ? "bg-green-500/10 text-green-600"
                         : analysis.status === "COMPLETED_WITH_ERRORS"
                           ? "bg-yellow-500/10 text-yellow-600"
-                          : analysis.status === "FAILED"
+                          : analysis.status === "FAILED" ||
+                              analysis.status === "CANCELLED"
                             ? "bg-red-500/10 text-red-600"
                             : "bg-yellow-500/10 text-yellow-600"
                     }`}
@@ -482,7 +483,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                       >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                    ) : analysis.status === "FAILED" ? (
+                    ) : analysis.status === "FAILED" ||
+                      analysis.status === "CANCELLED" ? (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"

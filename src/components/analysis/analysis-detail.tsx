@@ -786,7 +786,8 @@ export function AnalysisDetail({
                 className={`rounded-full px-2 py-1 text-xs font-medium ${
                   currentStatus === "COMPLETED"
                     ? "bg-green-500/10 text-green-600"
-                    : currentStatus === "FAILED"
+                    : currentStatus === "FAILED" ||
+                        currentStatus === "CANCELLED"
                       ? "bg-red-500/10 text-red-600"
                       : "bg-yellow-500/10 text-yellow-600"
                 }`}
