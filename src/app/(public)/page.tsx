@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Footer } from "@/components/layout/footer";
 
 export default function HomePage() {
   return (
@@ -171,12 +172,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Killhouse. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

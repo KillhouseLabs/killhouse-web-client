@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Footer } from "@/components/layout/footer";
 
 export const metadata = {
   title: "개인정보처리방침 - Killhouse",
@@ -203,20 +204,7 @@ export default function PrivacyPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <div className="mb-4 flex justify-center gap-6">
-            <Link href="/terms" className="hover:text-foreground">
-              이용약관
-            </Link>
-            <Link href="/privacy" className="hover:text-foreground">
-              개인정보처리방침
-            </Link>
-          </div>
-          <p>&copy; 2024 Killhouse. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

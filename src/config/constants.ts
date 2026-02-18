@@ -121,3 +121,26 @@ export const SEVERITY = {
 } as const;
 
 export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
+
+// Business information (통신판매업 필수 표시사항)
+export const BUSINESS_INFO = {
+  companyName: "킬하우스",
+  representative: "홍길동",
+  businessNumber: "123-45-67890",
+  ecommerceRegistration: "제2025-서울강남-00000호",
+  address: "서울특별시 강남구 테헤란로 123, 4층",
+  email: "support@killhouse.com",
+  phone: "02-1234-5678",
+} as const;
+
+// Refund policy
+export const REFUND_POLICY = {
+  withdrawalPeriodDays: 7,
+  roundingUnit: 100,
+} as const;
+
+// Legal page routes
+export const LEGAL_ROUTES = {
+  TERMS: "/terms",
+  PRIVACY: "/privacy",
+} as const;

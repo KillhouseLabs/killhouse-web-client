@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { PLANS } from "@/config/constants";
+import { calculateRefundAmount } from "@/domains/payment/usecase/refund.usecase";
 
 const PORTONE_REST_API_KEY = process.env.PORTONE_REST_API_KEY;
 const PORTONE_REST_API_SECRET = process.env.PORTONE_REST_API_SECRET;
@@ -24,44 +25,6 @@ async function getAccessToken(): Promise<string> {
   }
 
   return data.response.access_token;
-}
-
-// 사용일수 기반 부분 환불 금액 계산
-function calculateProRataRefund(
-  originalAmount: number,
-  periodStart: Date,
-  periodEnd: Date
-): {
-  refundAmount: number;
-  usedDays: number;
-  totalDays: number;
-  usageRate: number;
-} {
-  const now = new Date();
-  const start = new Date(periodStart);
-  const end = new Date(periodEnd);
-
-  // 전체 구독 기간 (일)
-  const totalDays = Math.ceil(
-    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  // 사용한 기간 (일)
-  const usedDays = Math.ceil(
-    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  // 남은 기간 (일)
-  const remainingDays = Math.max(0, totalDays - usedDays);
-
-  // 사용 비율
-  const usageRate = usedDays / totalDays;
-
-  // 환불 금액 (남은 기간 비율로 계산, 100원 단위 절사)
-  const refundAmount =
-    Math.floor((originalAmount * remainingDays) / totalDays / 100) * 100;
-
-  return { refundAmount, usedDays, totalDays, usageRate };
 }
 
 export async function POST(request: NextRequest) {
@@ -120,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. 환불 금액 계산
+    // 3. 환불 금액 계산 (7일 청약철회 포함)
     let refundAmount: number;
     let refundInfo: {
       usedDays: number;
@@ -129,13 +92,13 @@ export async function POST(request: NextRequest) {
     } | null = null;
 
     if (fullRefund) {
-      // 전액 환불
+      // 명시적 전액 환불 요청
       refundAmount = payment.amount;
     } else if (subscription.currentPeriodEnd) {
-      // 일수 기반 부분 환불
-      const calculated = calculateProRataRefund(
+      // paidAt 기준 7일 청약철회 + 일할계산
+      const calculated = calculateRefundAmount(
         payment.amount,
-        subscription.currentPeriodStart,
+        payment.paidAt ?? subscription.currentPeriodStart,
         subscription.currentPeriodEnd
       );
       refundAmount = calculated.refundAmount;
@@ -296,10 +259,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 3. 환불 예상 금액 계산
-    const calculated = calculateProRataRefund(
+    // 3. 환불 예상 금액 계산 (7일 청약철회 포함)
+    const calculated = calculateRefundAmount(
       payment.amount,
-      subscription.currentPeriodStart,
+      payment.paidAt ?? subscription.currentPeriodStart,
       subscription.currentPeriodEnd
     );
 
