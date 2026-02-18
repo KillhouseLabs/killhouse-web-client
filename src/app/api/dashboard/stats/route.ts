@@ -1,46 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-
-interface Finding {
-  type?: string;
-  severity: string;
-  title?: string;
-  file_path?: string;
-  line?: number;
-  url?: string;
-  cwe?: string;
-}
-
-interface Report {
-  tool: string;
-  findings: Finding[];
-}
-
-function buildDedupKey(finding: Finding): string {
-  const isSast = finding.type === "sast";
-  const identifier = finding.cwe || finding.title || "unknown";
-
-  if (isSast) {
-    return `sast:${identifier}:${finding.file_path || ""}:${finding.line ?? ""}`;
-  }
-  return `dast:${identifier}:${finding.url || ""}`;
-}
-
-function parseReportFindings(reportJson: string | null): Finding[] {
-  if (!reportJson) return [];
-  try {
-    const reports: Report[] = JSON.parse(reportJson);
-    if (!Array.isArray(reports)) return [];
-    return reports.flatMap((r) => r.findings || []);
-  } catch {
-    return [];
-  }
-}
-
-function isCriticalSeverity(severity: string): boolean {
-  return severity.toLowerCase() === "critical";
-}
+import {
+  buildDedupKey,
+  parseReportFindings,
+  isCriticalSeverity,
+} from "@/lib/vulnerability-dedup";
 
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET() {
@@ -171,6 +136,3 @@ export async function GET() {
     );
   }
 }
-
-export { buildDedupKey, parseReportFindings, isCriticalSeverity };
-export type { Finding, Report };

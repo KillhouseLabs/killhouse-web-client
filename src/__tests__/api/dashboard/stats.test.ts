@@ -27,8 +27,8 @@ import {
   buildDedupKey,
   parseReportFindings,
   isCriticalSeverity,
-} from "@/app/api/dashboard/stats/route";
-import type { Finding } from "@/app/api/dashboard/stats/route";
+} from "@/lib/vulnerability-dedup";
+import type { Finding } from "@/lib/vulnerability-dedup";
 
 describe("Dashboard Stats API", () => {
   beforeEach(() => {
