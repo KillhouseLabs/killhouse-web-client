@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LocaleToggle } from "@/components/theme/locale-toggle";
+import { LocaleProvider, useLocale } from "@/lib/i18n/locale-context";
 import { APP_NAME, BUSINESS_INFO, LEGAL_ROUTES } from "@/config/constants";
 
 function ShieldIcon({ className }: { className?: string }) {
@@ -20,6 +24,8 @@ function ShieldIcon({ className }: { className?: string }) {
 }
 
 function PublicNav() {
+  const { t } = useLocale();
+
   return (
     <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/60 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -36,27 +42,28 @@ function PublicNav() {
             href="/pricing"
             className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            Pricing
+            {t.nav.pricing}
           </Link>
           <Link
             href="https://docs.killhouse.io"
             className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            Docs
+            {t.nav.docs}
           </Link>
           <div className="ml-2 h-4 w-px bg-border" />
+          <LocaleToggle />
           <ThemeToggle />
           <Link
             href="/login"
             className="ml-1 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            Log in
+            {t.nav.login}
           </Link>
           <Link
             href="/signup"
             className="ml-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Get Started
+            {t.nav.getStarted}
           </Link>
         </nav>
       </div>
@@ -65,7 +72,9 @@ function PublicNav() {
 }
 
 function PublicFooter() {
+  const { t } = useLocale();
   const currentYear = new Date().getFullYear();
+  const taglineLines = t.footer.tagline.split("\n");
 
   return (
     <footer className="border-t border-border/40">
@@ -80,22 +89,22 @@ function PublicFooter() {
               <span className="text-sm font-semibold">Killhouse</span>
             </Link>
             <p className="mt-3 text-sm text-muted-foreground">
-              AI-powered security analysis
+              {taglineLines[0]}
               <br />
-              for modern development teams.
+              {taglineLines[1]}
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h4 className="mb-3 text-sm font-medium">Product</h4>
+            <h4 className="mb-3 text-sm font-medium">{t.footer.product}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
                   href="/pricing"
                   className="transition-colors hover:text-foreground"
                 >
-                  Pricing
+                  {t.nav.pricing}
                 </Link>
               </li>
               <li>
@@ -103,7 +112,7 @@ function PublicFooter() {
                   href="https://docs.killhouse.io"
                   className="transition-colors hover:text-foreground"
                 >
-                  Documentation
+                  {t.footer.documentation}
                 </Link>
               </li>
               <li>
@@ -111,7 +120,7 @@ function PublicFooter() {
                   href="/login"
                   className="transition-colors hover:text-foreground"
                 >
-                  Dashboard
+                  {t.footer.dashboard}
                 </Link>
               </li>
             </ul>
@@ -119,14 +128,14 @@ function PublicFooter() {
 
           {/* Company */}
           <div>
-            <h4 className="mb-3 text-sm font-medium">Company</h4>
+            <h4 className="mb-3 text-sm font-medium">{t.footer.company}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
                   href={`mailto:${BUSINESS_INFO.email}`}
                   className="transition-colors hover:text-foreground"
                 >
-                  Contact
+                  {t.footer.contact}
                 </Link>
               </li>
               <li>
@@ -142,14 +151,14 @@ function PublicFooter() {
 
           {/* Legal */}
           <div>
-            <h4 className="mb-3 text-sm font-medium">Legal</h4>
+            <h4 className="mb-3 text-sm font-medium">{t.footer.legal}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
                   href={LEGAL_ROUTES.PRIVACY}
                   className="transition-colors hover:text-foreground"
                 >
-                  Privacy Policy
+                  {t.footer.privacy}
                 </Link>
               </li>
               <li>
@@ -157,7 +166,7 @@ function PublicFooter() {
                   href={LEGAL_ROUTES.TERMS}
                   className="transition-colors hover:text-foreground"
                 >
-                  Terms of Service
+                  {t.footer.terms}
                 </Link>
               </li>
             </ul>
@@ -181,14 +190,14 @@ function PublicFooter() {
 
         <div className="mt-6 flex items-center justify-between border-t border-border/40 pt-6 text-sm text-muted-foreground">
           <p>
-            &copy; {currentYear} {APP_NAME}. All rights reserved.
+            &copy; {currentYear} {APP_NAME}. {t.footer.allRights}
           </p>
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            <span className="text-xs">All systems operational</span>
+            <span className="text-xs">{t.footer.systemStatus}</span>
           </div>
         </div>
       </div>
@@ -202,10 +211,12 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <PublicNav />
-      <main className="flex-1 pt-16">{children}</main>
-      <PublicFooter />
-    </div>
+    <LocaleProvider>
+      <div className="flex min-h-screen flex-col">
+        <PublicNav />
+        <main className="flex-1 pt-16">{children}</main>
+        <PublicFooter />
+      </div>
+    </LocaleProvider>
   );
 }
