@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/database/prisma";
 import { serverEnv } from "@/config/env";
+import {
+  canTransition,
+  mapStatusToStep,
+  type AnalysisStatus,
+} from "@/domains/analysis/model/analysis-state-machine";
+import { appendLog } from "@/domains/analysis/model/analysis-log";
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +36,8 @@ export async function POST(request: Request) {
       medium_count,
       low_count,
       error,
+      log_message,
+      log_level,
     } = body;
 
     if (!analysis_id) {
@@ -52,38 +60,56 @@ export async function POST(request: Request) {
     }
 
     // Build update data
-    const VALID_STATUSES = [
-      "CLONING",
-      "STATIC_ANALYSIS",
-      "BUILDING",
-      "PENETRATION_TEST",
-      "EXPLOIT_VERIFICATION",
-      "COMPLETED",
-      "COMPLETED_WITH_ERRORS",
-      "FAILED",
-    ];
-    const TERMINAL_STATUSES = [
-      "COMPLETED",
-      "COMPLETED_WITH_ERRORS",
-      "FAILED",
-      "CANCELLED",
-    ];
+    const currentStatus = analysis.status as AnalysisStatus;
+    let resolvedStatus = currentStatus;
+    let updatedLogs = analysis.logs;
 
-    const isCurrentTerminal = TERMINAL_STATUSES.includes(analysis.status);
-    const isNewStatusValid = VALID_STATUSES.includes(status);
-    const isNewTerminal = TERMINAL_STATUSES.includes(status);
+    // Determine the resolved status using the state machine
+    if (status) {
+      const newStatus = status as AnalysisStatus;
+      if (canTransition(currentStatus, newStatus)) {
+        resolvedStatus = newStatus;
 
-    // Allow intermediate status updates only if current status is not terminal.
-    // Always allow COMPLETED/FAILED to override non-terminal states.
-    const resolvedStatus =
-      isNewTerminal && isNewStatusValid
-        ? status
-        : !isCurrentTerminal && isNewStatusValid
-          ? status
-          : analysis.status;
+        // Auto-generate status transition log
+        const timestamp = new Date().toISOString();
+        const step = mapStatusToStep(resolvedStatus);
+        updatedLogs = appendLog(updatedLogs, {
+          timestamp,
+          step,
+          level: "info",
+          message: `상태 변경: ${currentStatus} → ${resolvedStatus}`,
+        });
+      }
+    }
+
+    // Append custom log message if provided
+    if (log_message) {
+      const timestamp = new Date().toISOString();
+      const step = mapStatusToStep(resolvedStatus);
+      const level = log_level || "info";
+      updatedLogs = appendLog(updatedLogs, {
+        timestamp,
+        step,
+        level: level as "info" | "warn" | "error" | "success",
+        message: log_message,
+      });
+    }
+
+    // Append error log if error is provided
+    if (error) {
+      const timestamp = new Date().toISOString();
+      const step = mapStatusToStep(resolvedStatus);
+      updatedLogs = appendLog(updatedLogs, {
+        timestamp,
+        step,
+        level: "error",
+        message: error,
+      });
+    }
 
     const updateData: Record<string, unknown> = {
       status: resolvedStatus,
+      logs: updatedLogs,
     };
 
     if (static_analysis_report) {
