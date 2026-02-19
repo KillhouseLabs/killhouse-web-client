@@ -14,11 +14,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const searchParams = request.nextUrl.searchParams;
+    const accountId = searchParams.get("accountId");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const perPage = Math.min(
+      parseInt(searchParams.get("per_page") || "30", 10),
+      100
+    );
+    const search = searchParams.get("search") || undefined;
+
     const account = await prisma.account.findFirst({
-      where: {
-        userId: session.user.id,
-        provider: "gitlab",
-      },
+      where: accountId
+        ? {
+            id: accountId,
+            userId: session.user.id,
+            provider: "gitlab",
+          }
+        : {
+            userId: session.user.id,
+            provider: "gitlab",
+          },
       select: {
         access_token: true,
       },
@@ -28,20 +43,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "GitLab 연동이 필요합니다",
-          code: "GITLAB_NOT_CONNECTED",
+          error: accountId
+            ? "GitLab 계정을 찾을 수 없거나 접근 권한이 없습니다"
+            : "GitLab 연동이 필요합니다",
+          code: accountId ? "GITLAB_ACCOUNT_NOT_FOUND" : "GITLAB_NOT_CONNECTED",
         },
-        { status: 400 }
+        { status: accountId ? 403 : 400 }
       );
     }
-
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const perPage = Math.min(
-      parseInt(searchParams.get("per_page") || "30", 10),
-      100
-    );
-    const search = searchParams.get("search") || undefined;
 
     const { projects, hasNext } = await getUserProjects(account.access_token, {
       page,

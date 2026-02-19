@@ -178,24 +178,7 @@ export function DashboardSidebar() {
 
 export function DashboardHeader() {
   const handleLogout = () => {
-    // Clear all next-auth related cookies
-    const cookies = document.cookie.split(";");
-
-    for (const cookie of cookies) {
-      const cookieName = cookie.split("=")[0].trim();
-
-      // Clear cookies that start with next-auth or __Secure-next-auth
-      if (
-        cookieName.startsWith("next-auth") ||
-        cookieName.startsWith("__Secure-next-auth")
-      ) {
-        // Set cookie to expire in the past
-        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      }
-    }
-
-    // Sign out and redirect to login page
-    signOut({ callbackUrl: "/login" });
+    signOut({ callbackUrl: "/" });
   };
 
   return (

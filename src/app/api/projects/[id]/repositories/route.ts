@@ -111,6 +111,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       role,
       dockerfileContent,
       composeContent,
+      accountId,
     } = validationResult.data;
 
     // Parse repo URL to extract owner
@@ -161,6 +162,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         role,
         dockerfileContent: dockerfileContent || null,
         composeContent: composeContent || null,
+        accountId: accountId || null,
         projectId,
       },
     });

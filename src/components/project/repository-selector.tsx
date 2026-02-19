@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { signIn } from "next-auth/react";
+import { navigateTo } from "@/lib/navigation";
 
 interface Repository {
   id: number;
@@ -20,6 +20,13 @@ interface Branch {
   protected: boolean;
 }
 
+interface OAuthAccount {
+  id: string;
+  provider: string;
+  providerAccountId: string;
+  username?: string;
+}
+
 type Provider = "github" | "gitlab";
 
 interface RepositorySelectorProps {
@@ -31,10 +38,11 @@ interface RepositorySelectorProps {
     owner: string;
     name: string;
     defaultBranch: string;
+    accountId?: string;
   }) => void;
 }
 
-type Step = "repositories" | "branches";
+type Step = "accounts" | "repositories" | "branches";
 
 const PROVIDER_CONFIG = {
   github: {
@@ -63,7 +71,11 @@ export function RepositorySelector({
 }: RepositorySelectorProps) {
   const config = PROVIDER_CONFIG[provider];
 
-  const [step, setStep] = useState<Step>("repositories");
+  const [step, setStep] = useState<Step>("accounts");
+  const [accounts, setAccounts] = useState<OAuthAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<OAuthAccount | null>(
+    null
+  );
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
@@ -74,26 +86,48 @@ export function RepositorySelector({
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
 
-  const checkConnection = useCallback(async () => {
+  const fetchAccounts = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
     try {
-      const response = await fetch("/api/integrations/status");
+      const response = await fetch("/api/integrations/accounts");
       const data = await response.json();
-      if (data.success) {
-        setIsConnected(data.data[provider].connected);
+
+      if (!data.success) {
+        throw new Error(data.error);
       }
+
+      const providerAccounts = data.data.filter(
+        (a: OAuthAccount) => a.provider === provider
+      );
+
+      if (providerAccounts.length === 0) {
+        setIsConnected(false);
+        setAccounts([]);
+        return;
+      }
+
+      setIsConnected(true);
+      setAccounts(providerAccounts);
+      setStep("accounts");
     } catch {
-      setError("연동 상태를 확인할 수 없습니다");
+      setError("계정 정보를 불러올 수 없습니다");
+    } finally {
+      setIsLoading(false);
     }
   }, [provider]);
 
   const fetchRepositories = useCallback(
     async (pageNum: number, searchQuery: string = "") => {
+      if (!selectedAccount) return;
+
       setIsLoading(true);
       setError("");
       try {
         const params = new URLSearchParams({
           page: pageNum.toString(),
           per_page: "20",
+          accountId: selectedAccount.id,
         });
         if (searchQuery) {
           params.append("search", searchQuery);
@@ -132,7 +166,13 @@ export function RepositorySelector({
         setIsLoading(false);
       }
     },
-    [provider, config.notConnectedCode, config.tokenExpiredCode, config.name]
+    [
+      provider,
+      selectedAccount,
+      config.notConnectedCode,
+      config.tokenExpiredCode,
+      config.name,
+    ]
   );
 
   const fetchBranches = useCallback(
@@ -169,19 +209,21 @@ export function RepositorySelector({
 
   useEffect(() => {
     if (isOpen) {
-      checkConnection();
+      fetchAccounts();
     }
-  }, [isOpen, checkConnection]);
+  }, [isOpen, fetchAccounts]);
 
   useEffect(() => {
-    if (isOpen && isConnected === true) {
+    if (isOpen && selectedAccount && step === "repositories") {
       fetchRepositories(1);
     }
-  }, [isOpen, isConnected, fetchRepositories]);
+  }, [isOpen, selectedAccount, step, fetchRepositories]);
 
   useEffect(() => {
     if (!isOpen) {
-      setStep("repositories");
+      setStep("accounts");
+      setAccounts([]);
+      setSelectedAccount(null);
       setRepositories([]);
       setBranches([]);
       setSelectedRepo(null);
@@ -206,6 +248,14 @@ export function RepositorySelector({
     fetchRepositories(page + 1, search);
   };
 
+  const handleAccountSelect = (account: OAuthAccount) => {
+    setSelectedAccount(account);
+    setRepositories([]);
+    setSearch("");
+    setPage(1);
+    setStep("repositories");
+  };
+
   const handleRepoSelect = (repo: Repository) => {
     setSelectedRepo(repo);
     fetchBranches(repo);
@@ -222,19 +272,37 @@ export function RepositorySelector({
       owner,
       name,
       defaultBranch: branch.name,
+      accountId: selectedAccount?.id,
     });
     onClose();
   };
 
   const handleConnect = () => {
-    signIn(provider, { redirectTo: "/projects/new" });
+    const returnUrl = encodeURIComponent(window.location.href);
+    navigateTo(`/api/integrations/link/${provider}?returnUrl=${returnUrl}`);
   };
 
   const handleBack = () => {
-    setStep("repositories");
-    setSelectedRepo(null);
-    setBranches([]);
+    if (step === "branches") {
+      setStep("repositories");
+      setSelectedRepo(null);
+      setBranches([]);
+    } else if (step === "repositories") {
+      setStep("accounts");
+      setSelectedAccount(null);
+      setRepositories([]);
+      setSearch("");
+      setPage(1);
+    }
   };
+
+  const getHeaderTitle = (): string => {
+    if (step === "accounts") return "계정 선택";
+    if (step === "branches") return "브랜치 선택";
+    return `${config.name} 저장소 선택`;
+  };
+
+  const showBackButton = step === "branches" || step === "repositories";
 
   if (!isOpen) return null;
 
@@ -244,10 +312,11 @@ export function RepositorySelector({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            {step === "branches" && (
+            {showBackButton && (
               <button
                 onClick={handleBack}
                 className="rounded p-1 hover:bg-accent"
+                aria-label="뒤로"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -270,11 +339,7 @@ export function RepositorySelector({
             >
               {config.icon}
             </svg>
-            <h3 className="font-semibold">
-              {step === "repositories"
-                ? `${config.name} 저장소 선택`
-                : "브랜치 선택"}
-            </h3>
+            <h3 className="font-semibold">{getHeaderTitle()}</h3>
           </div>
           <button onClick={onClose} className="rounded p-1 hover:bg-accent">
             <svg
@@ -301,7 +366,7 @@ export function RepositorySelector({
             </div>
           )}
 
-          {isConnected === null && (
+          {isConnected === null && isLoading && (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
@@ -335,6 +400,33 @@ export function RepositorySelector({
             </div>
           )}
 
+          {/* Account Selection Step */}
+          {isConnected === true && step === "accounts" && (
+            <div className="space-y-2">
+              {accounts.map((account) => (
+                <button
+                  key={account.id}
+                  onClick={() => handleAccountSelect(account)}
+                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-5 w-5 text-muted-foreground"
+                    >
+                      {config.icon}
+                    </svg>
+                    <span className="font-medium">
+                      {account.username || account.providerAccountId}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Repository Selection Step */}
           {isConnected === true && step === "repositories" && (
             <>
               {/* Search */}
@@ -413,6 +505,7 @@ export function RepositorySelector({
             </>
           )}
 
+          {/* Branch Selection Step */}
           {isConnected === true && step === "branches" && selectedRepo && (
             <>
               <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3">

@@ -12,6 +12,7 @@ interface RepositoryItem {
   url: string;
   owner: string;
   defaultBranch: string;
+  accountId?: string;
   isPrimary: boolean;
   role?: string;
 }
@@ -87,6 +88,7 @@ export function CreateProjectForm() {
     owner: string;
     name: string;
     defaultBranch: string;
+    accountId?: string;
   }) => {
     // Check for duplicate
     if (repositories.some((r) => r.url === repo.url)) {
@@ -100,6 +102,7 @@ export function CreateProjectForm() {
       url: repo.url,
       owner: repo.owner,
       defaultBranch: repo.defaultBranch,
+      accountId: repo.accountId,
       isPrimary: repositories.length === 0, // First repo is primary by default
     };
 

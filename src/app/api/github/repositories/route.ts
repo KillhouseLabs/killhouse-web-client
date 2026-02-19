@@ -17,28 +17,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: session.user.id,
-        provider: "github",
-      },
-      select: {
-        access_token: true,
-      },
-    });
-
-    if (!account?.access_token) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "GitHub 연동이 필요합니다",
-          code: "GITHUB_NOT_CONNECTED",
-        },
-        { status: 400 }
-      );
-    }
-
     const searchParams = request.nextUrl.searchParams;
+    const accountId = searchParams.get("accountId");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const perPage = Math.min(
       parseInt(searchParams.get("per_page") || "30", 10),
@@ -51,6 +31,35 @@ export async function GET(request: NextRequest) {
         | "pushed"
         | "full_name") || "updated";
     const search = searchParams.get("search") || "";
+
+    const account = await prisma.account.findFirst({
+      where: accountId
+        ? {
+            id: accountId,
+            userId: session.user.id,
+            provider: "github",
+          }
+        : {
+            userId: session.user.id,
+            provider: "github",
+          },
+      select: {
+        access_token: true,
+      },
+    });
+
+    if (!account?.access_token) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: accountId
+            ? "GitHub 계정을 찾을 수 없거나 접근 권한이 없습니다"
+            : "GitHub 연동이 필요합니다",
+          code: accountId ? "GITHUB_ACCOUNT_NOT_FOUND" : "GITHUB_NOT_CONNECTED",
+        },
+        { status: accountId ? 403 : 400 }
+      );
+    }
 
     const client = createGitHubClient(account.access_token);
     const { repositories, hasNext } = await getUserRepositories(client, {

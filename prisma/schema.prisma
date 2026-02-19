@@ -28,7 +28,7 @@ model User {
 }
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String       @id @default(cuid())
   userId            String
   type              String
   provider          String
@@ -40,7 +40,8 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositories      Repository[]
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -82,21 +83,23 @@ model Project {
 }
 
 model Repository {
-  id            String     @id @default(cuid())
-  provider      String
-  url           String?
-  owner         String?
-  name          String
-  defaultBranch String     @default("main")
-  isPrimary     Boolean    @default(false)
+  id                String     @id @default(cuid())
+  provider          String
+  url               String?
+  owner             String?
+  name              String
+  defaultBranch     String     @default("main")
+  isPrimary         Boolean    @default(false)
   role              String?
   dockerfileContent String?
   composeContent    String?
   projectId         String
+  accountId         String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
-  analyses      Analysis[]
-  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analyses          Analysis[]
+  project           Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account           Account?   @relation(fields: [accountId], references: [id])
 
   @@unique([projectId, url])
   @@index([projectId])
