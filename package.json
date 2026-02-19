@@ -84,6 +84,9 @@
     "ts-jest": "^29.4.6",
     "typescript": "^5.4.0"
   },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "prettier --write",
