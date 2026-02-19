@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 // PortOne V1 (아임포트) 설정
 const IMP_CODE = process.env.NEXT_PUBLIC_IMP_CODE;
 const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+const PG_MID = process.env.NEXT_PUBLIC_PG_MID || "html5_inicis.INIpayTest";
+const PAYMENT_MODE = process.env.NEXT_PUBLIC_PAYMENT_MODE;
 
-// 테스트 모드: IMP_CODE가 설정되지 않으면 테스트 모드 사용
-const USE_TEST_MODE = !IMP_CODE;
+// Feature flag: IMP_CODE가 설정되어 있으면 실제 모드, 아니면 PAYMENT_MODE로 판단
+const USE_TEST_MODE = IMP_CODE ? false : PAYMENT_MODE !== "real";
 
 interface CheckoutButtonProps {
   planId: string;
@@ -220,7 +222,7 @@ export function CheckoutButton({
       window.IMP.request_pay(
         {
           channelKey: CHANNEL_KEY!, // 포트원 콘솔에서 생성된 채널 키
-          pg: "html5_inicis.INIpayTest", // KG이니시스 일반결제 테스트 MID
+          pg: PG_MID,
           pay_method: "card",
           merchant_uid: checkoutData.orderId,
           name: checkoutData.orderName,

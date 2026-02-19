@@ -55,9 +55,8 @@ export const API_ROUTES = {
 } as const;
 
 // Subscription prices (in KRW)
-// Set to 1 for testing, change to actual prices in production
 export const SUBSCRIPTION_PRICES = {
-  PRO: 1, // 테스트용 1원 (프로덕션: 29000)
+  PRO: Number(process.env.NEXT_PUBLIC_PRO_PRICE) || 29000,
   ENTERPRISE: -1, // contact sales
 } as const;
 
