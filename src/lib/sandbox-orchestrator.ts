@@ -24,6 +24,9 @@ interface RepoInput {
   url?: string | null;
   dockerfileContent?: string | null;
   composeContent?: string | null;
+  dockerfilePath?: string | null;
+  buildContext?: string | null;
+  targetService?: string | null;
 }
 
 async function callSandboxWithTimeout(
@@ -118,6 +121,9 @@ export async function orchestrateSandboxAndDast(
     branch,
     dockerfile_content: repository.dockerfileContent || undefined,
     compose_content: repository.composeContent || undefined,
+    dockerfile_path: repository.dockerfilePath || undefined,
+    build_context: repository.buildContext || undefined,
+    target_service: repository.targetService || undefined,
     container_memory_limit: resourceLimits.containerMemoryLimit,
     container_cpu_limit: resourceLimits.containerCpuLimit,
     container_pids_limit: resourceLimits.containerPidsLimit,

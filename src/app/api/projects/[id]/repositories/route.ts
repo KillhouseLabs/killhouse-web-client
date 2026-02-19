@@ -111,6 +111,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       role,
       dockerfileContent,
       composeContent,
+      dockerfilePath,
+      buildContext,
+      targetService,
       accountId,
     } = validationResult.data;
 
@@ -162,6 +165,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         role,
         dockerfileContent: dockerfileContent || null,
         composeContent: composeContent || null,
+        dockerfilePath: dockerfilePath || null,
+        buildContext: buildContext || null,
+        targetService: targetService || null,
         accountId: accountId || null,
         projectId,
       },

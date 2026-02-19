@@ -44,6 +44,9 @@ export function AddRepositoryModal({
   const [manualDefaultBranch, setManualDefaultBranch] = useState("main");
   const [dockerfileContent, setDockerfileContent] = useState("");
   const [composeContent, setComposeContent] = useState("");
+  const [dockerfilePath, setDockerfilePath] = useState("");
+  const [buildContext, setBuildContext] = useState("");
+  const [targetService, setTargetService] = useState("");
 
   const resetForm = () => {
     setProvider(null);
@@ -55,6 +58,9 @@ export function AddRepositoryModal({
     setManualDefaultBranch("main");
     setDockerfileContent("");
     setComposeContent("");
+    setDockerfilePath("");
+    setBuildContext("");
+    setTargetService("");
   };
 
   const handleClose = () => {
@@ -123,6 +129,9 @@ export function AddRepositoryModal({
               isPrimary,
               dockerfileContent: dockerfileContent || undefined,
               composeContent: composeContent || undefined,
+              dockerfilePath: dockerfilePath || undefined,
+              buildContext: buildContext || undefined,
+              targetService: targetService || undefined,
             }
           : {
               provider: pendingRepo!.provider,
@@ -134,6 +143,9 @@ export function AddRepositoryModal({
               isPrimary,
               dockerfileContent: dockerfileContent || undefined,
               composeContent: composeContent || undefined,
+              dockerfilePath: dockerfilePath || undefined,
+              buildContext: buildContext || undefined,
+              targetService: targetService || undefined,
             };
 
       const response = await fetch(`/api/projects/${projectId}/repositories`, {
@@ -374,6 +386,69 @@ export function AddRepositoryModal({
           {/* Additional Options (Role, Primary, Dockerfile, Compose) */}
           {provider && (pendingRepo || provider === "MANUAL") && (
             <div className="mt-6 space-y-4">
+              <details className="rounded-lg border border-border">
+                <summary className="cursor-pointer bg-muted/30 px-4 py-2 text-sm font-medium">
+                  빌드 설정 (선택)
+                </summary>
+                <div className="space-y-4 p-4">
+                  <div>
+                    <label
+                      htmlFor="dockerfile-path"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      Dockerfile 경로
+                    </label>
+                    <input
+                      id="dockerfile-path"
+                      type="text"
+                      value={dockerfilePath}
+                      onChange={(e) => setDockerfilePath(e.target.value)}
+                      placeholder="services/api/Dockerfile"
+                      className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="build-context"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      빌드 컨텍스트
+                    </label>
+                    <input
+                      id="build-context"
+                      type="text"
+                      value={buildContext}
+                      onChange={(e) => setBuildContext(e.target.value)}
+                      placeholder="services/api/"
+                      className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="target-service"
+                      className="mb-1 block text-sm font-medium"
+                    >
+                      대상 서비스
+                    </label>
+                    <input
+                      id="target-service"
+                      type="text"
+                      value={targetService}
+                      onChange={(e) => setTargetService(e.target.value)}
+                      placeholder="docker-compose 서비스명"
+                      className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    멀티 모듈 프로젝트는 경로를 직접 지정하세요. 미입력 시 자동
+                    탐지됩니다.
+                  </p>
+                </div>
+              </details>
+
               <div>
                 <label
                   htmlFor="dockerfile-content"
