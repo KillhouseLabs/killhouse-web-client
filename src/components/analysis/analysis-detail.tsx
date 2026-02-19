@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import ReactMarkdown from "react-markdown";
 import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
 import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
@@ -110,14 +111,20 @@ function parseReport(raw: string | null): Report | null {
 
 function hasAnySuccessfulScan(
   sastReport: Report | null,
-  dastReport: Report | null
+  dastReport: Report | null,
+  analysis?: Analysis
 ): boolean {
   const sastSuccess = sastReport?.step_result?.status === "success";
   const dastSuccess = dastReport?.step_result?.status === "success";
   // If no step_result info, assume scan ran (backward compat with old data)
   const sastRan = !sastReport?.step_result || sastSuccess;
   const dastRan = !dastReport?.step_result || dastSuccess;
-  return (sastReport !== null && sastRan) || (dastReport !== null && dastRan);
+  const hasExploitSession = !!analysis?.exploitSessionId;
+  return (
+    (sastReport !== null && sastRan) ||
+    (dastReport !== null && dastRan) ||
+    hasExploitSession
+  );
 }
 
 function normalizeSeverity(severity: string): string {
@@ -282,7 +289,14 @@ function ExecutiveSummaryCard({ summary }: { summary: string }) {
         </svg>
         <h3 className="text-base font-semibold text-indigo-700">경영진 요약</h3>
       </div>
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+      <div
+        className="prose prose-sm prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/90
+          prose-li:text-foreground/90 prose-ul:my-1
+          prose-ol:my-1 prose-p:my-1
+          max-w-none text-sm leading-relaxed"
+      >
+        <ReactMarkdown>{summary}</ReactMarkdown>
+      </div>
     </div>
   );
 }
@@ -1318,7 +1332,11 @@ export function AnalysisDetail({
 
           {/* Step status banners for failed/skipped steps */}
           {sastReport?.step_result &&
-            sastReport.step_result.status !== "success" && (
+            sastReport.step_result.status !== "success" &&
+            !(
+              sastReport.step_result.status === "skipped" &&
+              analysis.exploitSessionId
+            ) && (
               <StepStatusBanner
                 label="SAST 정적 분석"
                 stepResult={sastReport.step_result}
@@ -1333,7 +1351,7 @@ export function AnalysisDetail({
             )}
 
           {analysis.vulnerabilitiesFound === 0 ? (
-            hasAnySuccessfulScan(sastReport, dastReport) ? (
+            hasAnySuccessfulScan(sastReport, dastReport, analysis) ? (
               <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-6 text-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

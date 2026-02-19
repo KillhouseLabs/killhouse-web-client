@@ -72,7 +72,7 @@ describe("SandboxOrchestrator", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            environment_id: "env-123",
+            env_id: "env-123",
             target_url: "http://sandbox-app:3000",
             network_name: "sandbox-net",
           }),
@@ -168,7 +168,7 @@ describe("SandboxOrchestrator", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            environment_id: "env-123",
+            env_id: "env-123",
             target_url: "http://sandbox-app:3000",
             network_name: "sandbox-net",
           }),
@@ -276,7 +276,7 @@ describe("SandboxOrchestrator", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            environment_id: "env-123",
+            env_id: "env-123",
             target_url: "http://sandbox-app:3000",
             network_name: null,
           }),
@@ -314,7 +314,7 @@ describe("SandboxOrchestrator", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            environment_id: "env-123",
+            env_id: "env-123",
             target_url: "http://sandbox-app:3000",
             network_name: "sandbox-net",
           }),
@@ -352,7 +352,7 @@ describe("SandboxOrchestrator", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          environment_id: "env-123",
+          env_id: "env-123",
           target_url: null,
           network_name: null,
         }),
@@ -379,7 +379,7 @@ describe("SandboxOrchestrator", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            environment_id: "env-123",
+            env_id: "env-123",
             target_url: "http://sandbox-app:3000",
             network_name: null,
           }),

@@ -10,6 +10,7 @@ const customJestConfig = {
   testEnvironment: "jest-environment-jsdom",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^react-markdown$": "<rootDir>/src/__tests__/mocks/react-markdown.js",
   },
   testMatch: [
     "**/__tests__/**/*.test.[jt]s?(x)",

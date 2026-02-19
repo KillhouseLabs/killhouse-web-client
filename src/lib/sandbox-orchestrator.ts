@@ -58,7 +58,7 @@ async function callSandboxWithRetry(
         const data = await response.json();
         return {
           success: true,
-          envId: data.environment_id,
+          envId: data.env_id,
           targetUrl: data.target_url || null,
           networkName: data.network_name || null,
         };
