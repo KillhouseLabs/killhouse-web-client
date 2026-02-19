@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 export function ResetPasswordForm() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -19,16 +21,16 @@ export function ResetPasswordForm() {
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold">비밀번호 재설정</h1>
+            <h1 className="text-2xl font-bold">{t.auth.resetPassword.title}</h1>
             <p className="mt-2 text-sm text-destructive">
-              토큰이 만료되었거나 유효하지 않습니다
+              {t.auth.resetPassword.invalidToken}
             </p>
           </div>
           <Link
             href="/forgot-password"
             className="block w-full rounded-lg bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            비밀번호 재설정 다시 요청
+            {t.auth.resetPassword.requestAgain}
           </Link>
         </div>
       </div>
@@ -40,17 +42,17 @@ export function ResetPasswordForm() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다");
+      setError(t.auth.resetPassword.errors.mismatch);
       return;
     }
 
     if (password.length < 8) {
-      setError("비밀번호는 8자 이상이어야 합니다");
+      setError(t.auth.resetPassword.errors.tooShort);
       return;
     }
 
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      setError("비밀번호는 대문자, 소문자, 숫자를 포함해야 합니다");
+      setError(t.auth.resetPassword.errors.weak);
       return;
     }
 
@@ -66,13 +68,13 @@ export function ResetPasswordForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "비밀번호 재설정에 실패했습니다");
+        setError(data.error || t.auth.resetPassword.errors.resetFailed);
         return;
       }
 
       setIsSuccess(true);
     } catch {
-      setError("비밀번호 재설정 중 오류가 발생했습니다");
+      setError(t.auth.resetPassword.errors.resetError);
     } finally {
       setIsLoading(false);
     }
@@ -97,9 +99,11 @@ export function ResetPasswordForm() {
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold">비밀번호가 변경되었습니다</h1>
+            <h1 className="text-2xl font-bold">
+              {t.auth.resetPassword.success.title}
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              새 비밀번호로 로그인할 수 있습니다.
+              {t.auth.resetPassword.success.description}
             </p>
           </div>
 
@@ -107,7 +111,7 @@ export function ResetPasswordForm() {
             href="/login"
             className="block w-full rounded-lg bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            로그인하기
+            {t.auth.resetPassword.success.login}
           </Link>
         </div>
       </div>
@@ -118,9 +122,9 @@ export function ResetPasswordForm() {
     <div className="w-full max-w-md">
       <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold">비밀번호 재설정</h1>
+          <h1 className="text-2xl font-bold">{t.auth.resetPassword.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            새 비밀번호를 입력하세요.
+            {t.auth.resetPassword.subtitle}
           </p>
         </div>
 
@@ -136,7 +140,7 @@ export function ResetPasswordForm() {
               htmlFor="password"
               className="mb-1 block text-sm font-medium"
             >
-              새 비밀번호
+              {t.auth.resetPassword.newPassword}
             </label>
             <input
               id="password"
@@ -155,7 +159,7 @@ export function ResetPasswordForm() {
               htmlFor="confirmPassword"
               className="mb-1 block text-sm font-medium"
             >
-              비밀번호 확인
+              {t.auth.resetPassword.confirmPassword}
             </label>
             <input
               id="confirmPassword"
@@ -174,12 +178,14 @@ export function ResetPasswordForm() {
             disabled={isLoading}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isLoading ? "변경 중..." : "비밀번호 재설정"}
+            {isLoading
+              ? t.auth.resetPassword.submitting
+              : t.auth.resetPassword.submit}
           </button>
         </form>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          비밀번호는 대문자, 소문자, 숫자를 포함하여 8자 이상이어야 합니다.
+          {t.auth.resetPassword.hint}
         </p>
       </div>
     </div>

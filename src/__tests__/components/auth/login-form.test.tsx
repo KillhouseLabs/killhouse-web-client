@@ -4,10 +4,11 @@
  * 로그인 폼 UI 및 인터랙션 테스트
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { signIn } from "next-auth/react";
 import { LoginForm } from "@/components/auth/login-form";
+import { renderWithLocale } from "../../test-utils";
 
 // Mock next-auth
 jest.mock("next-auth/react", () => ({
@@ -33,7 +34,7 @@ describe("LoginForm", () => {
   describe("렌더링", () => {
     it("GIVEN 로그인 페이지 접속 WHEN 컴포넌트 렌더링 THEN 모든 필수 요소가 표시되어야 한다", () => {
       // GIVEN & WHEN
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // THEN
       expect(
@@ -50,7 +51,7 @@ describe("LoginForm", () => {
 
     it("GIVEN 로그인 페이지 접속 WHEN 컴포넌트 렌더링 THEN 회원가입 링크가 표시되어야 한다", () => {
       // GIVEN & WHEN
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // THEN
       expect(screen.getByText("회원가입")).toBeInTheDocument();
@@ -66,7 +67,7 @@ describe("LoginForm", () => {
     it("GIVEN 잘못된 이메일 형식 WHEN 로그인 버튼 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN - HTML5 email validation을 우회하기 위해 type을 text로 변경
       const emailInput = screen.getByLabelText("이메일");
@@ -96,7 +97,7 @@ describe("LoginForm", () => {
       // GIVEN
       const user = userEvent.setup();
       (signIn as jest.Mock).mockResolvedValue({ ok: true, error: null });
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이메일"), "test@example.com");
@@ -120,7 +121,7 @@ describe("LoginForm", () => {
         ok: false,
         error: "CredentialsSignin",
       });
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이메일"), "test@example.com");
@@ -141,7 +142,7 @@ describe("LoginForm", () => {
       (signIn as jest.Mock).mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 1000))
       );
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이메일"), "test@example.com");
@@ -162,7 +163,7 @@ describe("LoginForm", () => {
     it("GIVEN Google 버튼 클릭 WHEN 소셜 로그인 시도 THEN signIn이 google provider로 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN
       await user.click(screen.getByText("Google로 계속하기"));
@@ -176,7 +177,7 @@ describe("LoginForm", () => {
     it("GIVEN GitHub 버튼 클릭 WHEN 소셜 로그인 시도 THEN signIn이 github provider로 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<LoginForm />);
+      renderWithLocale(<LoginForm />);
 
       // WHEN
       await user.click(screen.getByText("GitHub로 계속하기"));
@@ -185,6 +186,25 @@ describe("LoginForm", () => {
       expect(signIn).toHaveBeenCalledWith("github", {
         callbackUrl: "/dashboard",
       });
+    });
+  });
+
+  describe("i18n", () => {
+    it("GIVEN en locale WHEN 컴포넌트 렌더링 THEN 영어로 표시되어야 한다", () => {
+      // GIVEN & WHEN
+      renderWithLocale(<LoginForm />, "en");
+
+      // THEN
+      expect(
+        screen.getByRole("heading", { name: "Log in" })
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Log in" })
+      ).toBeInTheDocument();
+      expect(screen.getByText("Continue with Google")).toBeInTheDocument();
+      expect(screen.getByText("Continue with GitHub")).toBeInTheDocument();
     });
   });
 });

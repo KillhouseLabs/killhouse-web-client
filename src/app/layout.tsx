@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { LocaleProvider } from "@/lib/i18n/locale-context";
 import "./globals.css";
 
 const inter = Inter({
@@ -34,7 +35,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <LocaleProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

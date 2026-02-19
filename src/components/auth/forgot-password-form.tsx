@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 export function ForgotPasswordForm() {
+  const { t } = useLocale();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -14,12 +16,12 @@ export function ForgotPasswordForm() {
     setError("");
 
     if (!email) {
-      setError("이메일을 입력하세요");
+      setError(t.auth.forgotPassword.errors.emptyEmail);
       return;
     }
 
     if (!email.includes("@")) {
-      setError("올바른 이메일 주소를 입력하세요");
+      setError(t.auth.forgotPassword.errors.invalidEmail);
       return;
     }
 
@@ -35,13 +37,13 @@ export function ForgotPasswordForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "요청 처리 중 오류가 발생했습니다");
+        setError(data.error || t.auth.forgotPassword.errors.requestError);
         return;
       }
 
       setIsSubmitted(true);
     } catch {
-      setError("요청 처리 중 오류가 발생했습니다");
+      setError(t.auth.forgotPassword.errors.requestError);
     } finally {
       setIsLoading(false);
     }
@@ -67,10 +69,11 @@ export function ForgotPasswordForm() {
                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold">이메일을 확인해주세요</h1>
+            <h1 className="text-2xl font-bold">
+              {t.auth.forgotPassword.success.title}
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              비밀번호 재설정 링크가 이메일로 발송되었습니다. 이메일을 확인하고
-              링크를 클릭하세요.
+              {t.auth.forgotPassword.success.description}
             </p>
           </div>
 
@@ -78,7 +81,7 @@ export function ForgotPasswordForm() {
             href="/login"
             className="mt-4 block w-full rounded-lg border border-border py-2.5 text-center text-sm font-medium transition-colors hover:bg-accent"
           >
-            로그인으로 돌아가기
+            {t.auth.forgotPassword.success.login}
           </Link>
         </div>
       </div>
@@ -89,10 +92,9 @@ export function ForgotPasswordForm() {
     <div className="w-full max-w-md">
       <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold">비밀번호 찾기</h1>
+          <h1 className="text-2xl font-bold">{t.auth.forgotPassword.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            가입 시 사용한 이메일을 입력하세요. 비밀번호 재설정 링크를
-            보내드립니다.
+            {t.auth.forgotPassword.subtitle}
           </p>
         </div>
 
@@ -105,7 +107,7 @@ export function ForgotPasswordForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              이메일
+              {t.auth.forgotPassword.email}
             </label>
             <input
               id="email"
@@ -124,14 +126,16 @@ export function ForgotPasswordForm() {
             disabled={isLoading}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isLoading ? "요청 중..." : "비밀번호 재설정 요청"}
+            {isLoading
+              ? t.auth.forgotPassword.submitting
+              : t.auth.forgotPassword.submit}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          비밀번호가 기억나시나요?{" "}
+          {t.auth.forgotPassword.remember}{" "}
           <Link href="/login" className="text-primary hover:underline">
-            로그인
+            {t.auth.forgotPassword.login}
           </Link>
         </p>
       </div>

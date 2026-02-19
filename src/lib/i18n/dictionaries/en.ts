@@ -103,6 +103,112 @@ const en: {
     allRights: string;
     systemStatus: string;
   };
+  common: {
+    cancel: string;
+    delete: string;
+    save: string;
+    close: string;
+    loading: string;
+    error: string;
+    confirm: string;
+    back: string;
+    search: string;
+    or: string;
+    unlimited: string;
+    contactUs: string;
+    perMonth: string;
+    user: string;
+    logout: string;
+  };
+  auth: {
+    login: {
+      title: string;
+      subtitle: string;
+      email: string;
+      password: string;
+      forgotPassword: string;
+      submit: string;
+      submitting: string;
+      noAccount: string;
+      signup: string;
+      continueWithGoogle: string;
+      continueWithGithub: string;
+      errors: {
+        emptyFields: string;
+        invalidEmail: string;
+        loginFailed: string;
+        invalidCredentials: string;
+      };
+    };
+    signup: {
+      title: string;
+      subtitle: string;
+      name: string;
+      email: string;
+      password: string;
+      passwordPlaceholder: string;
+      confirmPassword: string;
+      confirmPasswordPlaceholder: string;
+      agreeTerms: string;
+      termsOfService: string;
+      and: string;
+      privacyPolicy: string;
+      submit: string;
+      submitting: string;
+      hasAccount: string;
+      login: string;
+      continueWithGoogle: string;
+      continueWithGithub: string;
+      errors: {
+        passwordMismatch: string;
+        agreeRequired: string;
+        signupFailed: string;
+        signupError: string;
+      };
+    };
+    forgotPassword: {
+      title: string;
+      subtitle: string;
+      email: string;
+      submit: string;
+      submitting: string;
+      remember: string;
+      login: string;
+      success: {
+        title: string;
+        description: string;
+        login: string;
+      };
+      errors: {
+        emptyEmail: string;
+        invalidEmail: string;
+        requestError: string;
+      };
+    };
+    resetPassword: {
+      title: string;
+      subtitle: string;
+      newPassword: string;
+      confirmPassword: string;
+      submit: string;
+      submitting: string;
+      hint: string;
+      invalidToken: string;
+      requestAgain: string;
+      success: {
+        title: string;
+        description: string;
+        login: string;
+      };
+      errors: {
+        mismatch: string;
+        tooShort: string;
+        weak: string;
+        resetFailed: string;
+        resetError: string;
+      };
+    };
+  };
 } = {
   nav: {
     pricing: "Pricing",
@@ -284,6 +390,114 @@ const en: {
     terms: "Terms of Service",
     allRights: "All rights reserved.",
     systemStatus: "All systems operational",
+  },
+  common: {
+    cancel: "Cancel",
+    delete: "Delete",
+    save: "Save",
+    close: "Close",
+    loading: "Loading...",
+    error: "Error",
+    confirm: "Confirm",
+    back: "Back",
+    search: "Search",
+    or: "or",
+    unlimited: "Unlimited",
+    contactUs: "Contact Us",
+    perMonth: "/mo",
+    user: "user",
+    logout: "Log out",
+  },
+  auth: {
+    login: {
+      title: "Log in",
+      subtitle: "Log in to your account to access the dashboard",
+      email: "Email",
+      password: "Password",
+      forgotPassword: "Forgot password?",
+      submit: "Log in",
+      submitting: "Logging in...",
+      noAccount: "Don't have an account?",
+      signup: "Sign up",
+      continueWithGoogle: "Continue with Google",
+      continueWithGithub: "Continue with GitHub",
+      errors: {
+        emptyFields: "Please enter your email and password",
+        invalidEmail: "Please enter a valid email address",
+        loginFailed: "An error occurred while logging in",
+        invalidCredentials: "Invalid email or password",
+      },
+    },
+    signup: {
+      title: "Sign up",
+      subtitle: "Create an account and start vulnerability analysis",
+      name: "Name",
+      email: "Email",
+      password: "Password",
+      passwordPlaceholder: "8+ chars, uppercase, lowercase, and number",
+      confirmPassword: "Confirm password",
+      confirmPasswordPlaceholder: "Re-enter your password",
+      agreeTerms: "I agree to the",
+      termsOfService: "Terms of Service",
+      and: "and",
+      privacyPolicy: "Privacy Policy",
+      submit: "Sign up",
+      submitting: "Signing up...",
+      hasAccount: "Already have an account?",
+      login: "Log in",
+      continueWithGoogle: "Continue with Google",
+      continueWithGithub: "Continue with GitHub",
+      errors: {
+        passwordMismatch: "Passwords do not match",
+        agreeRequired: "Please agree to the terms of service",
+        signupFailed: "Sign up failed",
+        signupError: "An error occurred during sign up",
+      },
+    },
+    forgotPassword: {
+      title: "Forgot password",
+      subtitle:
+        "Enter the email you used to sign up. We'll send you a password reset link.",
+      email: "Email",
+      submit: "Request password reset",
+      submitting: "Requesting...",
+      remember: "Remember your password?",
+      login: "Log in",
+      success: {
+        title: "Check your email",
+        description:
+          "A password reset link has been sent to your email. Please check your email and click the link.",
+        login: "Back to login",
+      },
+      errors: {
+        emptyEmail: "Please enter your email",
+        invalidEmail: "Please enter a valid email address",
+        requestError: "An error occurred while processing your request",
+      },
+    },
+    resetPassword: {
+      title: "Reset password",
+      subtitle: "Enter your new password.",
+      newPassword: "New password",
+      confirmPassword: "Confirm password",
+      submit: "Reset password",
+      submitting: "Resetting...",
+      hint: "Password must be at least 8 characters with uppercase, lowercase, and numbers.",
+      invalidToken: "The token has expired or is invalid",
+      requestAgain: "Request password reset again",
+      success: {
+        title: "Password has been changed",
+        description: "You can log in with your new password.",
+        login: "Log in",
+      },
+      errors: {
+        mismatch: "Passwords do not match",
+        tooShort: "Password must be at least 8 characters",
+        weak: "Password must contain uppercase, lowercase, and numbers",
+        resetFailed: "Password reset failed",
+        resetError: "An error occurred during password reset",
+      },
+    },
   },
 };
 
