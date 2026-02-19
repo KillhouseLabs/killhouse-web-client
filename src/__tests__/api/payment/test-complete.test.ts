@@ -56,8 +56,8 @@ describe("Test Complete API - Guard Logic", () => {
   describe("PAYMENT_MODE 기반 접근 제어", () => {
     it("GIVEN PAYMENT_MODE=real WHEN 테스트 결제 요청 THEN 403 차단되어야 한다", () => {
       // GIVEN
-      const paymentMode = "real";
-      const nodeEnv = "development";
+      const paymentMode: string | undefined = "real";
+      const nodeEnv: string | undefined = "development";
 
       // WHEN
       const isTestBlocked =
@@ -69,8 +69,8 @@ describe("Test Complete API - Guard Logic", () => {
 
     it("GIVEN PAYMENT_MODE=test WHEN 테스트 결제 요청 THEN 허용되어야 한다", () => {
       // GIVEN
-      const paymentMode = "test";
-      const nodeEnv = "production";
+      const paymentMode: string | undefined = "test";
+      const nodeEnv: string | undefined = "production";
 
       // WHEN
       const isTestBlocked =
@@ -82,8 +82,8 @@ describe("Test Complete API - Guard Logic", () => {
 
     it("GIVEN PAYMENT_MODE 미설정 + NODE_ENV=production WHEN 테스트 결제 요청 THEN 403 차단되어야 한다", () => {
       // GIVEN
-      const paymentMode = undefined;
-      const nodeEnv = "production";
+      const paymentMode: string | undefined = undefined;
+      const nodeEnv: string | undefined = "production";
 
       // WHEN
       const isTestBlocked =
@@ -95,8 +95,8 @@ describe("Test Complete API - Guard Logic", () => {
 
     it("GIVEN PAYMENT_MODE 미설정 + NODE_ENV=development WHEN 테스트 결제 요청 THEN 허용되어야 한다", () => {
       // GIVEN
-      const paymentMode = undefined;
-      const nodeEnv = "development";
+      const paymentMode: string | undefined = undefined;
+      const nodeEnv: string | undefined = "development";
 
       // WHEN
       const isTestBlocked =

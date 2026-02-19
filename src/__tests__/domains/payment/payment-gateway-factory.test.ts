@@ -8,7 +8,7 @@ describe("PaymentGateway Factory Logic", () => {
   describe("PAYMENT_MODE 기반 게이트웨이 선택", () => {
     it("GIVEN PAYMENT_MODE=real WHEN 게이트웨이 생성 THEN PortOnePaymentGateway를 반환해야 한다", () => {
       // GIVEN
-      const paymentMode = "real";
+      const paymentMode: string | undefined = "real";
 
       // WHEN
       const isReal = paymentMode === "real";
@@ -19,7 +19,7 @@ describe("PaymentGateway Factory Logic", () => {
 
     it("GIVEN PAYMENT_MODE=test WHEN 게이트웨이 생성 THEN TestPaymentGateway를 반환해야 한다", () => {
       // GIVEN
-      const paymentMode = "test";
+      const paymentMode: string | undefined = "test";
 
       // WHEN
       const isTest = paymentMode === "test";
@@ -30,8 +30,8 @@ describe("PaymentGateway Factory Logic", () => {
 
     it("GIVEN PAYMENT_MODE 미설정 + production WHEN 게이트웨이 생성 THEN PortOnePaymentGateway를 반환해야 한다", () => {
       // GIVEN
-      const paymentMode = undefined;
-      const nodeEnv = "production";
+      const paymentMode: string | undefined = undefined;
+      const nodeEnv: string | undefined = "production";
 
       // WHEN - payment-gateway-factory.ts의 로직 재현
       let gatewayType: string;
@@ -52,8 +52,8 @@ describe("PaymentGateway Factory Logic", () => {
 
     it("GIVEN PAYMENT_MODE 미설정 + development WHEN 게이트웨이 생성 THEN TestPaymentGateway를 반환해야 한다", () => {
       // GIVEN
-      const paymentMode = undefined;
-      const nodeEnv = "development";
+      const paymentMode: string | undefined = undefined;
+      const nodeEnv: string | undefined = "development";
 
       // WHEN
       let gatewayType: string;
@@ -76,8 +76,8 @@ describe("PaymentGateway Factory Logic", () => {
   describe("클라이언트-서버 모드 정합성", () => {
     it("GIVEN PAYMENT_MODE=test WHEN 클라이언트와 서버 모드 판단 THEN 동일하게 test 모드여야 한다", () => {
       // GIVEN
-      const paymentMode = "test";
-      const impCode = undefined;
+      const paymentMode: string | undefined = "test";
+      const impCode: string | undefined = undefined;
 
       // WHEN - 클라이언트 판단 (checkout-button.tsx)
       const clientUseTestMode = impCode ? false : paymentMode !== "real";
@@ -94,8 +94,8 @@ describe("PaymentGateway Factory Logic", () => {
 
     it("GIVEN PAYMENT_MODE=real + IMP_CODE 설정 WHEN 클라이언트와 서버 모드 판단 THEN 동일하게 real 모드여야 한다", () => {
       // GIVEN
-      const paymentMode = "real";
-      const impCode = "imp_1234567890";
+      const paymentMode: string | undefined = "real";
+      const impCode: string | undefined = "imp_1234567890";
 
       // WHEN - 클라이언트 판단
       const clientUseTestMode = impCode ? false : paymentMode !== "real";
