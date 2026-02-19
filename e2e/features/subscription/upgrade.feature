@@ -35,10 +35,9 @@ Feature: 구독 업그레이드
     Then 현재 플랜이 "Pro"로 표시되어야 한다
 
   @payment @wip
-  Scenario: 결제 취소
+  Scenario: 결제 미진행 시 플랜 유지
     Given 나는 무료 플랜 사용자다
     And 나는 구독 페이지에 있다
-    When Pro 플랜 결제를 취소한다
     Then 현재 플랜이 "Free"로 유지되어야 한다
 
   Scenario: Enterprise 플랜 문의하기

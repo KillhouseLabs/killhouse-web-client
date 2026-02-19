@@ -2,7 +2,10 @@
  * Test Payment Complete API
  *
  * 테스트 환경에서 PortOne 없이 결제 완료 처리
- * 프로덕션 환경에서는 사용하지 않음
+ * PAYMENT_MODE 환경변수로 테스트/실제 결제 모드를 제어
+ * - PAYMENT_MODE=test → 테스트 결제 허용 (NODE_ENV 무관)
+ * - PAYMENT_MODE=real → 테스트 결제 차단
+ * - 미설정 시 → NODE_ENV=production이면 차단
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,10 +23,19 @@ const testCompleteSchema = z.object({
  * 테스트 결제 완료 처리
  */
 export async function POST(request: NextRequest) {
-  // 프로덕션 환경에서는 사용 불가
-  if (process.env.NODE_ENV === "production") {
+  // PAYMENT_MODE=real이면 테스트 결제 차단 (실제 PG 사용해야 함)
+  // PAYMENT_MODE=test이면 NODE_ENV 관계없이 테스트 결제 허용
+  const paymentMode = process.env.PAYMENT_MODE;
+  const isTestBlocked =
+    paymentMode === "real" ||
+    (!paymentMode && process.env.NODE_ENV === "production");
+
+  if (isTestBlocked) {
     return NextResponse.json(
-      { success: false, error: "Not available in production" },
+      {
+        success: false,
+        error: "테스트 결제를 사용할 수 없습니다. 실제 결제를 이용해 주세요.",
+      },
       { status: 403 }
     );
   }

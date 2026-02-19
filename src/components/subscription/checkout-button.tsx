@@ -112,19 +112,9 @@ export function CheckoutButton({
     };
   }, []);
 
-  // 테스트 모드 결제 처리 (SDK 없이)
+  // 테스트 모드 결제 처리 (SDK 없이, 확인 팝업 없이 바로 결제)
   const handleTestPayment = useCallback(
     async (checkoutData: CheckoutData) => {
-      const confirmed = window.confirm(
-        `테스트 결제\n\n플랜: ${checkoutData.planName}\n금액: ₩${checkoutData.amount.toLocaleString()}\n\n결제를 진행하시겠습니까?`
-      );
-
-      if (!confirmed) {
-        setError("결제가 취소되었습니다");
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const verifyResponse = await fetch("/api/payment/test-complete", {
           method: "POST",
