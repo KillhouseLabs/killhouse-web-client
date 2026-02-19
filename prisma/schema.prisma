@@ -171,3 +171,12 @@ model Payment {
   @@index([status])
   @@map("payments")
 }
+
+model PlatformPolicy {
+  id        String   @id @default("current")
+  version   Int      @default(1)
+  policy    Json
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_policies")
+}

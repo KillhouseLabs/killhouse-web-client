@@ -9,6 +9,7 @@ import { RepositoryList, Repository } from "./repository-list";
 import { AddRepositoryModal } from "./add-repository-modal";
 import { StartAnalysisButton } from "./start-analysis-button";
 import { AnalysisPipeline } from "./analysis-pipeline";
+import { ResourceUsageCard } from "./resource-usage-card";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 interface Analysis {
@@ -319,6 +320,8 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
           </div>
         </div>
       )}
+
+      <ResourceUsageCard projectId={project.id} />
 
       {/* Project Stats */}
       <div className="grid gap-4 md:grid-cols-3">

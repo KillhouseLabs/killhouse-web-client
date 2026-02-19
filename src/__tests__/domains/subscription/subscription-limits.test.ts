@@ -28,18 +28,81 @@ jest.mock("@/infrastructure/database/prisma", () => ({
   },
 }));
 
+// Mock fetchPolicy to return a policy matching the PLANS constants
+jest.mock("@/domains/policy/infra/policy-repository", () => ({
+  fetchPolicy: jest.fn().mockResolvedValue({
+    subscriptionStatuses: {
+      ACTIVE: { label: "활성", isActive: true },
+      TRIALING: { label: "체험", isActive: true },
+      CANCELLED: { label: "해지", isActive: false },
+      EXPIRED: { label: "만료", isActive: false },
+      PAST_DUE: { label: "연체", isActive: false },
+    },
+    plans: {
+      free: {
+        name: "Free",
+        price: 0,
+        limits: {
+          maxProjects: 3,
+          maxAnalysisPerMonth: 10,
+          maxStorageMB: 100,
+          maxConcurrentScans: 2,
+          maxConcurrentSandboxes: 1,
+          maxConcurrentExploitSessions: 1,
+          containerMemoryLimit: "512m",
+          containerCpuLimit: 0.5,
+          containerPidsLimit: 50,
+          scanRateLimitPerMin: 5,
+        },
+      },
+      pro: {
+        name: "Pro",
+        price: 29000,
+        limits: {
+          maxProjects: -1,
+          maxAnalysisPerMonth: 100,
+          maxStorageMB: 10240,
+          maxConcurrentScans: 5,
+          maxConcurrentSandboxes: 3,
+          maxConcurrentExploitSessions: 3,
+          containerMemoryLimit: "1g",
+          containerCpuLimit: 1.0,
+          containerPidsLimit: 100,
+          scanRateLimitPerMin: 10,
+        },
+      },
+      enterprise: {
+        name: "Enterprise",
+        price: -1,
+        limits: {
+          maxProjects: -1,
+          maxAnalysisPerMonth: -1,
+          maxStorageMB: -1,
+          maxConcurrentScans: 10,
+          maxConcurrentSandboxes: 5,
+          maxConcurrentExploitSessions: 5,
+          containerMemoryLimit: "2g",
+          containerCpuLimit: 2.0,
+          containerPidsLimit: 200,
+          scanRateLimitPerMin: 30,
+        },
+      },
+    },
+  }),
+}));
+
 describe("Subscription Limits", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("getPlanLimits", () => {
-    it("GIVEN free 플랜 WHEN 제한 조회 THEN free 플랜 제한이 반환되어야 한다", () => {
+    it("GIVEN free 플랜 WHEN 제한 조회 THEN free 플랜 제한이 반환되어야 한다", async () => {
       // GIVEN
       const planId = "free";
 
       // WHEN
-      const limits = getPlanLimits(planId);
+      const limits = await getPlanLimits(planId);
 
       // THEN
       expect(limits).toEqual(PLANS.FREE.limits);
@@ -47,12 +110,12 @@ describe("Subscription Limits", () => {
       expect(limits.analysisPerMonth).toBe(10);
     });
 
-    it("GIVEN pro 플랜 WHEN 제한 조회 THEN pro 플랜 제한이 반환되어야 한다", () => {
+    it("GIVEN pro 플랜 WHEN 제한 조회 THEN pro 플랜 제한이 반환되어야 한다", async () => {
       // GIVEN
       const planId = "pro";
 
       // WHEN
-      const limits = getPlanLimits(planId);
+      const limits = await getPlanLimits(planId);
 
       // THEN
       expect(limits).toEqual(PLANS.PRO.limits);
@@ -60,12 +123,12 @@ describe("Subscription Limits", () => {
       expect(limits.analysisPerMonth).toBe(100);
     });
 
-    it("GIVEN enterprise 플랜 WHEN 제한 조회 THEN enterprise 플랜 제한이 반환되어야 한다", () => {
+    it("GIVEN enterprise 플랜 WHEN 제한 조회 THEN enterprise 플랜 제한이 반환되어야 한다", async () => {
       // GIVEN
       const planId = "enterprise";
 
       // WHEN
-      const limits = getPlanLimits(planId);
+      const limits = await getPlanLimits(planId);
 
       // THEN
       expect(limits).toEqual(PLANS.ENTERPRISE.limits);
@@ -73,12 +136,12 @@ describe("Subscription Limits", () => {
       expect(limits.analysisPerMonth).toBe(-1); // unlimited
     });
 
-    it("GIVEN 알 수 없는 플랜 WHEN 제한 조회 THEN free 플랜 제한이 반환되어야 한다", () => {
+    it("GIVEN 알 수 없는 플랜 WHEN 제한 조회 THEN free 플랜 제한이 반환되어야 한다", async () => {
       // GIVEN
       const planId = "unknown";
 
       // WHEN
-      const limits = getPlanLimits(planId);
+      const limits = await getPlanLimits(planId);
 
       // THEN
       expect(limits).toEqual(PLANS.FREE.limits);
