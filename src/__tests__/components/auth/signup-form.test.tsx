@@ -4,10 +4,11 @@
  * 회원가입 폼 UI 및 인터랙션 테스트
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { signIn } from "next-auth/react";
 import { SignupForm } from "@/components/auth/signup-form";
+import { renderWithLocale } from "../../test-utils";
 
 // Mock next/navigation
 const mockPush = jest.fn();
@@ -36,7 +37,7 @@ describe("SignupForm", () => {
   describe("렌더링", () => {
     it("GIVEN 회원가입 페이지 접속 WHEN 컴포넌트 렌더링 THEN 모든 필수 요소가 표시되어야 한다", () => {
       // GIVEN & WHEN
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // THEN
       expect(
@@ -53,7 +54,7 @@ describe("SignupForm", () => {
 
     it("GIVEN 회원가입 페이지 접속 WHEN 컴포넌트 렌더링 THEN 로그인 링크가 표시되어야 한다", () => {
       // GIVEN & WHEN
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // THEN
       expect(screen.getByRole("link", { name: "로그인" })).toBeInTheDocument();
@@ -61,7 +62,7 @@ describe("SignupForm", () => {
 
     it("GIVEN 회원가입 페이지 접속 WHEN 컴포넌트 렌더링 THEN 이용약관 체크박스가 표시되어야 한다", () => {
       // GIVEN & WHEN
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // THEN
       expect(screen.getByRole("checkbox")).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe("SignupForm", () => {
     it("GIVEN 비밀번호 불일치 WHEN 회원가입 버튼 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이름"), "Test User");
@@ -95,7 +96,7 @@ describe("SignupForm", () => {
     it("GIVEN 이용약관 미동의 WHEN 회원가입 버튼 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이름"), "Test User");
@@ -125,7 +126,7 @@ describe("SignupForm", () => {
           }),
       });
       (signIn as jest.Mock).mockResolvedValue({ ok: true, error: null });
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이름"), "Test User");
@@ -161,7 +162,7 @@ describe("SignupForm", () => {
           }),
       });
       (signIn as jest.Mock).mockResolvedValue({ ok: true, error: null });
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이름"), "Test User");
@@ -188,7 +189,7 @@ describe("SignupForm", () => {
             error: "이미 등록된 이메일입니다",
           }),
       });
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.type(screen.getByLabelText("이름"), "Test User");
@@ -211,7 +212,7 @@ describe("SignupForm", () => {
     it("GIVEN Google 버튼 클릭 WHEN 소셜 로그인 시도 THEN signIn이 google provider로 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.click(screen.getByText("Google로 계속하기"));
@@ -225,7 +226,7 @@ describe("SignupForm", () => {
     it("GIVEN GitHub 버튼 클릭 WHEN 소셜 로그인 시도 THEN signIn이 github provider로 호출되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      render(<SignupForm />);
+      renderWithLocale(<SignupForm />);
 
       // WHEN
       await user.click(screen.getByText("GitHub로 계속하기"));
@@ -234,6 +235,25 @@ describe("SignupForm", () => {
       expect(signIn).toHaveBeenCalledWith("github", {
         callbackUrl: "/dashboard",
       });
+    });
+  });
+
+  describe("i18n", () => {
+    it("GIVEN en locale WHEN 컴포넌트 렌더링 THEN 영어로 표시되어야 한다", () => {
+      // GIVEN & WHEN
+      renderWithLocale(<SignupForm />, "en");
+
+      // THEN
+      expect(
+        screen.getByRole("heading", { name: "Sign up" })
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+      expect(screen.getByLabelText("Confirm password")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Sign up" })
+      ).toBeInTheDocument();
     });
   });
 });

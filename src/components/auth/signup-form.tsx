@@ -5,8 +5,10 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PasswordInput } from "@/components/ui/password-input";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 export function SignupForm() {
+  const { t } = useLocale();
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -23,12 +25,12 @@ export function SignupForm() {
 
     // Validation
     if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다");
+      setError(t.auth.signup.errors.passwordMismatch);
       return;
     }
 
     if (!agreeTerms) {
-      setError("이용약관에 동의해주세요");
+      setError(t.auth.signup.errors.agreeRequired);
       return;
     }
 
@@ -46,7 +48,7 @@ export function SignupForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "회원가입에 실패했습니다");
+        setError(data.error || t.auth.signup.errors.signupFailed);
         return;
       }
 
@@ -65,7 +67,7 @@ export function SignupForm() {
         router.refresh();
       }
     } catch {
-      setError("회원가입 중 오류가 발생했습니다");
+      setError(t.auth.signup.errors.signupError);
     } finally {
       setIsLoading(false);
     }
@@ -79,9 +81,9 @@ export function SignupForm() {
     <div className="w-full max-w-md">
       <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold">회원가입</h1>
+          <h1 className="text-2xl font-bold">{t.auth.signup.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            계정을 만들고 취약점 분석을 시작하세요
+            {t.auth.signup.subtitle}
           </p>
         </div>
 
@@ -94,7 +96,7 @@ export function SignupForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium">
-              이름
+              {t.auth.signup.name}
             </label>
             <input
               id="name"
@@ -110,7 +112,7 @@ export function SignupForm() {
 
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              이메일
+              {t.auth.signup.email}
             </label>
             <input
               id="email"
@@ -129,11 +131,11 @@ export function SignupForm() {
               htmlFor="password"
               className="mb-1 block text-sm font-medium"
             >
-              비밀번호
+              {t.auth.signup.password}
             </label>
             <PasswordInput
               id="password"
-              placeholder="8자 이상, 대소문자 및 숫자 포함"
+              placeholder={t.auth.signup.passwordPlaceholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -147,11 +149,11 @@ export function SignupForm() {
               htmlFor="confirmPassword"
               className="mb-1 block text-sm font-medium"
             >
-              비밀번호 확인
+              {t.auth.signup.confirmPassword}
             </label>
             <PasswordInput
               id="confirmPassword"
-              placeholder="비밀번호를 다시 입력하세요"
+              placeholder={t.auth.signup.confirmPasswordPlaceholder}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
@@ -169,14 +171,16 @@ export function SignupForm() {
               disabled={isLoading}
             />
             <label htmlFor="terms" className="text-sm text-muted-foreground">
+              {t.auth.signup.agreeTerms}
+              {t.auth.signup.agreeTerms ? " " : ""}
               <Link href="/terms" className="text-primary hover:underline">
-                이용약관
+                {t.auth.signup.termsOfService}
               </Link>{" "}
-              및{" "}
+              {t.auth.signup.and}{" "}
               <Link href="/privacy" className="text-primary hover:underline">
-                개인정보처리방침
+                {t.auth.signup.privacyPolicy}
               </Link>
-              에 동의합니다
+              {!t.auth.signup.agreeTerms && "에 동의합니다"}
             </label>
           </div>
 
@@ -185,7 +189,7 @@ export function SignupForm() {
             disabled={isLoading}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isLoading ? "가입 중..." : "회원가입"}
+            {isLoading ? t.auth.signup.submitting : t.auth.signup.submit}
           </button>
         </form>
 
@@ -194,7 +198,9 @@ export function SignupForm() {
             <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">또는</span>
+            <span className="bg-card px-2 text-muted-foreground">
+              {t.common.or}
+            </span>
           </div>
         </div>
 
@@ -224,7 +230,7 @@ export function SignupForm() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Google로 계속하기
+            {t.auth.signup.continueWithGoogle}
           </button>
 
           <button
@@ -236,14 +242,14 @@ export function SignupForm() {
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
             </svg>
-            GitHub로 계속하기
+            {t.auth.signup.continueWithGithub}
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          이미 계정이 있으신가요?{" "}
+          {t.auth.signup.hasAccount}{" "}
           <Link href="/login" className="text-primary hover:underline">
-            로그인
+            {t.auth.signup.login}
           </Link>
         </p>
       </div>
