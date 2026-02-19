@@ -27,24 +27,24 @@
   }
 
   .dark {
-    --background: 270 30% 6%;
-    --foreground: 280 20% 98%;
-    --card: 270 25% 10%;
-    --card-foreground: 280 20% 98%;
-    --popover: 270 25% 10%;
-    --popover-foreground: 280 20% 98%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
     --primary: 282 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 270 20% 18%;
-    --secondary-foreground: 280 20% 98%;
-    --muted: 270 20% 18%;
-    --muted-foreground: 280 15% 65%;
-    --accent: 270 25% 20%;
-    --accent-foreground: 280 20% 98%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 95%;
     --destructive: 0 62.8% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 270 20% 20%;
-    --input: 270 20% 20%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
     --ring: 282 100% 50%;
   }
 }
@@ -110,7 +110,7 @@
 }
 
 .dark .aurora-bg::before {
-  opacity: 0.5;
+  opacity: 0.3;
   background: radial-gradient(
     ellipse at 30% 50%,
     hsl(282 100% 50% / 0.2),
@@ -119,7 +119,7 @@
 }
 
 .dark .aurora-bg::after {
-  opacity: 0.4;
+  opacity: 0.2;
   background: radial-gradient(
     ellipse at 70% 50%,
     hsl(220 100% 60% / 0.15),

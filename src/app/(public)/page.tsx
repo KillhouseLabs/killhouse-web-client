@@ -1,76 +1,44 @@
+"use client";
+
 import Link from "next/link";
-
-/* ─── Pipeline Step Data ─── */
-const PIPELINE_STEPS = [
-  {
-    label: "Connect",
-    icon: GitBranchIcon,
-    description: "Link your GitHub or GitLab repo in one click",
-  },
-  {
-    label: "SAST",
-    icon: CodeIcon,
-    description: "Static analysis catches vulnerabilities in source code",
-  },
-  {
-    label: "DAST",
-    icon: GlobeIcon,
-    description: "Dynamic testing probes your running application",
-  },
-  {
-    label: "AI Fix",
-    icon: SparklesIcon,
-    description: "Get auto-generated patches with full diff preview",
-  },
-  {
-    label: "Report",
-    icon: FileTextIcon,
-    description: "Executive summary and detailed findings, ready to share",
-  },
-];
-
-/* ─── Feature Data ─── */
-const FEATURES = [
-  {
-    icon: ShieldCheckIcon,
-    title: "SAST + DAST in One Pipeline",
-    description:
-      "No more juggling separate tools. Run static and dynamic analysis together and get a unified vulnerability report.",
-  },
-  {
-    icon: SparklesIcon,
-    title: "AI-Powered Fix Suggestions",
-    description:
-      "Don't just find vulnerabilities — fix them. Our AI generates ready-to-apply patches with full code diffs.",
-  },
-  {
-    icon: TargetIcon,
-    title: "Automated Penetration Testing",
-    description:
-      "Simulate real-world attacks in a sandboxed environment. Validate exploitability before attackers do.",
-  },
-  {
-    icon: ZapIcon,
-    title: "One-Click Setup",
-    description:
-      "Connect your repository, pick a branch, and start scanning. Zero configuration, instant results.",
-  },
-  {
-    icon: BarChartIcon,
-    title: "Executive Summaries",
-    description:
-      "AI-generated overviews that translate technical findings into business impact for stakeholders.",
-  },
-  {
-    icon: LockIcon,
-    title: "Sandbox Isolation",
-    description:
-      "Every analysis runs in an isolated container. Your code never leaves a secure, ephemeral environment.",
-  },
-];
+import { useLocale } from "@/lib/i18n/locale-context";
 
 /* ─── Page Component ─── */
 export default function HomePage() {
+  const { t } = useLocale();
+
+  const pipelineIcons = [
+    GitBranchIcon,
+    CodeIcon,
+    GlobeIcon,
+    SparklesIcon,
+    FileTextIcon,
+  ];
+  const featureIcons = [
+    ShieldCheckIcon,
+    SparklesIcon,
+    TargetIcon,
+    ZapIcon,
+    BarChartIcon,
+    LockIcon,
+  ];
+
+  const pipelineSteps = t.pipeline.steps.map((step, i) => ({
+    ...step,
+    icon: pipelineIcons[i],
+  }));
+
+  const features = t.features.items.map((item, i) => ({
+    ...item,
+    icon: featureIcons[i],
+  }));
+
+  const painPointIcons = [
+    <BanIcon key="ban" className="h-6 w-6 text-destructive" />,
+    <AlertCircleIcon key="alert" className="h-6 w-6 text-yellow-500" />,
+    <SearchIcon key="search" className="h-6 w-6 text-blue-500" />,
+  ];
+
   return (
     <>
       {/* Hero Section */}
@@ -82,19 +50,18 @@ export default function HomePage() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            Now in Public Beta
+            {t.hero.badge}
           </div>
 
           {/* Headline */}
           <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            Ship fast. <span className="gradient-text">Stay secure.</span>
+            {t.hero.headlinePre}{" "}
+            <span className="gradient-text">{t.hero.headlineHighlight}</span>
           </h1>
 
           {/* Subheadline */}
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Worried about vulnerabilities after every deploy? Killhouse runs
-            SAST, DAST, and AI-powered penetration testing — then generates fix
-            patches automatically.
+            {t.hero.subheadline}
           </p>
 
           {/* CTA Buttons */}
@@ -103,19 +70,19 @@ export default function HomePage() {
               href="/signup"
               className="inline-flex h-12 items-center rounded-lg bg-primary px-8 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              Start Free
+              {t.hero.ctaPrimary}
             </Link>
             <Link
               href="#how-it-works"
               className="inline-flex h-12 items-center rounded-lg border border-border px-8 text-base font-medium transition-colors hover:bg-accent"
             >
-              See How It Works
+              {t.hero.ctaSecondary}
             </Link>
           </div>
 
           {/* Social proof line */}
           <p className="mt-8 text-sm text-muted-foreground">
-            Free plan includes 3 projects &middot; No credit card required
+            {t.hero.socialProof}
           </p>
         </div>
       </section>
@@ -125,32 +92,23 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              Security tools shouldn&apos;t slow you down
+              {t.painPoints.title}
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              Complex setup. Fragmented results. No guidance on how to fix
-              what&apos;s found. Sound familiar? We built Killhouse to eliminate
-              every friction point between your code and a secure deployment.
+              {t.painPoints.subtitle}
             </p>
           </div>
 
           {/* Three pain-point cards */}
           <div className="mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-3">
-            <PainPointCard
-              icon={<BanIcon className="h-6 w-6 text-destructive" />}
-              title="Complex configuration"
-              description="Most scanners need YAML pipelines, custom Docker images, and hours of tuning. We need one OAuth click."
-            />
-            <PainPointCard
-              icon={<AlertCircleIcon className="h-6 w-6 text-yellow-500" />}
-              title="Findings without fixes"
-              description="A list of CVEs is useless if your team doesn't know how to remediate them. We generate patches you can apply."
-            />
-            <PainPointCard
-              icon={<SearchIcon className="h-6 w-6 text-blue-500" />}
-              title="Static-only coverage"
-              description="SAST catches patterns, but real exploits need runtime context. We combine SAST + DAST + pen-testing."
-            />
+            {t.painPoints.cards.map((card, i) => (
+              <PainPointCard
+                key={card.title}
+                icon={painPointIcons[i]}
+                title={card.title}
+                description={card.description}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -163,17 +121,14 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              From code to report in five steps
+              {t.pipeline.title}
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              Connect once, analyze continuously. Every push triggers a full
-              security pipeline.
-            </p>
+            <p className="mt-4 text-muted-foreground">{t.pipeline.subtitle}</p>
           </div>
 
           {/* Pipeline steps */}
           <div className="mx-auto mt-16 flex max-w-5xl flex-col items-center gap-4 md:flex-row md:justify-between">
-            {PIPELINE_STEPS.map((step, i) => (
+            {pipelineSteps.map((step, i) => (
               <div key={step.label} className="flex items-center gap-4">
                 <div className="flex flex-col items-center text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card">
@@ -184,7 +139,7 @@ export default function HomePage() {
                     {step.description}
                   </span>
                 </div>
-                {i < PIPELINE_STEPS.length - 1 && (
+                {i < pipelineSteps.length - 1 && (
                   <div className="hidden h-px w-12 bg-gradient-to-r from-primary/60 to-primary/10 md:block" />
                 )}
               </div>
@@ -198,15 +153,13 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              Everything you need to secure your code
+              {t.features.title}
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              One platform replaces your entire security toolchain.
-            </p>
+            <p className="mt-4 text-muted-foreground">{t.features.subtitle}</p>
           </div>
 
           <div className="mx-auto mt-16 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => (
+            {features.map((feature) => (
               <div
                 key={feature.title}
                 className="feature-card rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/30"
@@ -228,24 +181,23 @@ export default function HomePage() {
       <section className="aurora-bg relative border-t border-border/40 py-24">
         <div className="container relative z-10 mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-            Ready to secure your next deploy?
+            {t.cta.title}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Start with the free plan. Connect a repo and get your first
-            vulnerability report in under a minute.
+            {t.cta.subtitle}
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/signup"
               className="inline-flex h-12 items-center rounded-lg bg-primary px-8 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              Get Started — It&apos;s Free
+              {t.cta.ctaPrimary}
             </Link>
             <Link
               href="/pricing"
               className="inline-flex h-12 items-center rounded-lg border border-border px-8 text-base font-medium transition-colors hover:bg-accent"
             >
-              View Pricing
+              {t.cta.ctaSecondary}
             </Link>
           </div>
         </div>
