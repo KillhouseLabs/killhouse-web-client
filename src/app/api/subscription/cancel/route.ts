@@ -3,59 +3,13 @@
  *
  * 구독 해지 (Free 플랜으로 다운그레이드)
  * - 환불 없음
- * - PortOne 결제 취소 처리
+ * - gateway.cancelPayment()으로 PortOne 결제 취소 위임
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-
-const PORTONE_API_SECRET = process.env.PORTONE_API_SECRET;
-
-/**
- * PortOne 결제 취소 API 호출
- */
-async function cancelPortOnePayment(
-  paymentId: string,
-  reason: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!PORTONE_API_SECRET) {
-    console.log("[Cancel] PortOne API secret not configured, skipping cancel");
-    return { success: true };
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `PortOne ${PORTONE_API_SECRET}`,
-        },
-        body: JSON.stringify({
-          reason,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("[Cancel] PortOne cancel failed:", errorData);
-      // 이미 취소된 경우 등은 성공으로 처리
-      if (errorData.code === "ALREADY_CANCELLED") {
-        return { success: true };
-      }
-      return { success: false, error: errorData.message || "결제 취소 실패" };
-    }
-
-    console.log("[Cancel] PortOne payment cancelled successfully");
-    return { success: true };
-  } catch (error) {
-    console.error("[Cancel] PortOne cancel error:", error);
-    return { success: false, error: "결제 취소 중 오류 발생" };
-  }
-}
+import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 
 /**
  * POST /api/subscription/cancel
@@ -104,9 +58,10 @@ export async function POST() {
       },
     });
 
-    // PortOne 결제 취소 처리 (환불 없이 구독만 취소)
+    // gateway를 통한 PortOne 결제 취소 처리 (환불 없이 구독만 취소)
     if (lastPayment?.portonePaymentId) {
-      const cancelResult = await cancelPortOnePayment(
+      const gateway = createPaymentGateway();
+      const cancelResult = await gateway.cancelPayment(
         lastPayment.portonePaymentId,
         "사용자 구독 해지 요청 (환불 없음)"
       );

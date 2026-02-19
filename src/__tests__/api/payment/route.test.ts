@@ -2,7 +2,8 @@
  * Payment API Tests
  *
  * 결제 생성, 검증, 취소 API 테스트
- * - 함수 단위 모킹을 통한 로직 검증
+ * - gateway mock을 통한 로직 검증
+ * - upgradeSubscription usecase 검증
  */
 
 // Mock Prisma
@@ -27,18 +28,38 @@ jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
 
-// Mock fetch for PortOne API
-const originalFetch = global.fetch;
-beforeAll(() => {
-  global.fetch = jest.fn();
-});
-afterAll(() => {
-  global.fetch = originalFetch;
-});
+// Mock PaymentGateway factory
+jest.mock("@/domains/payment/infra/payment-gateway-factory", () => ({
+  createPaymentGateway: jest.fn(() => ({
+    verifyClientPayment: jest.fn().mockResolvedValue({
+      externalPaymentId: "imp_test",
+      status: "PAID",
+      amount: 29000,
+      paidAt: new Date(),
+      orderId: "order-123",
+    }),
+    verifyWebhookPayment: jest.fn().mockResolvedValue({
+      externalPaymentId: "payment_test",
+      status: "PAID",
+      amount: 29000,
+      paidAt: new Date(),
+      orderId: "order-123",
+    }),
+    refundPayment: jest.fn().mockResolvedValue({
+      success: true,
+      refundedAmount: 29000,
+    }),
+    cancelPayment: jest.fn().mockResolvedValue({
+      success: true,
+    }),
+  })),
+}));
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { auth } from "@/lib/auth";
 import { PLANS } from "@/config/constants";
+import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
+import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
 
 describe("Payment API", () => {
   beforeEach(() => {
@@ -54,7 +75,6 @@ describe("Payment API", () => {
       const planId = "pro";
       const userId = "user-123";
 
-      // Mock payment creation
       (prisma.payment.create as jest.Mock).mockResolvedValue({
         id: "pay-123",
         orderId: "order_123_abc",
@@ -83,10 +103,7 @@ describe("Payment API", () => {
     });
 
     it("GIVEN free 플랜 WHEN 가격 확인 THEN 0원이어야 한다", () => {
-      // GIVEN
-      const _planId = "free";
-
-      // WHEN
+      // GIVEN & WHEN
       const plan = PLANS.FREE;
 
       // THEN
@@ -94,39 +111,26 @@ describe("Payment API", () => {
     });
   });
 
-  describe("Verify Logic", () => {
-    it("GIVEN 유효한 결제 WHEN 검증 THEN 구독이 업그레이드되어야 한다", async () => {
+  describe("Verify Logic (Gateway)", () => {
+    it("GIVEN 유효한 결제 WHEN gateway 검증 THEN 구독이 업그레이드되어야 한다", async () => {
       // GIVEN
       const userId = "user-123";
+      const gateway = createPaymentGateway();
 
-      // Mock PortOne API response
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            status: "PAID",
-            amount: { total: PLANS.PRO.price },
-            customData: JSON.stringify({ orderId: "order-123" }),
-          }),
-      });
-
-      // Mock existing payment
       (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: PLANS.PRO.price,
+        amount: 29000,
         status: "PENDING",
         userId,
       });
 
-      // Mock payment update
       (prisma.payment.update as jest.Mock).mockResolvedValue({
         id: "pay-123",
         status: "COMPLETED",
       });
 
-      // Mock subscription update
       (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
         id: "sub-123",
         userId,
@@ -141,104 +145,85 @@ describe("Payment API", () => {
       });
 
       // WHEN
-      const paymentId = "payment_abc123";
-      const portoneResponse = await fetch(
-        `https://api.portone.io/payments/${paymentId}`
-      );
-      const portoneData = await portoneResponse.json();
+      const paymentInfo = await gateway.verifyClientPayment("imp_test");
 
       const payment = await prisma.payment.findFirst({
         where: { orderId: "order-123" },
       });
 
-      // Verify amount
-      const amountMatches = portoneData.amount.total === payment!.amount;
+      const amountMatches = paymentInfo.amount === payment!.amount;
 
-      if (amountMatches && portoneData.status === "PAID") {
+      if (amountMatches && paymentInfo.status === "PAID") {
         await prisma.payment.update({
           where: { id: payment!.id },
-          data: { status: "COMPLETED", paidAt: new Date() },
+          data: { status: "COMPLETED", paidAt: paymentInfo.paidAt },
         });
 
-        await prisma.subscription.update({
-          where: { userId },
-          data: { planId: payment!.planId, status: "ACTIVE" },
-        });
+        await upgradeSubscription(userId, payment!.planId);
       }
 
       // THEN
       expect(amountMatches).toBe(true);
       expect(prisma.payment.update).toHaveBeenCalled();
-      expect(prisma.subscription.update).toHaveBeenCalled();
+      expect(prisma.subscription.findUnique).toHaveBeenCalled();
     });
 
-    it("GIVEN 금액 불일치 WHEN 검증 THEN 실패해야 한다", async () => {
+    it("GIVEN 금액 불일치 WHEN gateway 검증 THEN 실패해야 한다", async () => {
       // GIVEN
-      const userId = "user-123";
+      const gateway = createPaymentGateway();
 
-      // Mock PortOne API response with wrong amount
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            status: "PAID",
-            amount: { total: 1000 }, // Wrong amount
-            customData: JSON.stringify({ orderId: "order-123" }),
-          }),
+      // Override gateway to return different amount
+      (gateway.verifyClientPayment as jest.Mock).mockResolvedValue({
+        externalPaymentId: "imp_test",
+        status: "PAID",
+        amount: 1000, // Wrong amount
+        paidAt: new Date(),
+        orderId: "order-123",
       });
 
-      // Mock existing payment
       (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: PLANS.PRO.price,
+        amount: 29000,
         status: "PENDING",
-        userId,
+        userId: "user-123",
       });
 
       // WHEN
-      const paymentId = "payment_abc123";
-      const portoneResponse = await fetch(
-        `https://api.portone.io/payments/${paymentId}`
-      );
-      const portoneData = await portoneResponse.json();
-
+      const paymentInfo = await gateway.verifyClientPayment("imp_test");
       const payment = await prisma.payment.findFirst({
         where: { orderId: "order-123" },
       });
 
-      const amountMatches = portoneData.amount.total === payment!.amount;
+      const amountMatches = paymentInfo.amount === payment!.amount;
 
       // THEN
       expect(amountMatches).toBe(false);
     });
 
-    it("GIVEN 결제 실패 상태 WHEN 검증 THEN 실패해야 한다", async () => {
+    it("GIVEN 결제 실패 상태 WHEN gateway 검증 THEN 실패해야 한다", async () => {
       // GIVEN
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            status: "FAILED",
-            amount: { total: PLANS.PRO.price },
-          }),
+      const gateway = createPaymentGateway();
+      (gateway.verifyClientPayment as jest.Mock).mockResolvedValue({
+        externalPaymentId: "imp_test",
+        status: "FAILED",
+        amount: 29000,
+        paidAt: null,
+        orderId: null,
       });
 
       // WHEN
-      const portoneResponse = await fetch(
-        "https://api.portone.io/payments/payment_abc123"
-      );
-      const portoneData = await portoneResponse.json();
+      const paymentInfo = await gateway.verifyClientPayment("imp_failed");
 
       // THEN
-      expect(portoneData.status).toBe("FAILED");
-      expect(portoneData.status).not.toBe("PAID");
+      expect(paymentInfo.status).toBe("FAILED");
+      expect(paymentInfo.status).not.toBe("PAID");
     });
   });
 
-  describe("Webhook Logic", () => {
-    it("GIVEN 결제 완료 웹훅 WHEN 처리 THEN 구독이 업그레이드되어야 한다", async () => {
+  describe("Webhook Logic (Gateway)", () => {
+    it("GIVEN 결제 완료 웹훅 WHEN gateway 처리 THEN 구독이 업그레이드되어야 한다", async () => {
       // GIVEN
       const webhookPayload = {
         type: "Transaction.Paid",
@@ -248,23 +233,13 @@ describe("Payment API", () => {
         },
       };
 
-      // Mock PortOne API
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            status: "PAID",
-            amount: { total: PLANS.PRO.price },
-            customData: JSON.stringify({ orderId: "order-123" }),
-          }),
-      });
+      const gateway = createPaymentGateway();
 
-      // Mock payment
       (prisma.payment.findFirst as jest.Mock).mockResolvedValue({
         id: "pay-123",
         orderId: "order-123",
         planId: "pro",
-        amount: PLANS.PRO.price,
+        amount: 29000,
         status: "PENDING",
         userId: "user-123",
       });
@@ -286,37 +261,35 @@ describe("Payment API", () => {
         status: "ACTIVE",
       });
 
-      // WHEN - Simulate webhook processing
+      // WHEN - Simulate webhook processing via gateway
       const { type, data } = webhookPayload;
 
       if (type === "Transaction.Paid") {
-        const portoneResponse = await fetch(
-          `https://api.portone.io/payments/${data.paymentId}`
+        const portonePayment = await gateway.verifyWebhookPayment(
+          data.paymentId
         );
-        const portoneData = await portoneResponse.json();
 
-        if (portoneData.status === "PAID") {
-          const payment = await prisma.payment.findFirst({
-            where: { orderId: "order-123" },
+        const payment = await prisma.payment.findFirst({
+          where: { orderId: "order-123" },
+        });
+
+        if (
+          payment &&
+          portonePayment.status === "PAID" &&
+          portonePayment.amount === payment.amount
+        ) {
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: { status: "COMPLETED" },
           });
 
-          if (payment && portoneData.amount.total === payment.amount) {
-            await prisma.payment.update({
-              where: { id: payment.id },
-              data: { status: "COMPLETED" },
-            });
-
-            await prisma.subscription.update({
-              where: { userId: payment.userId },
-              data: { planId: payment.planId, status: "ACTIVE" },
-            });
-          }
+          await upgradeSubscription(payment.userId, payment.planId);
         }
       }
 
       // THEN
       expect(prisma.payment.update).toHaveBeenCalled();
-      expect(prisma.subscription.update).toHaveBeenCalled();
+      expect(prisma.subscription.findUnique).toHaveBeenCalled();
     });
 
     it("GIVEN 다른 이벤트 타입 WHEN 웹훅 수신 THEN 무시해야 한다", () => {
