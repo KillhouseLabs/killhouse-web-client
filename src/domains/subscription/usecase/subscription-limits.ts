@@ -21,6 +21,19 @@ interface PlanLimits {
   storageMB: number;
 }
 
+export interface ResourceLimits {
+  containerMemoryLimit: string;
+  containerCpuLimit: number;
+  containerPidsLimit: number;
+}
+
+const TERMINAL_STATUSES = [
+  "COMPLETED",
+  "COMPLETED_WITH_ERRORS",
+  "FAILED",
+  "CANCELLED",
+];
+
 interface LimitCheckResult {
   allowed: boolean;
   currentCount: number;
@@ -128,6 +141,49 @@ export async function canRunAnalysis(
     message: allowed
       ? undefined
       : `이번 달 분석 한도(${limits.analysisPerMonth}회)에 도달했습니다. 플랜을 업그레이드하세요.`,
+  };
+}
+
+export async function canStartConcurrentScan(
+  userId: string
+): Promise<LimitCheckResult> {
+  const subscription = await getUserSubscription(userId);
+  const policy = await fetchPolicy();
+  const policyLimits = getPolicyPlanLimits(policy, subscription.planId);
+
+  const currentCount = await prisma.analysis.count({
+    where: {
+      project: { userId },
+      status: { notIn: TERMINAL_STATUSES },
+    },
+  });
+
+  const allowed = canPerformAction(
+    currentCount,
+    policyLimits.maxConcurrentScans
+  );
+
+  return {
+    allowed,
+    currentCount,
+    limit: policyLimits.maxConcurrentScans,
+    message: allowed
+      ? undefined
+      : `동시 스캔 한도(${policyLimits.maxConcurrentScans}개)에 도달했습니다. 진행 중인 분석이 완료될 때까지 기다려주세요.`,
+  };
+}
+
+export async function getResourceLimits(
+  userId: string
+): Promise<ResourceLimits> {
+  const subscription = await getUserSubscription(userId);
+  const policy = await fetchPolicy();
+  const policyLimits = getPolicyPlanLimits(policy, subscription.planId);
+
+  return {
+    containerMemoryLimit: policyLimits.containerMemoryLimit,
+    containerCpuLimit: policyLimits.containerCpuLimit,
+    containerPidsLimit: policyLimits.containerPidsLimit,
   };
 }
 

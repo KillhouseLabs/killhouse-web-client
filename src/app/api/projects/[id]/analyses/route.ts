@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import { canRunAnalysis } from "@/domains/subscription/usecase/subscription-limits";
+import {
+  canRunAnalysis,
+  canStartConcurrentScan,
+} from "@/domains/subscription/usecase/subscription-limits";
 import { serverEnv } from "@/config/env";
+import { orchestrateSandboxAndDast } from "@/lib/sandbox-orchestrator";
 
 // Request validation schema
 const startAnalysisSchema = z.object({
@@ -85,7 +89,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Check subscription limits for analysis
+    // Check subscription limits: monthly analysis count
     const limitCheck = await canRunAnalysis(session.user.id);
     if (!limitCheck.allowed) {
       return NextResponse.json(
@@ -99,6 +103,23 @@ export async function POST(request: Request, { params }: RouteParams) {
           },
         },
         { status: 403 }
+      );
+    }
+
+    // Check policy limits: concurrent scan count
+    const concurrentCheck = await canStartConcurrentScan(session.user.id);
+    if (!concurrentCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: concurrentCheck.message,
+          code: "CONCURRENT_LIMIT_EXCEEDED",
+          usage: {
+            current: concurrentCheck.currentCount,
+            limit: concurrentCheck.limit,
+          },
+        },
+        { status: 429 }
       );
     }
 
@@ -184,58 +205,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
     });
 
-    // Trigger sandbox environment creation if repository has build config
-    let sandboxTargetUrl: string | null = null;
-    let sandboxNetworkName: string | null = null;
-    if (
-      targetRepository?.dockerfileContent ||
-      targetRepository?.composeContent ||
-      targetRepository?.url
-    ) {
-      try {
-        const sandboxUrl = serverEnv.SANDBOX_API_URL();
-        const sandboxResponse = await fetch(`${sandboxUrl}/api/environments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            repo_url: targetRepository.url || undefined,
-            branch: effectiveBranch,
-            dockerfile_content: targetRepository.dockerfileContent || undefined,
-            compose_content: targetRepository.composeContent || undefined,
-          }),
-        });
-
-        if (sandboxResponse.ok) {
-          const sandboxData = await sandboxResponse.json();
-          sandboxTargetUrl = sandboxData.target_url || null;
-          sandboxNetworkName = sandboxData.network_name || null;
-          await prisma.analysis.update({
-            where: { id: analysis.id },
-            data: {
-              sandboxContainerId: sandboxData.environment_id || null,
-              sandboxStatus: "CREATING",
-            },
-          });
-        } else {
-          console.error(
-            "Sandbox environment creation failed:",
-            await sandboxResponse.text()
-          );
-          await prisma.analysis.update({
-            where: { id: analysis.id },
-            data: { sandboxStatus: "FAILED" },
-          });
-        }
-      } catch (sandboxError) {
-        console.error("Sandbox API call failed:", sandboxError);
-        await prisma.analysis.update({
-          where: { id: analysis.id },
-          data: { sandboxStatus: "FAILED" },
-        });
-      }
-    }
-
-    // Trigger security scan via scanner-engine
+    // --- Step 1: SAST 스캔 즉시 호출 (sandbox 무관) ---
     try {
       const scannerUrl = serverEnv.SCANNER_API_URL();
       const scanPayload: Record<string, string | undefined> = {
@@ -243,19 +213,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         callback_url: `${serverEnv.NEXTAUTH_URL()}/api/analyses/webhook`,
       };
 
-      // Add repo URL for SAST scan
       if (targetRepository?.url) {
         scanPayload.repo_url = targetRepository.url;
         scanPayload.branch = effectiveBranch;
-      }
-
-      // Add target URL for DAST scan (from sandbox response)
-      if (sandboxTargetUrl) {
-        scanPayload.target_url = sandboxTargetUrl;
-      }
-
-      if (sandboxNetworkName) {
-        scanPayload.network_name = sandboxNetworkName;
       }
 
       const scanResponse = await fetch(`${scannerUrl}/api/scans`, {
@@ -269,13 +229,27 @@ export async function POST(request: Request, { params }: RouteParams) {
           where: { id: analysis.id },
           data: { status: "SCANNING" },
         });
-      } else {
-        console.error("Scanner engine call failed:", await scanResponse.text());
       }
     } catch (scanError) {
       console.error("Scanner API call failed:", scanError);
     }
 
+    // --- Step 2: Sandbox + DAST 백그라운드 실행 ---
+    const hasBuildConfig =
+      targetRepository?.dockerfileContent ||
+      targetRepository?.composeContent ||
+      targetRepository?.url;
+
+    if (hasBuildConfig && targetRepository) {
+      orchestrateSandboxAndDast(
+        analysis.id,
+        session.user.id,
+        targetRepository,
+        effectiveBranch
+      ).catch((err) => console.error("Sandbox orchestration failed:", err));
+    }
+
+    // --- 201 즉시 반환 ---
     return NextResponse.json(
       {
         success: true,

@@ -1,6 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+const DEMO_USER_EMAIL = "demo@killhouse.io";
+const DEMO_USER_PASSWORD = "KillhouseDemo2025!";
+const DEMO_USER_NAME = "Demo User";
 
 const platformPolicy = {
   subscriptionStatuses: {
@@ -77,6 +82,38 @@ async function main() {
   });
 
   console.log("Platform policy seeded successfully");
+
+  // --- Demo user (enterprise plan, all permissions) ---
+  const hashedPassword = await bcrypt.hash(DEMO_USER_PASSWORD, 10);
+
+  const demoUser = await prisma.user.upsert({
+    where: { email: DEMO_USER_EMAIL },
+    update: {
+      name: DEMO_USER_NAME,
+      password: hashedPassword,
+    },
+    create: {
+      email: DEMO_USER_EMAIL,
+      name: DEMO_USER_NAME,
+      password: hashedPassword,
+      emailVerified: new Date(),
+    },
+  });
+
+  await prisma.subscription.upsert({
+    where: { userId: demoUser.id },
+    update: {
+      planId: "enterprise",
+      status: "ACTIVE",
+    },
+    create: {
+      userId: demoUser.id,
+      planId: "enterprise",
+      status: "ACTIVE",
+    },
+  });
+
+  console.log(`Demo user seeded: ${DEMO_USER_EMAIL} (enterprise plan)`);
 }
 
 main()

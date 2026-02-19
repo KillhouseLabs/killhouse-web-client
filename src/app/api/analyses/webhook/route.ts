@@ -100,20 +100,22 @@ export async function POST(request: Request) {
           : JSON.stringify(penetration_test_report);
     }
 
+    // Accumulate counts (SAST and DAST callbacks may arrive separately)
     if (vulnerabilities_found !== undefined) {
-      updateData.vulnerabilitiesFound = vulnerabilities_found;
+      updateData.vulnerabilitiesFound =
+        (analysis.vulnerabilitiesFound || 0) + vulnerabilities_found;
     }
     if (critical_count !== undefined) {
-      updateData.criticalCount = critical_count;
+      updateData.criticalCount = (analysis.criticalCount || 0) + critical_count;
     }
     if (high_count !== undefined) {
-      updateData.highCount = high_count;
+      updateData.highCount = (analysis.highCount || 0) + high_count;
     }
     if (medium_count !== undefined) {
-      updateData.mediumCount = medium_count;
+      updateData.mediumCount = (analysis.mediumCount || 0) + medium_count;
     }
     if (low_count !== undefined) {
-      updateData.lowCount = low_count;
+      updateData.lowCount = (analysis.lowCount || 0) + low_count;
     }
 
     if (executive_summary) {
