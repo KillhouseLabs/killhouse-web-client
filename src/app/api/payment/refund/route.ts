@@ -1,31 +1,15 @@
+/**
+ * Payment Refund API
+ *
+ * 결제 환불 처리 (gateway.refundPayment()으로 PG 환불 위임)
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { PLANS } from "@/config/constants";
 import { calculateRefundAmount } from "@/domains/payment/usecase/refund.usecase";
-
-const PORTONE_REST_API_KEY = process.env.PORTONE_REST_API_KEY;
-const PORTONE_REST_API_SECRET = process.env.PORTONE_REST_API_SECRET;
-
-// PortOne V1 Access Token 발급
-async function getAccessToken(): Promise<string> {
-  const response = await fetch("https://api.iamport.kr/users/getToken", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      imp_key: PORTONE_REST_API_KEY,
-      imp_secret: PORTONE_REST_API_SECRET,
-    }),
-  });
-
-  const data = await response.json();
-
-  if (data.code !== 0) {
-    throw new Error(`Access token 발급 실패: ${data.message}`);
-  }
-
-  return data.response.access_token;
-}
+import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,10 +76,8 @@ export async function POST(request: NextRequest) {
     } | null = null;
 
     if (fullRefund) {
-      // 명시적 전액 환불 요청
       refundAmount = payment.amount;
     } else if (subscription.currentPeriodEnd) {
-      // paidAt 기준 7일 청약철회 + 일할계산
       const calculated = calculateRefundAmount(
         payment.amount,
         payment.paidAt ?? subscription.currentPeriodStart,
@@ -108,7 +90,6 @@ export async function POST(request: NextRequest) {
         usageRate: calculated.usageRate,
       };
     } else {
-      // 구독 종료일이 없으면 전액 환불
       refundAmount = payment.amount;
     }
 
@@ -122,44 +103,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Access Token 발급
-    const accessToken = await getAccessToken();
-
-    // 5. PortOne 환불 요청
-    const refundResponse = await fetch(
-      "https://api.iamport.kr/payments/cancel",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          imp_uid: payment.portonePaymentId,
-          reason: reason || "사용자 요청에 의한 환불",
-          amount: refundAmount,
-        }),
-      }
+    // 4. gateway를 통한 환불 처리
+    const gateway = createPaymentGateway();
+    const refundResult = await gateway.refundPayment(
+      payment.portonePaymentId,
+      refundAmount,
+      reason || "사용자 요청에 의한 환불"
     );
 
-    const refundData = await refundResponse.json();
-
-    if (refundData.code !== 0) {
-      console.error("[Refund] PortOne 환불 실패:", refundData);
+    if (!refundResult.success) {
+      console.error("[Refund] 환불 실패:", refundResult.error);
       return NextResponse.json(
-        { success: false, error: refundData.message || "환불 처리 실패" },
+        { success: false, error: refundResult.error || "환불 처리 실패" },
         { status: 400 }
       );
     }
 
-    console.log("[Refund] 환불 성공:", refundData.response);
+    console.log("[Refund] 환불 성공:", refundResult.refundedAmount);
 
-    // 6. 결제 상태 업데이트
+    // 5. 결제 상태 업데이트
     const isFullRefund = refundAmount === payment.amount;
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
-        status: isFullRefund ? "REFUNDED" : "COMPLETED", // 부분 환불은 상태 유지
+        status: isFullRefund ? "REFUNDED" : "COMPLETED",
         cancelledAt: new Date(),
         cancelReason:
           reason ||
@@ -167,7 +134,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 7. 구독을 Free로 변경
+    // 6. 구독을 Free로 변경
     await prisma.subscription.update({
       where: { userId: session.user.id },
       data: {
@@ -181,13 +148,10 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         paymentId: payment.id,
-        impUid: refundData.response.imp_uid,
-        merchantUid: refundData.response.merchant_uid,
         originalAmount: payment.amount,
-        refundAmount: refundData.response.cancel_amount,
+        refundAmount: refundResult.refundedAmount,
         isFullRefund,
         refundInfo,
-        cancelledAt: refundData.response.cancelled_at,
       },
     });
   } catch (error) {

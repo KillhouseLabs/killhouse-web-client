@@ -9,46 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { z } from "zod";
+import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
 
 const testCompleteSchema = z.object({
   orderId: z.string().min(1),
 });
-
-/**
- * 구독 업그레이드 처리
- */
-async function upgradeSubscription(userId: string, planId: string) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  const existingSubscription = await prisma.subscription.findUnique({
-    where: { userId },
-  });
-
-  if (existingSubscription) {
-    return prisma.subscription.update({
-      where: { userId },
-      data: {
-        planId,
-        status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false,
-      },
-    });
-  }
-
-  return prisma.subscription.create({
-    data: {
-      userId,
-      planId,
-      status: "ACTIVE",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-    },
-  });
-}
 
 /**
  * POST /api/payment/test-complete

@@ -2,110 +2,20 @@
  * Payment Verify API (V1 - 아임포트)
  *
  * 결제 완료 검증 및 구독 업그레이드
+ * gateway.verifyClientPayment()으로 PG 검증 위임
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { z } from "zod";
+import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
+import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
 
-const PORTONE_REST_API_KEY = process.env.PORTONE_REST_API_KEY;
-const PORTONE_REST_API_SECRET = process.env.PORTONE_REST_API_SECRET;
-
-// V1 검증 스키마
 const verifyPaymentSchemaV1 = z.object({
   impUid: z.string().min(1),
   merchantUid: z.string().min(1),
 });
-
-interface IMPPaymentResponse {
-  code: number;
-  message: string;
-  response?: {
-    imp_uid: string;
-    merchant_uid: string;
-    status: string;
-    amount: number;
-    paid_at: number;
-  };
-}
-
-/**
- * 아임포트 액세스 토큰 발급
- */
-async function getIMPAccessToken(): Promise<string> {
-  const response = await fetch("https://api.iamport.kr/users/getToken", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      imp_key: PORTONE_REST_API_KEY,
-      imp_secret: PORTONE_REST_API_SECRET,
-    }),
-  });
-
-  const data = await response.json();
-  if (data.code !== 0) {
-    throw new Error(`Failed to get access token: ${data.message}`);
-  }
-
-  return data.response.access_token;
-}
-
-/**
- * 아임포트 API로 결제 정보 조회
- */
-async function getIMPPayment(impUid: string): Promise<IMPPaymentResponse> {
-  const accessToken = await getIMPAccessToken();
-
-  const response = await fetch(
-    `https://api.iamport.kr/payments/${encodeURIComponent(impUid)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-
-  return response.json();
-}
-
-/**
- * 구독 업그레이드 처리
- */
-async function upgradeSubscription(userId: string, planId: string) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  // 기존 구독 확인
-  const existingSubscription = await prisma.subscription.findUnique({
-    where: { userId },
-  });
-
-  if (existingSubscription) {
-    return prisma.subscription.update({
-      where: { userId },
-      data: {
-        planId,
-        status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false,
-      },
-    });
-  }
-
-  // 신규 구독 생성
-  return prisma.subscription.create({
-    data: {
-      userId,
-      planId,
-      status: "ACTIVE",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-    },
-  });
-}
 
 /**
  * POST /api/payment/verify
@@ -113,7 +23,6 @@ async function upgradeSubscription(userId: string, planId: string) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // 인증 확인
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -124,7 +33,6 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // 요청 파싱 및 검증
     const body = await request.json();
     const validationResult = verifyPaymentSchemaV1.safeParse(body);
 
@@ -141,10 +49,11 @@ export async function POST(request: NextRequest) {
 
     const { impUid, merchantUid } = validationResult.data;
 
-    // 아임포트 API로 결제 정보 조회
-    let impPayment: IMPPaymentResponse;
+    // gateway를 통한 결제 검증
+    const gateway = createPaymentGateway();
+    let paymentInfo;
     try {
-      impPayment = await getIMPPayment(impUid);
+      paymentInfo = await gateway.verifyClientPayment(impUid);
     } catch (error) {
       console.error("[IMP API Error]", error);
       return NextResponse.json(
@@ -152,15 +61,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    if (impPayment.code !== 0 || !impPayment.response) {
-      return NextResponse.json(
-        { success: false, error: impPayment.message || "결제 정보 조회 실패" },
-        { status: 400 }
-      );
-    }
-
-    const paymentInfo = impPayment.response;
 
     // merchant_uid로 내부 결제 레코드 조회
     const payment = await prisma.payment.findFirst({
@@ -193,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 결제 상태 확인
-    if (paymentInfo.status !== "paid") {
+    if (paymentInfo.status !== "PAID") {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -238,7 +138,7 @@ export async function POST(request: NextRequest) {
       data: {
         status: "COMPLETED",
         portonePaymentId: impUid,
-        paidAt: new Date(paymentInfo.paid_at * 1000),
+        paidAt: paymentInfo.paidAt,
       },
     });
 
