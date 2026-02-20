@@ -22,7 +22,7 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
-  infoCount: number;
+  infoCount?: number;
   startedAt: Date;
   completedAt: Date | null;
 }

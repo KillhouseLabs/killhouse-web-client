@@ -63,7 +63,7 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
-  infoCount: number;
+  infoCount?: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
   executiveSummary: string | null;
@@ -247,7 +247,7 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
     },
     {
       label: "Info",
-      count: analysis.infoCount,
+      count: analysis.infoCount ?? 0,
       color: "text-gray-600 bg-gray-500/10",
     },
   ];

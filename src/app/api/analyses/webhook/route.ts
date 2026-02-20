@@ -149,7 +149,9 @@ export async function POST(request: Request) {
       updateData.lowCount = (analysis.lowCount || 0) + low_count;
     }
     if (info_count !== undefined) {
-      updateData.infoCount = (analysis.infoCount || 0) + info_count;
+      const currentInfoCount =
+        ((analysis as Record<string, unknown>).infoCount as number) || 0;
+      updateData.infoCount = currentInfoCount + info_count;
     }
 
     if (executive_summary) {
@@ -182,10 +184,45 @@ export async function POST(request: Request) {
     }
 
     // Update the analysis record
-    const updated = await prisma.analysis.update({
-      where: { id: analysis_id },
-      data: updateData,
-    });
+    let updated;
+    try {
+      updated = await prisma.analysis.update({
+        where: { id: analysis_id },
+        data: updateData,
+      });
+    } catch (dbError) {
+      // Prisma 스키마에 없는 필드가 포함된 경우 해당 필드를 제거하고 재시도
+      console.warn(
+        `Webhook: DB update failed, retrying without unknown fields: ${dbError}`
+      );
+      const safeData = { ...updateData };
+      const knownFields = [
+        "status",
+        "logs",
+        "staticAnalysisReport",
+        "penetrationTestReport",
+        "vulnerabilitiesFound",
+        "criticalCount",
+        "highCount",
+        "mediumCount",
+        "lowCount",
+        "infoCount",
+        "executiveSummary",
+        "stepResults",
+        "exploitSessionId",
+        "completedAt",
+        "sandboxStatus",
+      ];
+      for (const key of Object.keys(safeData)) {
+        if (!knownFields.includes(key)) {
+          delete safeData[key];
+        }
+      }
+      updated = await prisma.analysis.update({
+        where: { id: analysis_id },
+        data: safeData,
+      });
+    }
 
     console.log(`Webhook: Analysis ${analysis_id} updated to ${status}`);
 
@@ -196,7 +233,13 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Webhook processing error:", error);
     return NextResponse.json(
-      { success: false, error: "Webhook processing failed" },
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? `Webhook processing failed: ${error.message}`
+            : "Webhook processing failed",
+      },
       { status: 500 }
     );
   }
