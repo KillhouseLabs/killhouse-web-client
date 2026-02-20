@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
 import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
+import { AnalysisLiveLog } from "@/components/analysis/analysis-live-log";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 const TERMINAL_STATUSES = [
@@ -65,6 +66,7 @@ interface Analysis {
   penetrationTestReport: string | null;
   executiveSummary: string | null;
   stepResults: string | null;
+  logs?: string | null;
   exploitSessionId: string | null;
   startedAt: Date;
   completedAt: Date | null;
@@ -1176,6 +1178,14 @@ export function AnalysisDetail({
     () => parseStepResults(analysis.stepResults),
     [analysis.stepResults]
   );
+  const polledSastReport = useMemo(
+    () => parseReport(polledAnalysis?.staticAnalysisReport ?? null),
+    [polledAnalysis?.staticAnalysisReport]
+  );
+  const polledDastReport = useMemo(
+    () => parseReport(polledAnalysis?.penetrationTestReport ?? null),
+    [polledAnalysis?.penetrationTestReport]
+  );
 
   return (
     <div className="space-y-6">
@@ -1286,6 +1296,12 @@ export function AnalysisDetail({
         />
       </div>
 
+      {/* Live Log */}
+      <AnalysisLiveLog
+        logs={polledAnalysis?.logs ?? analysis.logs ?? null}
+        currentStatus={currentStatus}
+      />
+
       {/* In-progress message */}
       {!TERMINAL_STATUSES.includes(currentStatus) && (
         <div className="flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
@@ -1306,6 +1322,28 @@ export function AnalysisDetail({
           </p>
         </div>
       )}
+
+      {/* Intermediate results - show SAST/DAST as they become available during analysis */}
+      {!TERMINAL_STATUSES.includes(currentStatus) &&
+        (polledSastReport || polledDastReport) && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">중간 분석 결과</h2>
+            {polledSastReport && (
+              <FindingsTable
+                title="SAST 분석 결과 (정적 분석)"
+                report={polledSastReport}
+                analysisId={analysis.id}
+              />
+            )}
+            {polledDastReport && (
+              <FindingsTable
+                title="DAST 분석 결과 (침투 테스트)"
+                report={polledDastReport}
+                analysisId={analysis.id}
+              />
+            )}
+          </div>
+        )}
 
       {/* Vulnerability Summary */}
       {(currentStatus === "COMPLETED" ||
