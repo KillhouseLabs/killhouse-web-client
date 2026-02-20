@@ -65,6 +65,7 @@ describe("DashboardHeader", () => {
       cookieStore["next-auth.session-token"] = "token123";
       cookieStore["next-auth.csrf-token"] = "csrf123";
       cookieStore["__Secure-next-auth.session-token"] = "secure-token123";
+      cookieStore["authjs.session-token"] = "authjs-token123";
       cookieStore["other-cookie"] = "should-not-be-deleted";
 
       render(<DashboardHeader />);
@@ -77,6 +78,7 @@ describe("DashboardHeader", () => {
         expect(cookieStore["next-auth.session-token"]).toBeUndefined();
         expect(cookieStore["next-auth.csrf-token"]).toBeUndefined();
         expect(cookieStore["__Secure-next-auth.session-token"]).toBeUndefined();
+        expect(cookieStore["authjs.session-token"]).toBeUndefined();
         expect(cookieStore["other-cookie"]).toBe("should-not-be-deleted");
       });
     });
@@ -91,7 +93,9 @@ describe("DashboardHeader", () => {
 
       // THEN
       await waitFor(() => {
-        expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/login" });
+        expect(mockSignOut).toHaveBeenCalledWith({
+          callbackUrl: `${window.location.origin}/login`,
+        });
       });
     });
 
@@ -106,7 +110,9 @@ describe("DashboardHeader", () => {
 
       // THEN
       await waitFor(() => {
-        expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/login" });
+        expect(mockSignOut).toHaveBeenCalledWith({
+          callbackUrl: `${window.location.origin}/login`,
+        });
       });
     });
   });

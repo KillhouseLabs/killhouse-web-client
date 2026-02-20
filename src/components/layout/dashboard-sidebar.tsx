@@ -184,18 +184,17 @@ export function DashboardHeader() {
     for (const cookie of cookies) {
       const cookieName = cookie.split("=")[0].trim();
 
-      // Clear cookies that start with next-auth or __Secure-next-auth
       if (
         cookieName.startsWith("next-auth") ||
-        cookieName.startsWith("__Secure-next-auth")
+        cookieName.startsWith("__Secure-next-auth") ||
+        cookieName.startsWith("authjs")
       ) {
-        // Set cookie to expire in the past
         document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       }
     }
 
-    // Sign out and redirect to login page
-    signOut({ callbackUrl: "/login" });
+    // Use current origin to avoid NEXTAUTH_URL port mismatch
+    signOut({ callbackUrl: `${window.location.origin}/login` });
   };
 
   return (
