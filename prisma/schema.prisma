@@ -126,6 +126,7 @@ model Analysis {
   highCount             Int         @default(0)
   mediumCount           Int         @default(0)
   lowCount              Int         @default(0)
+  infoCount             Int         @default(0)
   sandboxContainerId    String?
   sandboxStatus         String?
   logs                  String?

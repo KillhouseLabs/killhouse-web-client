@@ -60,6 +60,7 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
   executiveSummary: string | null;
@@ -81,6 +82,7 @@ const mockAnalysisWithVulnerabilities: Analysis = {
   highCount: 3,
   mediumCount: 4,
   lowCount: 1,
+  infoCount: 0,
   staticAnalysisReport: JSON.stringify({
     tool: "semgrep",
     findings: [
@@ -139,6 +141,7 @@ const mockAnalysisWithOldFields: Analysis = {
   highCount: 1,
   mediumCount: 0,
   lowCount: 0,
+  infoCount: 0,
   staticAnalysisReport: JSON.stringify({
     tool: "semgrep",
     findings: [
@@ -172,6 +175,7 @@ const mockAnalysisWithoutVulnerabilities: Analysis = {
   highCount: 0,
   mediumCount: 0,
   lowCount: 0,
+  infoCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
   executiveSummary: null,
@@ -192,6 +196,7 @@ const mockAnalysisInProgress: Analysis = {
   highCount: 0,
   mediumCount: 0,
   lowCount: 0,
+  infoCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
   executiveSummary: null,
@@ -212,6 +217,7 @@ const mockAnalysisFailed: Analysis = {
   highCount: 0,
   mediumCount: 0,
   lowCount: 0,
+  infoCount: 0,
   staticAnalysisReport: null,
   penetrationTestReport: null,
   executiveSummary: null,
@@ -1051,6 +1057,7 @@ describe("AnalysisDetail", () => {
           highCount: 0,
           mediumCount: 0,
           lowCount: 0,
+          infoCount: 0,
           completedAt: null,
           logs: polledLogs,
           staticAnalysisReport: null,
@@ -1103,6 +1110,7 @@ describe("AnalysisDetail", () => {
           highCount: 0,
           mediumCount: 0,
           lowCount: 0,
+          infoCount: 0,
           completedAt: null,
           logs: null,
           staticAnalysisReport: sastReport,

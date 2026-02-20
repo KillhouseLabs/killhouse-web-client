@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       high_count,
       medium_count,
       low_count,
+      info_count,
       error,
       log_message,
       log_level,
@@ -79,6 +80,10 @@ export async function POST(request: Request) {
           level: "info",
           message: `상태 변경: ${currentStatus} → ${resolvedStatus}`,
         });
+      } else {
+        console.warn(
+          `Webhook: Rejected state transition for analysis ${analysis_id}: ${currentStatus} → ${newStatus}`
+        );
       }
     }
 
@@ -142,6 +147,9 @@ export async function POST(request: Request) {
     }
     if (low_count !== undefined) {
       updateData.lowCount = (analysis.lowCount || 0) + low_count;
+    }
+    if (info_count !== undefined) {
+      updateData.infoCount = (analysis.infoCount || 0) + info_count;
     }
 
     if (executive_summary) {

@@ -1,5 +1,6 @@
 export type AnalysisStatus =
   | "PENDING"
+  | "SCANNING"
   | "CLONING"
   | "STATIC_ANALYSIS"
   | "BUILDING"
@@ -11,10 +12,34 @@ export type AnalysisStatus =
   | "CANCELLED";
 
 const VALID_TRANSITIONS: Record<AnalysisStatus, AnalysisStatus[]> = {
-  PENDING: ["CLONING", "FAILED", "CANCELLED"],
+  PENDING: ["SCANNING", "CLONING", "FAILED", "CANCELLED"],
+  SCANNING: [
+    "CLONING",
+    "STATIC_ANALYSIS",
+    "BUILDING",
+    "PENETRATION_TEST",
+    "EXPLOIT_VERIFICATION",
+    "COMPLETED",
+    "COMPLETED_WITH_ERRORS",
+    "FAILED",
+    "CANCELLED",
+  ],
   CLONING: ["STATIC_ANALYSIS", "FAILED", "CANCELLED"],
-  STATIC_ANALYSIS: ["BUILDING", "FAILED", "CANCELLED"],
-  BUILDING: ["PENETRATION_TEST", "FAILED", "CANCELLED"],
+  STATIC_ANALYSIS: [
+    "BUILDING",
+    "PENETRATION_TEST",
+    "COMPLETED",
+    "COMPLETED_WITH_ERRORS",
+    "FAILED",
+    "CANCELLED",
+  ],
+  BUILDING: [
+    "PENETRATION_TEST",
+    "COMPLETED",
+    "COMPLETED_WITH_ERRORS",
+    "FAILED",
+    "CANCELLED",
+  ],
   PENETRATION_TEST: [
     "EXPLOIT_VERIFICATION",
     "COMPLETED",
@@ -61,6 +86,7 @@ export function canTransition(
 export function mapStatusToStep(status: AnalysisStatus): string {
   const stepMap: Record<AnalysisStatus, string> = {
     PENDING: "대기",
+    SCANNING: "스캔 시작",
     CLONING: "저장소 클론",
     STATIC_ANALYSIS: "정적 분석",
     BUILDING: "빌드",

@@ -63,6 +63,7 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
   executiveSummary: string | null;
@@ -244,10 +245,15 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
       count: analysis.lowCount,
       color: "text-blue-600 bg-blue-500/10",
     },
+    {
+      label: "Info",
+      count: analysis.infoCount,
+      color: "text-gray-600 bg-gray-500/10",
+    },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {cards.map((card) => (
         <div
           key={card.label}
