@@ -6,6 +6,7 @@
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { AnalysisDetail } from "@/components/analysis/analysis-detail";
+import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 // Mock react-diff-viewer-continued (ESM module incompatible with Jest)
 jest.mock("react-diff-viewer-continued", () => {
@@ -64,6 +65,7 @@ interface Analysis {
   executiveSummary: string | null;
   stepResults: string | null;
   exploitSessionId: string | null;
+  logs?: string | null;
   startedAt: Date;
   completedAt: Date | null;
   repository?: { id: string; name: string; provider: string } | null;
@@ -965,6 +967,168 @@ describe("AnalysisDetail", () => {
       // THEN
       const failedBadges = screen.getAllByText("실패");
       expect(failedBadges.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("결과 영속화 (Phase 7)", () => {
+    it("GIVEN DB에 로그가 저장된 완료된 분석 WHEN 페이지 로드 THEN 분석 로그가 표시되어야 한다", () => {
+      // GIVEN - server-loaded analysis with logs (simulating page revisit)
+      const logsData = JSON.stringify([
+        {
+          timestamp: "2024-01-01T00:00:00Z",
+          step: "클론",
+          level: "info",
+          message: "저장소 클론 시작...",
+        },
+        {
+          timestamp: "2024-01-01T00:00:05Z",
+          step: "클론",
+          level: "info",
+          message: "클론 완료 (branch: main)",
+        },
+        {
+          timestamp: "2024-01-01T00:00:10Z",
+          step: "정적 분석",
+          level: "info",
+          message: "Semgrep 정적 분석 시작...",
+        },
+      ]);
+      const analysis: Analysis = {
+        ...mockAnalysisWithVulnerabilities,
+        logs: logsData,
+      };
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN - AnalysisLiveLog should render the persisted logs
+      expect(screen.getByText("분석 로그")).toBeInTheDocument();
+      expect(screen.getByText(/저장소 클론 시작/)).toBeInTheDocument();
+    });
+
+    it("GIVEN DB에 로그가 없는 완료된 분석 WHEN 페이지 로드 THEN 분석 로그 섹션이 표시되지 않아야 한다", () => {
+      // GIVEN - no logs (old analysis before Phase 4)
+      const analysis: Analysis = {
+        ...mockAnalysisWithVulnerabilities,
+      };
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN - AnalysisLiveLog returns null when no logs
+      expect(screen.queryByText("분석 로그")).not.toBeInTheDocument();
+    });
+
+    it("GIVEN 폴링이 logs를 반환하는 진행 중인 분석 WHEN 폴링 업데이트 수신 THEN 폴링 로그가 우선 표시되어야 한다", () => {
+      // GIVEN - mock polling to return logs
+      const polledLogs = JSON.stringify([
+        {
+          timestamp: "2024-01-01T00:00:00Z",
+          step: "클론",
+          level: "info",
+          message: "폴링에서 받은 최신 로그",
+        },
+      ]);
+
+      jest.mocked(useAnalysisPolling).mockReturnValue({
+        analysis: {
+          id: "analysis-3",
+          status: "STATIC_ANALYSIS",
+          vulnerabilitiesFound: 0,
+          criticalCount: 0,
+          highCount: 0,
+          mediumCount: 0,
+          lowCount: 0,
+          completedAt: null,
+          logs: polledLogs,
+          staticAnalysisReport: null,
+          penetrationTestReport: null,
+          stepResults: null,
+        },
+        isTerminal: false,
+        isLoading: false,
+      });
+
+      const analysis = mockAnalysisInProgress;
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN - polled logs should be displayed
+      expect(screen.getByText("분석 로그")).toBeInTheDocument();
+      expect(screen.getByText(/폴링에서 받은 최신 로그/)).toBeInTheDocument();
+    });
+
+    it("GIVEN 폴링이 중간 SAST 결과를 반환하는 진행 중인 분석 WHEN 폴링 업데이트 수신 THEN SAST 결과가 즉시 표시되어야 한다", () => {
+      // GIVEN
+      const sastReport = JSON.stringify({
+        tool: "semgrep",
+        findings: [
+          {
+            id: "interim-1",
+            severity: "HIGH",
+            file_path: "src/interim.ts",
+            line: 10,
+            title: "interim.security.issue",
+            description: "Interim finding during analysis",
+          },
+        ],
+        total: 1,
+      });
+
+      jest.mocked(useAnalysisPolling).mockReturnValue({
+        analysis: {
+          id: "analysis-3",
+          status: "BUILDING",
+          vulnerabilitiesFound: 0,
+          criticalCount: 0,
+          highCount: 0,
+          mediumCount: 0,
+          lowCount: 0,
+          completedAt: null,
+          logs: null,
+          staticAnalysisReport: sastReport,
+          penetrationTestReport: null,
+          stepResults: null,
+        },
+        isTerminal: false,
+        isLoading: false,
+      });
+
+      const analysis = mockAnalysisInProgress;
+
+      // WHEN
+      render(
+        <AnalysisDetail
+          analysis={analysis}
+          projectId="project-1"
+          projectName="Test Project"
+        />
+      );
+
+      // THEN - intermediate SAST results should be shown
+      expect(screen.getByText("src/interim.ts")).toBeInTheDocument();
+      expect(
+        screen.getByText("Interim finding during analysis")
+      ).toBeInTheDocument();
     });
   });
 });
