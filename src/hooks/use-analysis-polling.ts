@@ -18,6 +18,7 @@ interface PollingAnalysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount?: number;
   completedAt: string | null;
   logs: string | null;
   staticAnalysisReport: string | null;

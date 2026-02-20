@@ -596,7 +596,7 @@ describe("useAnalysisPolling", () => {
   describe("Given isLoading 상태 관리", () => {
     it("When fetch가 진행 중이면 Then isLoading=true여야 한다", async () => {
       // Given
-      let resolvePromise: (value: any) => void;
+      let resolvePromise: (value: unknown) => void;
       const fetchPromise = new Promise((resolve) => {
         resolvePromise = resolve;
       });
@@ -691,6 +691,140 @@ describe("useAnalysisPolling", () => {
 
       // Then - no additional fetch should happen
       expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Given 폴링 응답에 logs/reports 필드가 포함될 때", () => {
+    it("When 폴링 응답에 logs가 있으면 Then analysis.logs가 노출되어야 한다", async () => {
+      // Given
+      const logsData = JSON.stringify([
+        {
+          timestamp: "2024-01-01T00:00:00Z",
+          step: "클론",
+          level: "info",
+          message: "저장소 클론 시작...",
+        },
+        {
+          timestamp: "2024-01-01T00:00:05Z",
+          step: "클론",
+          level: "info",
+          message: "클론 완료",
+        },
+      ]);
+      const mockResponse = {
+        success: true,
+        data: {
+          id: "analysis-1",
+          status: "STATIC_ANALYSIS",
+          vulnerabilitiesFound: 0,
+          criticalCount: 0,
+          highCount: 0,
+          mediumCount: 0,
+          lowCount: 0,
+          completedAt: null,
+          logs: logsData,
+          staticAnalysisReport: null,
+          penetrationTestReport: null,
+          stepResults: null,
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // When
+      const { result } = renderHook(() =>
+        useAnalysisPolling("project-1", "analysis-1", true)
+      );
+
+      // Then
+      await waitFor(() => {
+        expect(result.current.analysis?.logs).toBe(logsData);
+      });
+    });
+
+    it("When 폴링 응답에 staticAnalysisReport가 있으면 Then analysis.staticAnalysisReport가 노출되어야 한다", async () => {
+      // Given
+      const sastReport = JSON.stringify({
+        tool: "semgrep",
+        findings: [],
+        total: 0,
+      });
+      const mockResponse = {
+        success: true,
+        data: {
+          id: "analysis-1",
+          status: "BUILDING",
+          vulnerabilitiesFound: 0,
+          criticalCount: 0,
+          highCount: 0,
+          mediumCount: 0,
+          lowCount: 0,
+          completedAt: null,
+          logs: null,
+          staticAnalysisReport: sastReport,
+          penetrationTestReport: null,
+          stepResults: null,
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // When
+      const { result } = renderHook(() =>
+        useAnalysisPolling("project-1", "analysis-1", true)
+      );
+
+      // Then
+      await waitFor(() => {
+        expect(result.current.analysis?.staticAnalysisReport).toBe(sastReport);
+      });
+    });
+
+    it("When 폴링 응답에 penetrationTestReport가 있으면 Then analysis.penetrationTestReport가 노출되어야 한다", async () => {
+      // Given
+      const dastReport = JSON.stringify({
+        tool: "nuclei",
+        findings: [],
+        total: 0,
+      });
+      const mockResponse = {
+        success: true,
+        data: {
+          id: "analysis-1",
+          status: "EXPLOIT_VERIFICATION",
+          vulnerabilitiesFound: 0,
+          criticalCount: 0,
+          highCount: 0,
+          mediumCount: 0,
+          lowCount: 0,
+          completedAt: null,
+          logs: null,
+          staticAnalysisReport: null,
+          penetrationTestReport: dastReport,
+          stepResults: null,
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // When
+      const { result } = renderHook(() =>
+        useAnalysisPolling("project-1", "analysis-1", true)
+      );
+
+      // Then
+      await waitFor(() => {
+        expect(result.current.analysis?.penetrationTestReport).toBe(dastReport);
+      });
     });
   });
 });

@@ -19,6 +19,10 @@ import {
 describe("Analysis State Machine", () => {
   describe("canTransition", () => {
     describe("유효한 전환", () => {
+      it("GIVEN PENDING 상태 WHEN SCANNING으로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("PENDING", "SCANNING")).toBe(true);
+      });
+
       it("GIVEN PENDING 상태 WHEN CLONING으로 전환 THEN 허용되어야 한다", () => {
         expect(canTransition("PENDING", "CLONING")).toBe(true);
       });
@@ -29,6 +33,18 @@ describe("Analysis State Machine", () => {
 
       it("GIVEN PENDING 상태 WHEN CANCELLED로 전환 THEN 허용되어야 한다", () => {
         expect(canTransition("PENDING", "CANCELLED")).toBe(true);
+      });
+
+      it("GIVEN SCANNING 상태 WHEN CLONING으로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("SCANNING", "CLONING")).toBe(true);
+      });
+
+      it("GIVEN SCANNING 상태 WHEN COMPLETED로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("SCANNING", "COMPLETED")).toBe(true);
+      });
+
+      it("GIVEN SCANNING 상태 WHEN FAILED로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("SCANNING", "FAILED")).toBe(true);
       });
 
       it("GIVEN CLONING 상태 WHEN STATIC_ANALYSIS로 전환 THEN 허용되어야 한다", () => {
@@ -74,6 +90,30 @@ describe("Analysis State Machine", () => {
       });
     });
 
+    describe("SAST 전용 파이프라인 (skip-ahead 전환)", () => {
+      it("GIVEN STATIC_ANALYSIS 상태 WHEN COMPLETED로 전환 THEN 허용되어야 한다 (SAST-only)", () => {
+        expect(canTransition("STATIC_ANALYSIS", "COMPLETED")).toBe(true);
+      });
+
+      it("GIVEN STATIC_ANALYSIS 상태 WHEN COMPLETED_WITH_ERRORS로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("STATIC_ANALYSIS", "COMPLETED_WITH_ERRORS")).toBe(
+          true
+        );
+      });
+
+      it("GIVEN STATIC_ANALYSIS 상태 WHEN PENETRATION_TEST로 전환 THEN 허용되어야 한다 (빌드 생략)", () => {
+        expect(canTransition("STATIC_ANALYSIS", "PENETRATION_TEST")).toBe(true);
+      });
+
+      it("GIVEN BUILDING 상태 WHEN COMPLETED로 전환 THEN 허용되어야 한다 (빌드 후 즉시 완료)", () => {
+        expect(canTransition("BUILDING", "COMPLETED")).toBe(true);
+      });
+
+      it("GIVEN BUILDING 상태 WHEN COMPLETED_WITH_ERRORS로 전환 THEN 허용되어야 한다", () => {
+        expect(canTransition("BUILDING", "COMPLETED_WITH_ERRORS")).toBe(true);
+      });
+    });
+
     describe("무효한 전환", () => {
       it("GIVEN PENDING 상태 WHEN STATIC_ANALYSIS로 전환 THEN 거부되어야 한다", () => {
         expect(canTransition("PENDING", "STATIC_ANALYSIS")).toBe(false);
@@ -87,14 +127,8 @@ describe("Analysis State Machine", () => {
         expect(canTransition("CLONING", "BUILDING")).toBe(false);
       });
 
-      it("GIVEN STATIC_ANALYSIS 상태 WHEN PENETRATION_TEST로 전환 THEN 거부되어야 한다", () => {
-        expect(canTransition("STATIC_ANALYSIS", "PENETRATION_TEST")).toBe(
-          false
-        );
-      });
-
-      it("GIVEN BUILDING 상태 WHEN COMPLETED로 전환 THEN 거부되어야 한다", () => {
-        expect(canTransition("BUILDING", "COMPLETED")).toBe(false);
+      it("GIVEN CLONING 상태 WHEN COMPLETED로 전환 THEN 거부되어야 한다", () => {
+        expect(canTransition("CLONING", "COMPLETED")).toBe(false);
       });
     });
 
@@ -152,6 +186,10 @@ describe("Analysis State Machine", () => {
       expect(isTerminalStatus("PENDING")).toBe(false);
     });
 
+    it("GIVEN SCANNING 상태 THEN false를 반환해야 한다", () => {
+      expect(isTerminalStatus("SCANNING")).toBe(false);
+    });
+
     it("GIVEN CLONING 상태 THEN false를 반환해야 한다", () => {
       expect(isTerminalStatus("CLONING")).toBe(false);
     });
@@ -176,6 +214,7 @@ describe("Analysis State Machine", () => {
   describe("mapStatusToStep", () => {
     const testCases: Array<[AnalysisStatus, string]> = [
       ["PENDING", "대기"],
+      ["SCANNING", "스캔 시작"],
       ["CLONING", "저장소 클론"],
       ["STATIC_ANALYSIS", "정적 분석"],
       ["BUILDING", "빌드"],
