@@ -181,6 +181,7 @@ export function DashboardHeader() {
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
       const cookieName = cookie.split("=")[0].trim();
+
       if (
         cookieName.startsWith("next-auth") ||
         cookieName.startsWith("__Secure-next-auth") ||
@@ -189,6 +190,8 @@ export function DashboardHeader() {
         document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       }
     }
+
+    // Use current origin to avoid NEXTAUTH_URL port mismatch
     signOut({ callbackUrl: `${window.location.origin}/login` });
   };
 
