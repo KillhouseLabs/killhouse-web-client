@@ -178,7 +178,21 @@ export function DashboardSidebar() {
 
 export function DashboardHeader() {
   const handleLogout = () => {
-    signOut({ callbackUrl: "/" });
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const cookieName = cookie.split("=")[0].trim();
+
+      if (
+        cookieName.startsWith("next-auth") ||
+        cookieName.startsWith("__Secure-next-auth") ||
+        cookieName.startsWith("authjs")
+      ) {
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      }
+    }
+
+    // Use current origin to avoid NEXTAUTH_URL port mismatch
+    signOut({ callbackUrl: `${window.location.origin}/login` });
   };
 
   return (

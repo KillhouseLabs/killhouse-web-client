@@ -1,10 +1,10 @@
 /**
- * RepositorySelector Multi-Account Tests
+ * RepositorySelector Simplified Flow Tests
  *
- * Phase 2: OAuth 멀티 계정 저장소 연동 - UI 테스트
- * - 단일/다중 계정 모두 계정 목록 표시 (항상 계정 선택 단계 거침)
- * - 계정 선택 시 accountId 파라미터로 저장소 조회
- * - onSelect 콜백에 accountId 포함
+ * Phase 2 Integrated: Simplified repository selection
+ * - No account selection step (removed)
+ * - Direct repository selection
+ * - No accountId in API or callbacks
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -29,30 +29,6 @@ const defaultProps = {
   onSelect: mockOnSelect,
 };
 
-const singleAccount = [
-  {
-    id: "account-1",
-    provider: "github",
-    providerAccountId: "123",
-    username: "gh-user-1",
-  },
-];
-
-const multipleAccounts = [
-  {
-    id: "account-1",
-    provider: "github",
-    providerAccountId: "123",
-    username: "gh-user-1",
-  },
-  {
-    id: "account-2",
-    provider: "github",
-    providerAccountId: "456",
-    username: "gh-user-2",
-  },
-];
-
 const mockRepositories = [
   {
     id: 1,
@@ -65,6 +41,17 @@ const mockRepositories = [
     language: "TypeScript",
     description: "Test repository",
   },
+  {
+    id: 2,
+    name: "another-repo",
+    full_name: "gh-user-1/another-repo",
+    private: true,
+    html_url: "https://github.com/gh-user-1/another-repo",
+    default_branch: "develop",
+    updated_at: "2024-01-02T00:00:00Z",
+    language: "JavaScript",
+    description: "Another test repository",
+  },
 ];
 
 const mockBranches = [
@@ -74,7 +61,12 @@ const mockBranches = [
 
 function mockFetchResponses(responses: Record<string, unknown>) {
   (global.fetch as jest.Mock).mockImplementation((url: string) => {
-    for (const [pattern, data] of Object.entries(responses)) {
+    // Sort patterns by length (longest first) to match more specific patterns first
+    const sortedPatterns = Object.entries(responses).sort(
+      ([a], [b]) => b.length - a.length
+    );
+
+    for (const [pattern, data] of sortedPatterns) {
       if (url.includes(pattern)) {
         return Promise.resolve({
           ok: true,
@@ -89,37 +81,15 @@ function mockFetchResponses(responses: Record<string, unknown>) {
   });
 }
 
-describe("RepositorySelector Multi-Account", () => {
+describe("RepositorySelector Simplified Flow", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("단일 계정도 계정 목록 표시", () => {
-    it("GIVEN 1개의 GitHub 계정 WHEN 셀렉터 열림 THEN 계정 목록이 표시되어야 한다", async () => {
+  describe("Direct repository selection", () => {
+    it("GIVEN connected GitHub WHEN selector opens THEN repositories are displayed immediately", async () => {
       // GIVEN
       mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: singleAccount,
-        },
-      });
-
-      // WHEN
-      render(<RepositorySelector {...defaultProps} />);
-
-      // THEN
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-    });
-
-    it("GIVEN 1개의 GitHub 계정 WHEN 계정 선택 THEN accountId 파라미터로 저장소가 조회되어야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: singleAccount,
-        },
         "/api/github/repositories": {
           success: true,
           data: {
@@ -132,191 +102,134 @@ describe("RepositorySelector Multi-Account", () => {
       // WHEN
       render(<RepositorySelector {...defaultProps} />);
 
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("gh-user-1"));
-
       // THEN
-      await waitFor(() => {
-        const fetchCalls = (global.fetch as jest.Mock).mock.calls;
-        const repoCall = fetchCalls.find((call: string[]) =>
-          call[0].includes("/api/github/repositories")
-        );
-        expect(repoCall).toBeDefined();
-        expect(repoCall[0]).toContain("accountId=account-1");
-      });
-    });
-
-    it("GIVEN 단일 계정 저장소 목록 WHEN 뒤로가기 THEN 계정 목록으로 돌아가야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: singleAccount,
-        },
-        "/api/github/repositories": {
-          success: true,
-          data: {
-            repositories: mockRepositories,
-            pagination: { has_next: false },
-          },
-        },
-      });
-
-      render(<RepositorySelector {...defaultProps} />);
-
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("gh-user-1"));
-
       await waitFor(() => {
         expect(screen.getByText("test-repo")).toBeInTheDocument();
-      });
-
-      // WHEN
-      const backButton = screen.getByRole("button", { name: /back|뒤로/i });
-      fireEvent.click(backButton);
-
-      // THEN
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("다중 계정 목록 표시", () => {
-    it("GIVEN 2개의 GitHub 계정 WHEN 셀렉터 열림 THEN 계정 목록이 표시되어야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: multipleAccounts,
-        },
-      });
-
-      // WHEN
-      render(<RepositorySelector {...defaultProps} />);
-
-      // THEN
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-        expect(screen.getByText("gh-user-2")).toBeInTheDocument();
+        expect(screen.getByText("another-repo")).toBeInTheDocument();
       });
     });
 
-    it("GIVEN 다중 계정 목록 WHEN 헤더 확인 THEN '계정 선택' 텍스트가 표시되어야 한다", async () => {
+    it("GIVEN repositories WHEN selecting repo THEN branches are fetched and displayed", async () => {
       // GIVEN
       mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: multipleAccounts,
-        },
-      });
-
-      // WHEN
-      render(<RepositorySelector {...defaultProps} />);
-
-      // THEN
-      await waitFor(() => {
-        expect(screen.getByText("계정 선택")).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("계정 선택 시 저장소 조회", () => {
-    it("GIVEN 다중 계정 목록 WHEN 계정 선택 THEN 해당 accountId로 저장소가 조회되어야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: multipleAccounts,
-        },
         "/api/github/repositories": {
           success: true,
           data: {
             repositories: mockRepositories,
             pagination: { has_next: false },
           },
-        },
-      });
-
-      // WHEN
-      render(<RepositorySelector {...defaultProps} />);
-
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-2")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("gh-user-2"));
-
-      // THEN
-      await waitFor(() => {
-        const fetchCalls = (global.fetch as jest.Mock).mock.calls;
-        const repoCall = fetchCalls.find(
-          (call: string[]) =>
-            call[0].includes("/api/github/repositories") &&
-            call[0].includes("accountId=account-2")
-        );
-        expect(repoCall).toBeDefined();
-      });
-    });
-
-    it("GIVEN 계정 선택 후 저장소 목록 WHEN 뒤로가기 THEN 계정 목록으로 돌아가야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: multipleAccounts,
-        },
-        "/api/github/repositories": {
-          success: true,
-          data: {
-            repositories: mockRepositories,
-            pagination: { has_next: false },
-          },
-        },
-      });
-
-      render(<RepositorySelector {...defaultProps} />);
-
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("gh-user-1"));
-
-      await waitFor(() => {
-        expect(screen.getByText("test-repo")).toBeInTheDocument();
-      });
-
-      // WHEN
-      const backButton = screen.getByRole("button", { name: /back|뒤로/i });
-      fireEvent.click(backButton);
-
-      // THEN
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-        expect(screen.getByText("gh-user-2")).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("onSelect에 accountId 포함", () => {
-    it("GIVEN 계정 선택 후 저장소/브랜치 선택 WHEN onSelect 호출 THEN accountId가 포함되어야 한다", async () => {
-      // GIVEN
-      mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: singleAccount,
         },
         "/api/github/repositories/gh-user-1/test-repo/branches": {
           success: true,
           data: { branches: mockBranches },
         },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+      });
+
+      // WHEN
+      fireEvent.click(screen.getByText("test-repo"));
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("main")).toBeInTheDocument();
+        expect(screen.getByText("develop")).toBeInTheDocument();
+      });
+    });
+
+    it("GIVEN branch selection WHEN selecting branch THEN onSelect is called without accountId", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: true,
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: false },
+          },
+        },
+        "/api/github/repositories/gh-user-1/test-repo/branches": {
+          success: true,
+          data: { branches: mockBranches },
+        },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("test-repo"));
+
+      await waitFor(() => {
+        expect(screen.getByText("main")).toBeInTheDocument();
+      });
+
+      // WHEN
+      fireEvent.click(screen.getByText("main"));
+
+      // THEN
+      expect(mockOnSelect).toHaveBeenCalledWith({
+        url: "https://github.com/gh-user-1/test-repo",
+        owner: "gh-user-1",
+        name: "test-repo",
+        defaultBranch: "main",
+      });
+      expect(mockOnSelect).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          accountId: expect.anything(),
+        })
+      );
+    });
+  });
+
+  describe("Back navigation", () => {
+    it("GIVEN branch selection step WHEN clicking back THEN returns to repository list", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: true,
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: false },
+          },
+        },
+        "/api/github/repositories/gh-user-1/test-repo/branches": {
+          success: true,
+          data: { branches: mockBranches },
+        },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("test-repo"));
+
+      await waitFor(() => {
+        expect(screen.getByText("main")).toBeInTheDocument();
+      });
+
+      // WHEN
+      const backButton = screen.getByRole("button", { name: /뒤로/i });
+      fireEvent.click(backButton);
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+        expect(screen.queryByText("main")).not.toBeInTheDocument();
+      });
+    });
+
+    it("GIVEN repository step WHEN checking back button THEN back button is not shown", async () => {
+      // GIVEN
+      mockFetchResponses({
         "/api/github/repositories": {
           success: true,
           data: {
@@ -329,48 +242,62 @@ describe("RepositorySelector Multi-Account", () => {
       // WHEN
       render(<RepositorySelector {...defaultProps} />);
 
-      // Select account first
-      await waitFor(() => {
-        expect(screen.getByText("gh-user-1")).toBeInTheDocument();
-      });
-      fireEvent.click(screen.getByText("gh-user-1"));
-
-      // Wait for repos to load
       await waitFor(() => {
         expect(screen.getByText("test-repo")).toBeInTheDocument();
       });
 
-      // Select repo
-      fireEvent.click(screen.getByText("test-repo"));
-
-      // Wait for branches to load
-      await waitFor(() => {
-        expect(screen.getByText("main")).toBeInTheDocument();
-      });
-
-      // Select branch
-      fireEvent.click(screen.getByText("main"));
-
       // THEN
-      expect(mockOnSelect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: "https://github.com/gh-user-1/test-repo",
-          owner: "gh-user-1",
-          name: "test-repo",
-          defaultBranch: "main",
-          accountId: "account-1",
-        })
-      );
+      expect(
+        screen.queryByRole("button", { name: /뒤로/i })
+      ).not.toBeInTheDocument();
     });
   });
 
-  describe("계정 없는 경우", () => {
-    it("GIVEN 연결된 계정 없음 WHEN 셀렉터 열림 THEN 연동 안내가 표시되어야 한다", async () => {
+  describe("Search functionality", () => {
+    it("GIVEN repositories WHEN searching THEN search query is sent to API", async () => {
       // GIVEN
       mockFetchResponses({
-        "/api/integrations/accounts": {
+        "/api/github/repositories": {
           success: true,
-          data: [],
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: false },
+          },
+        },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+      });
+
+      // WHEN
+      const searchInput = screen.getByPlaceholderText("저장소 검색...");
+      fireEvent.change(searchInput, { target: { value: "test" } });
+      fireEvent.click(screen.getByText("검색"));
+
+      // THEN
+      await waitFor(() => {
+        const fetchCalls = (global.fetch as jest.Mock).mock.calls;
+        const searchCall = fetchCalls.find(
+          (call: string[]) =>
+            call[0].includes("/api/github/repositories") &&
+            call[0].includes("search=test")
+        );
+        expect(searchCall).toBeDefined();
+      });
+    });
+  });
+
+  describe("Not connected state", () => {
+    it("GIVEN not connected WHEN selector opens THEN connect prompt is shown", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: false,
+          code: "GITHUB_NOT_CONNECTED",
+          error: "GitHub 연동이 필요합니다",
         },
       });
 
@@ -383,12 +310,13 @@ describe("RepositorySelector Multi-Account", () => {
       });
     });
 
-    it("GIVEN 연결된 계정 없음 WHEN 연동하기 클릭 THEN 커스텀 링크 플로우로 리다이렉트되어야 한다", async () => {
+    it("GIVEN not connected WHEN clicking connect THEN redirects to integration link", async () => {
       // GIVEN
       mockFetchResponses({
-        "/api/integrations/accounts": {
-          success: true,
-          data: [],
+        "/api/github/repositories": {
+          success: false,
+          code: "GITHUB_NOT_CONNECTED",
+          error: "GitHub 연동이 필요합니다",
         },
       });
 
@@ -405,6 +333,93 @@ describe("RepositorySelector Multi-Account", () => {
       expect(mockNavigateTo).toHaveBeenCalledWith(
         expect.stringContaining("/api/integrations/link/github")
       );
+    });
+  });
+
+  describe("Pagination", () => {
+    it("GIVEN more repositories available WHEN clicking load more THEN next page is fetched", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: true,
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: true },
+          },
+        },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("더 보기")).toBeInTheDocument();
+      });
+
+      // WHEN
+      fireEvent.click(screen.getByText("더 보기"));
+
+      // THEN
+      await waitFor(() => {
+        const fetchCalls = (global.fetch as jest.Mock).mock.calls;
+        const page2Call = fetchCalls.find((call: string[]) =>
+          call[0].includes("page=2")
+        );
+        expect(page2Call).toBeDefined();
+      });
+    });
+  });
+
+  describe("Header title", () => {
+    it("GIVEN repository step WHEN checking header THEN shows provider repository selection title", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: true,
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: false },
+          },
+        },
+      });
+
+      // WHEN
+      render(<RepositorySelector {...defaultProps} />);
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("GitHub 저장소 선택")).toBeInTheDocument();
+      });
+    });
+
+    it("GIVEN branch step WHEN checking header THEN shows branch selection title", async () => {
+      // GIVEN
+      mockFetchResponses({
+        "/api/github/repositories": {
+          success: true,
+          data: {
+            repositories: mockRepositories,
+            pagination: { has_next: false },
+          },
+        },
+        "/api/github/repositories/gh-user-1/test-repo/branches": {
+          success: true,
+          data: { branches: mockBranches },
+        },
+      });
+
+      render(<RepositorySelector {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("test-repo")).toBeInTheDocument();
+      });
+
+      // WHEN
+      fireEvent.click(screen.getByText("test-repo"));
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("브랜치 선택")).toBeInTheDocument();
+      });
     });
   });
 });
