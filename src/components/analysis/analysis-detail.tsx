@@ -8,6 +8,7 @@ import { ko } from "date-fns/locale";
 import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
 import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
 import { AnalysisLiveLog } from "@/components/analysis/analysis-live-log";
+import { ExploitLiveStream } from "@/components/analysis/exploit-live-stream";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 const TERMINAL_STATUSES = [
@@ -1323,6 +1324,12 @@ export function AnalysisDetail({
         </div>
       )}
 
+      {/* Exploit Live Stream during active analysis */}
+      {!TERMINAL_STATUSES.includes(currentStatus) &&
+        analysis.exploitSessionId && (
+          <ExploitLiveStream exploitSessionId={analysis.exploitSessionId} />
+        )}
+
       {/* Intermediate results - show SAST/DAST as they become available during analysis */}
       {!TERMINAL_STATUSES.includes(currentStatus) &&
         (polledSastReport || polledDastReport) && (
@@ -1463,9 +1470,12 @@ export function AnalysisDetail({
 
           {/* Exploit Session Progress */}
           {analysis.exploitSessionId && (
-            <ExploitSessionProgress
-              exploitSessionId={analysis.exploitSessionId}
-            />
+            <>
+              <ExploitSessionProgress
+                exploitSessionId={analysis.exploitSessionId}
+              />
+              <ExploitLiveStream exploitSessionId={analysis.exploitSessionId} />
+            </>
           )}
         </>
       )}
