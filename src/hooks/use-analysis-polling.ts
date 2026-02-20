@@ -19,6 +19,10 @@ interface PollingAnalysis {
   mediumCount: number;
   lowCount: number;
   completedAt: string | null;
+  logs: string | null;
+  staticAnalysisReport: string | null;
+  penetrationTestReport: string | null;
+  stepResults: string | null;
 }
 
 interface UseAnalysisPollingResult {
