@@ -29,8 +29,10 @@ const nextConfig = {
     ];
   },
 
-  // Experimental features (add as needed)
-  // experimental: {},
+  // External packages for server-side (not bundled by webpack)
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
+  },
 };
 
 module.exports = nextConfig;

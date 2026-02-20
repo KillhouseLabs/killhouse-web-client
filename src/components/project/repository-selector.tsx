@@ -20,13 +20,6 @@ interface Branch {
   protected: boolean;
 }
 
-interface OAuthAccount {
-  id: string;
-  provider: string;
-  providerAccountId: string;
-  username?: string;
-}
-
 type Provider = "github" | "gitlab";
 
 interface RepositorySelectorProps {
@@ -38,11 +31,10 @@ interface RepositorySelectorProps {
     owner: string;
     name: string;
     defaultBranch: string;
-    accountId?: string;
   }) => void;
 }
 
-type Step = "accounts" | "repositories" | "branches";
+type Step = "repositories" | "branches";
 
 const PROVIDER_CONFIG = {
   github: {
@@ -71,11 +63,7 @@ export function RepositorySelector({
 }: RepositorySelectorProps) {
   const config = PROVIDER_CONFIG[provider];
 
-  const [step, setStep] = useState<Step>("accounts");
-  const [accounts, setAccounts] = useState<OAuthAccount[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<OAuthAccount | null>(
-    null
-  );
+  const [step, setStep] = useState<Step>("repositories");
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
@@ -86,48 +74,14 @@ export function RepositorySelector({
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
 
-  const fetchAccounts = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/integrations/accounts");
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error);
-      }
-
-      const providerAccounts = data.data.filter(
-        (a: OAuthAccount) => a.provider === provider
-      );
-
-      if (providerAccounts.length === 0) {
-        setIsConnected(false);
-        setAccounts([]);
-        return;
-      }
-
-      setIsConnected(true);
-      setAccounts(providerAccounts);
-      setStep("accounts");
-    } catch {
-      setError("계정 정보를 불러올 수 없습니다");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [provider]);
-
   const fetchRepositories = useCallback(
     async (pageNum: number, searchQuery: string = "") => {
-      if (!selectedAccount) return;
-
       setIsLoading(true);
       setError("");
       try {
         const params = new URLSearchParams({
           page: pageNum.toString(),
           per_page: "20",
-          accountId: selectedAccount.id,
         });
         if (searchQuery) {
           params.append("search", searchQuery);
@@ -151,6 +105,7 @@ export function RepositorySelector({
           throw new Error(data.error);
         }
 
+        setIsConnected(true);
         if (pageNum === 1) {
           setRepositories(data.data.repositories);
         } else {
@@ -166,13 +121,7 @@ export function RepositorySelector({
         setIsLoading(false);
       }
     },
-    [
-      provider,
-      selectedAccount,
-      config.notConnectedCode,
-      config.tokenExpiredCode,
-      config.name,
-    ]
+    [provider, config.notConnectedCode, config.tokenExpiredCode, config.name]
   );
 
   const fetchBranches = useCallback(
@@ -209,21 +158,13 @@ export function RepositorySelector({
 
   useEffect(() => {
     if (isOpen) {
-      fetchAccounts();
-    }
-  }, [isOpen, fetchAccounts]);
-
-  useEffect(() => {
-    if (isOpen && selectedAccount && step === "repositories") {
       fetchRepositories(1);
     }
-  }, [isOpen, selectedAccount, step, fetchRepositories]);
+  }, [isOpen, fetchRepositories]);
 
   useEffect(() => {
     if (!isOpen) {
-      setStep("accounts");
-      setAccounts([]);
-      setSelectedAccount(null);
+      setStep("repositories");
       setRepositories([]);
       setBranches([]);
       setSelectedRepo(null);
@@ -248,14 +189,6 @@ export function RepositorySelector({
     fetchRepositories(page + 1, search);
   };
 
-  const handleAccountSelect = (account: OAuthAccount) => {
-    setSelectedAccount(account);
-    setRepositories([]);
-    setSearch("");
-    setPage(1);
-    setStep("repositories");
-  };
-
   const handleRepoSelect = (repo: Repository) => {
     setSelectedRepo(repo);
     fetchBranches(repo);
@@ -272,7 +205,6 @@ export function RepositorySelector({
       owner,
       name,
       defaultBranch: branch.name,
-      accountId: selectedAccount?.id,
     });
     onClose();
   };
@@ -287,22 +219,15 @@ export function RepositorySelector({
       setStep("repositories");
       setSelectedRepo(null);
       setBranches([]);
-    } else if (step === "repositories") {
-      setStep("accounts");
-      setSelectedAccount(null);
-      setRepositories([]);
-      setSearch("");
-      setPage(1);
     }
   };
 
   const getHeaderTitle = (): string => {
-    if (step === "accounts") return "계정 선택";
     if (step === "branches") return "브랜치 선택";
     return `${config.name} 저장소 선택`;
   };
 
-  const showBackButton = step === "branches" || step === "repositories";
+  const showBackButton = step === "branches";
 
   if (!isOpen) return null;
 
@@ -397,32 +322,6 @@ export function RepositorySelector({
                 </svg>
                 {config.name} 연동하기
               </button>
-            </div>
-          )}
-
-          {/* Account Selection Step */}
-          {isConnected === true && step === "accounts" && (
-            <div className="space-y-2">
-              {accounts.map((account) => (
-                <button
-                  key={account.id}
-                  onClick={() => handleAccountSelect(account)}
-                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-accent"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="h-5 w-5 text-muted-foreground"
-                    >
-                      {config.icon}
-                    </svg>
-                    <span className="font-medium">
-                      {account.username || account.providerAccountId}
-                    </span>
-                  </div>
-                </button>
-              ))}
             </div>
           )}
 

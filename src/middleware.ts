@@ -1,12 +1,7 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import { authConfig } from "@/lib/auth.config";
 import { checkRateLimit, getRateLimitConfig } from "@/lib/rate-limit";
-
-// Routes that require authentication
-const protectedRoutes = ["/dashboard", "/projects", "/mypage", "/subscription"];
-
-// Routes that should redirect to dashboard if already authenticated
-const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -15,6 +10,8 @@ function getClientIp(req: Request): string {
   }
   return "unknown";
 }
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl } = req;
@@ -46,38 +43,11 @@ export default auth((req) => {
     }
   }
 
-  const isLoggedIn = !!req.auth;
-
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
-
-  // Redirect to login if accessing protected route without auth
-  if (isProtectedRoute && !isLoggedIn) {
-    const loginUrl = new URL("/login", nextUrl.origin);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Redirect to dashboard if accessing auth routes while logged in
-  if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", nextUrl.origin));
-  }
-
   return NextResponse.next();
 });
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)",
   ],
 };
