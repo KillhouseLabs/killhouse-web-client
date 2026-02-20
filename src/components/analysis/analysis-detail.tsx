@@ -260,7 +260,7 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
   );
 }
 
-function ExecutiveSummaryCard({ summary }: { summary: string }) {
+function SummaryCard({ summary }: { summary: string }) {
   return (
     <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6">
       <div className="mb-3 flex items-center gap-2">
@@ -280,7 +280,7 @@ function ExecutiveSummaryCard({ summary }: { summary: string }) {
           <line x1="16" y1="17" x2="8" y2="17" />
           <polyline points="10 9 9 9 8 9" />
         </svg>
-        <h3 className="text-base font-semibold text-indigo-700">경영진 요약</h3>
+        <h3 className="text-base font-semibold text-indigo-700">요약</h3>
       </div>
       <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
     </div>
@@ -1313,7 +1313,7 @@ export function AnalysisDetail({
         <>
           {/* Executive Summary */}
           {analysis.executiveSummary && (
-            <ExecutiveSummaryCard summary={analysis.executiveSummary} />
+            <SummaryCard summary={analysis.executiveSummary} />
           )}
 
           {/* Step status banners for failed/skipped steps */}
