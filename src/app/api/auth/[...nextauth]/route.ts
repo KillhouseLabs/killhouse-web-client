@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { handlers } from "@/lib/auth";
-import { handleOAuthLinkCallback } from "@/app/api/integrations/link/[provider]/callback/handler";
+import { handleOAuthLinkCallback } from "@/lib/oauth-link-callback";
 
 const nextAuthGet = handlers.GET;
 

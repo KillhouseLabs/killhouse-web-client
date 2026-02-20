@@ -93,6 +93,9 @@ model Repository {
   role              String?
   dockerfileContent String?
   composeContent    String?
+  dockerfilePath    String?
+  buildContext      String?
+  targetService     String?
   projectId         String
   accountId         String?
   createdAt         DateTime   @default(now())

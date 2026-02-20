@@ -25,6 +25,9 @@ export const createRepositorySchema = z.object({
   role: z.string().max(50, "역할은 50자 이하여야 합니다").optional(),
   dockerfileContent: z.string().optional(),
   composeContent: z.string().optional(),
+  dockerfilePath: z.string().max(500).optional(),
+  buildContext: z.string().max(500).optional(),
+  targetService: z.string().max(100).optional(),
   accountId: z.string().optional(),
 });
 
@@ -40,6 +43,9 @@ export const updateRepositorySchema = z.object({
   defaultBranch: z.string().optional(),
   isPrimary: z.boolean().optional(),
   role: z.string().max(50, "역할은 50자 이하여야 합니다").optional(),
+  dockerfilePath: z.string().max(500).optional(),
+  buildContext: z.string().max(500).optional(),
+  targetService: z.string().max(100).optional(),
 });
 
 export type CreateRepositoryInput = z.infer<typeof createRepositorySchema>;
