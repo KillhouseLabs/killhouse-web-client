@@ -17,6 +17,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const perPage = Math.min(
+      parseInt(searchParams.get("per_page") || "30", 10),
+      100
+    );
+    const sort =
+      (searchParams.get("sort") as
+        | "created"
+        | "updated"
+        | "pushed"
+        | "full_name") || "updated";
+    const search = searchParams.get("search") || "";
+
     const account = await prisma.account.findFirst({
       where: {
         userId: session.user.id,
@@ -38,34 +52,47 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const perPage = Math.min(
-      parseInt(searchParams.get("per_page") || "30", 10),
-      100
-    );
-    const sort =
-      (searchParams.get("sort") as
-        | "created"
-        | "updated"
-        | "pushed"
-        | "full_name") || "updated";
-    const search = searchParams.get("search") || "";
-
     const client = createGitHubClient(account.access_token);
-    const { repositories, hasNext } = await getUserRepositories(client, {
-      page,
-      per_page: perPage,
-      sort,
-    });
 
-    const filteredRepositories = search
-      ? repositories.filter(
-          (repo) =>
-            repo.name.toLowerCase().includes(search.toLowerCase()) ||
-            repo.full_name.toLowerCase().includes(search.toLowerCase())
-        )
-      : repositories;
+    let repositories;
+    let hasNext;
+
+    if (search) {
+      const user = await client.users.getAuthenticated();
+      const username = user.data.login;
+
+      const searchResponse = await client.search.repos({
+        q: `${search} in:name user:${username}`,
+        per_page: perPage + 1,
+        page,
+        sort: sort === "updated" ? "updated" : undefined,
+      });
+
+      hasNext = searchResponse.data.items.length > perPage;
+      repositories = searchResponse.data.items
+        .slice(0, perPage)
+        .map((repo) => ({
+          id: repo.id,
+          name: repo.name,
+          full_name: repo.full_name,
+          private: repo.private,
+          html_url: repo.html_url,
+          default_branch: repo.default_branch || "main",
+          updated_at: repo.updated_at ?? new Date().toISOString(),
+          language: repo.language,
+          description: repo.description,
+        }));
+    } else {
+      const result = await getUserRepositories(client, {
+        page,
+        per_page: perPage,
+        sort,
+      });
+      repositories = result.repositories;
+      hasNext = result.hasNext;
+    }
+
+    const filteredRepositories = repositories;
 
     return NextResponse.json({
       success: true,

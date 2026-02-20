@@ -178,9 +178,7 @@ export function DashboardSidebar() {
 
 export function DashboardHeader() {
   const handleLogout = () => {
-    // Clear all next-auth related cookies
     const cookies = document.cookie.split(";");
-
     for (const cookie of cookies) {
       const cookieName = cookie.split("=")[0].trim();
 

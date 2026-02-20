@@ -24,42 +24,36 @@ import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { signOut } from "next-auth/react";
 const mockSignOut = signOut as jest.Mock;
 
-describe("DashboardHeader", () => {
-  let cookieStore: Record<string, string>;
+// Cookie store helper
+let cookieStore: Record<string, string> = {};
 
+beforeEach(() => {
+  cookieStore = {};
+  Object.defineProperty(document, "cookie", {
+    configurable: true,
+    get: () =>
+      Object.entries(cookieStore)
+        .map(([k, v]) => `${k}=${v}`)
+        .join("; "),
+    set: (val: string) => {
+      const [nameVal] = val.split(";");
+      const [name, value] = nameVal.split("=");
+      if (val.includes("expires=Thu, 01 Jan 1970")) {
+        delete cookieStore[name.trim()];
+      } else {
+        cookieStore[name.trim()] = value?.trim() ?? "";
+      }
+    },
+  });
+});
+
+describe("DashboardHeader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    cookieStore = {};
-
-    // Mock document.cookie getter and setter
-    Object.defineProperty(document, "cookie", {
-      get: jest.fn(() => {
-        return Object.entries(cookieStore)
-          .map(([name, value]) => `${name}=${value}`)
-          .join("; ");
-      }),
-      set: jest.fn((cookieString: string) => {
-        const [nameValue] = cookieString.split(";");
-        const [name, value] = nameValue.split("=");
-        const trimmedName = name.trim();
-
-        // If setting to expire (empty value or expires in the past), delete the cookie
-        if (
-          !value ||
-          value === "" ||
-          cookieString.includes("expires=Thu, 01 Jan 1970")
-        ) {
-          delete cookieStore[trimmedName];
-        } else {
-          cookieStore[trimmedName] = value;
-        }
-      }),
-      configurable: true,
-    });
   });
 
   describe("로그아웃 기능", () => {
-    it("GIVEN 로그아웃 버튼 클릭 WHEN 로그아웃 실행 THEN next-auth 쿠키가 삭제되어야 한다", async () => {
+    it("GIVEN 로그아웃 버튼 클릭 WHEN 로그아웃 실행 THEN signOut이 로그인 페이지로 리다이렉트되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       cookieStore["next-auth.session-token"] = "token123";
@@ -81,17 +75,7 @@ describe("DashboardHeader", () => {
         expect(cookieStore["authjs.session-token"]).toBeUndefined();
         expect(cookieStore["other-cookie"]).toBe("should-not-be-deleted");
       });
-    });
 
-    it("GIVEN 로그아웃 버튼 클릭 WHEN 로그아웃 실행 THEN signOut이 /login으로 리다이렉트되어야 한다", async () => {
-      // GIVEN
-      const user = userEvent.setup();
-      render(<DashboardHeader />);
-
-      // WHEN
-      await user.click(screen.getByRole("button", { name: "로그아웃" }));
-
-      // THEN
       await waitFor(() => {
         expect(mockSignOut).toHaveBeenCalledWith({
           callbackUrl: `${window.location.origin}/login`,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { signIn } from "next-auth/react";
+import { navigateTo } from "@/lib/navigation";
 
 interface Repository {
   id: number;
@@ -74,18 +74,6 @@ export function RepositorySelector({
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
 
-  const checkConnection = useCallback(async () => {
-    try {
-      const response = await fetch("/api/integrations/status");
-      const data = await response.json();
-      if (data.success) {
-        setIsConnected(data.data[provider].connected);
-      }
-    } catch {
-      setError("연동 상태를 확인할 수 없습니다");
-    }
-  }, [provider]);
-
   const fetchRepositories = useCallback(
     async (pageNum: number, searchQuery: string = "") => {
       setIsLoading(true);
@@ -117,6 +105,7 @@ export function RepositorySelector({
           throw new Error(data.error);
         }
 
+        setIsConnected(true);
         if (pageNum === 1) {
           setRepositories(data.data.repositories);
         } else {
@@ -169,15 +158,9 @@ export function RepositorySelector({
 
   useEffect(() => {
     if (isOpen) {
-      checkConnection();
-    }
-  }, [isOpen, checkConnection]);
-
-  useEffect(() => {
-    if (isOpen && isConnected === true) {
       fetchRepositories(1);
     }
-  }, [isOpen, isConnected, fetchRepositories]);
+  }, [isOpen, fetchRepositories]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -227,14 +210,24 @@ export function RepositorySelector({
   };
 
   const handleConnect = () => {
-    signIn(provider, { redirectTo: "/projects/new" });
+    const returnUrl = encodeURIComponent(window.location.href);
+    navigateTo(`/api/integrations/link/${provider}?returnUrl=${returnUrl}`);
   };
 
   const handleBack = () => {
-    setStep("repositories");
-    setSelectedRepo(null);
-    setBranches([]);
+    if (step === "branches") {
+      setStep("repositories");
+      setSelectedRepo(null);
+      setBranches([]);
+    }
   };
+
+  const getHeaderTitle = (): string => {
+    if (step === "branches") return "브랜치 선택";
+    return `${config.name} 저장소 선택`;
+  };
+
+  const showBackButton = step === "branches";
 
   if (!isOpen) return null;
 
@@ -244,10 +237,11 @@ export function RepositorySelector({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            {step === "branches" && (
+            {showBackButton && (
               <button
                 onClick={handleBack}
                 className="rounded p-1 hover:bg-accent"
+                aria-label="뒤로"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -270,11 +264,7 @@ export function RepositorySelector({
             >
               {config.icon}
             </svg>
-            <h3 className="font-semibold">
-              {step === "repositories"
-                ? `${config.name} 저장소 선택`
-                : "브랜치 선택"}
-            </h3>
+            <h3 className="font-semibold">{getHeaderTitle()}</h3>
           </div>
           <button onClick={onClose} className="rounded p-1 hover:bg-accent">
             <svg
@@ -301,7 +291,7 @@ export function RepositorySelector({
             </div>
           )}
 
-          {isConnected === null && (
+          {isConnected === null && isLoading && (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
@@ -335,6 +325,7 @@ export function RepositorySelector({
             </div>
           )}
 
+          {/* Repository Selection Step */}
           {isConnected === true && step === "repositories" && (
             <>
               {/* Search */}
@@ -413,6 +404,7 @@ export function RepositorySelector({
             </>
           )}
 
+          {/* Branch Selection Step */}
           {isConnected === true && step === "branches" && selectedRepo && (
             <>
               <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3">

@@ -25,6 +25,7 @@ export const createRepositorySchema = z.object({
   role: z.string().max(50, "역할은 50자 이하여야 합니다").optional(),
   dockerfileContent: z.string().optional(),
   composeContent: z.string().optional(),
+  accountId: z.string().optional(),
 });
 
 /**
