@@ -30,17 +30,25 @@ describe("DashboardHeader", () => {
   });
 
   describe("로그아웃 기능", () => {
-    it("GIVEN 로그아웃 버튼 클릭 WHEN 로그아웃 실행 THEN signOut이 랜딩페이지로 리다이렉트되어야 한다", async () => {
+    it("GIVEN 로그아웃 버튼 클릭 WHEN 로그아웃 실행 THEN signOut이 로그인 페이지로 리다이렉트되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       render(<DashboardHeader />);
+
+      // Mock document.cookie for cookie cleanup
+      Object.defineProperty(document, "cookie", {
+        writable: true,
+        value: "next-auth.session-token=test; authjs.session-token=test2",
+      });
 
       // WHEN
       await user.click(screen.getByRole("button", { name: "로그아웃" }));
 
       // THEN
       await waitFor(() => {
-        expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+        expect(mockSignOut).toHaveBeenCalledWith({
+          callbackUrl: `${window.location.origin}/login`,
+        });
       });
     });
   });

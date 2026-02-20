@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const accountId = searchParams.get("accountId");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const perPage = Math.min(
       parseInt(searchParams.get("per_page") || "30", 10),
@@ -33,16 +32,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
 
     const account = await prisma.account.findFirst({
-      where: accountId
-        ? {
-            id: accountId,
-            userId: session.user.id,
-            provider: "github",
-          }
-        : {
-            userId: session.user.id,
-            provider: "github",
-          },
+      where: {
+        userId: session.user.id,
+        provider: "github",
+      },
       select: {
         access_token: true,
       },
@@ -52,29 +45,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: accountId
-            ? "GitHub 계정을 찾을 수 없거나 접근 권한이 없습니다"
-            : "GitHub 연동이 필요합니다",
-          code: accountId ? "GITHUB_ACCOUNT_NOT_FOUND" : "GITHUB_NOT_CONNECTED",
+          error: "GitHub 연동이 필요합니다",
+          code: "GITHUB_NOT_CONNECTED",
         },
-        { status: accountId ? 403 : 400 }
+        { status: 400 }
       );
     }
 
     const client = createGitHubClient(account.access_token);
-    const { repositories, hasNext } = await getUserRepositories(client, {
-      page,
-      per_page: perPage,
-      sort,
-    });
 
-    const filteredRepositories = search
-      ? repositories.filter(
-          (repo) =>
-            repo.name.toLowerCase().includes(search.toLowerCase()) ||
-            repo.full_name.toLowerCase().includes(search.toLowerCase())
-        )
-      : repositories;
+    let repositories;
+    let hasNext;
+
+    if (search) {
+      const user = await client.users.getAuthenticated();
+      const username = user.data.login;
+
+      const searchResponse = await client.search.repos({
+        q: `${search} in:name user:${username}`,
+        per_page: perPage + 1,
+        page,
+        sort: sort === "updated" ? "updated" : undefined,
+      });
+
+      hasNext = searchResponse.data.items.length > perPage;
+      repositories = searchResponse.data.items
+        .slice(0, perPage)
+        .map((repo) => ({
+          id: repo.id,
+          name: repo.name,
+          full_name: repo.full_name,
+          private: repo.private,
+          html_url: repo.html_url,
+          default_branch: repo.default_branch || "main",
+          updated_at: repo.updated_at ?? new Date().toISOString(),
+          language: repo.language,
+          description: repo.description,
+        }));
+    } else {
+      const result = await getUserRepositories(client, {
+        page,
+        per_page: perPage,
+        sort,
+      });
+      repositories = result.repositories;
+      hasNext = result.hasNext;
+    }
+
+    const filteredRepositories = repositories;
 
     return NextResponse.json({
       success: true,

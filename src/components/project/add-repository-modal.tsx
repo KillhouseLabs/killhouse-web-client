@@ -11,7 +11,6 @@ interface RepositoryData {
   url: string;
   owner: string;
   defaultBranch: string;
-  accountId?: string;
   role?: string;
   isPrimary?: boolean;
   dockerfileContent?: string;
@@ -77,7 +76,6 @@ export function AddRepositoryModal({
     owner: string;
     name: string;
     defaultBranch: string;
-    accountId?: string;
   }) => {
     if (!provider) return;
 
@@ -87,7 +85,6 @@ export function AddRepositoryModal({
       url: repo.url,
       owner: repo.owner,
       defaultBranch: repo.defaultBranch,
-      accountId: repo.accountId,
     });
     setIsSelectorOpen(false);
   };
@@ -129,7 +126,6 @@ export function AddRepositoryModal({
               name: pendingRepo!.name,
               url: pendingRepo!.url,
               defaultBranch: pendingRepo!.defaultBranch,
-              accountId: pendingRepo!.accountId,
               role: role || undefined,
               isPrimary,
               dockerfileContent: dockerfileContent || undefined,
