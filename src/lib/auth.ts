@@ -62,6 +62,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            password: true,
+          },
         });
 
         if (!user || !user.password) {
@@ -87,25 +94,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user, account }) {
       // OAuth 재로그인 시 토큰 갱신
       if (account?.provider === "github" || account?.provider === "gitlab") {
-        // 기존 account가 있으면 토큰 업데이트
-        const existingAccount = await prisma.account.findFirst({
+        await prisma.account.updateMany({
           where: {
             provider: account.provider,
             providerAccountId: account.providerAccountId,
           },
+          data: {
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
+            expires_at: account.expires_at,
+            scope: account.scope,
+          },
         });
-
-        if (existingAccount) {
-          await prisma.account.update({
-            where: { id: existingAccount.id },
-            data: {
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: account.expires_at,
-              scope: account.scope,
-            },
-          });
-        }
         return true;
       }
       // Allow Google OAuth sign in

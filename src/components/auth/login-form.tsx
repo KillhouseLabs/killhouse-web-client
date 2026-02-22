@@ -53,8 +53,7 @@ export function LoginForm() {
       }
 
       if (result.ok) {
-        router.push(callbackUrl);
-        router.refresh();
+        router.replace(callbackUrl);
       }
     } catch {
       setError(t.auth.login.errors.loginFailed);
