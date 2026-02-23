@@ -172,9 +172,17 @@ export async function POST(request: Request) {
     if (!scannerResponse.ok) {
       const errorText = await scannerResponse.text();
       console.error("Scanner fix-suggestion error:", errorText);
+
+      let detail = "코드 수정 제안 생성에 실패했습니다";
+      if (scannerResponse.status === 503) {
+        detail = "AI 서비스가 설정되지 않았습니다 (OpenAI API 키 확인 필요)";
+      } else if (scannerResponse.status === 502) {
+        detail = "AI 서비스 호출에 실패했습니다 (API 키 만료 또는 서비스 오류)";
+      }
+
       return NextResponse.json(
-        { success: false, error: "코드 수정 제안 생성에 실패했습니다" },
-        { status: 502 }
+        { success: false, error: detail },
+        { status: scannerResponse.status >= 500 ? 502 : scannerResponse.status }
       );
     }
 

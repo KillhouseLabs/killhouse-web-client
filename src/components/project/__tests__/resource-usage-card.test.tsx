@@ -10,7 +10,6 @@ const mockData = {
     { label: "월간 분석", current: 7, limit: 10, unlimited: false },
     { label: "활성 스캔", current: 2, limit: 2, unlimited: false },
     { label: "활성 샌드박스", current: 0, limit: 1, unlimited: false },
-    { label: "활성 세션", current: 0, limit: 1, unlimited: false },
   ],
 };
 
@@ -22,7 +21,6 @@ const unlimitedData = {
     { label: "월간 분석", current: 50, limit: -1, unlimited: true },
     { label: "활성 스캔", current: 3, limit: 10, unlimited: false },
     { label: "활성 샌드박스", current: 2, limit: 5, unlimited: false },
-    { label: "활성 세션", current: 1, limit: 5, unlimited: false },
   ],
 };
 

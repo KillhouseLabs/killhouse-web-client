@@ -18,7 +18,12 @@ interface PollingAnalysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount?: number;
   completedAt: string | null;
+  logs: string | null;
+  staticAnalysisReport: string | null;
+  penetrationTestReport: string | null;
+  stepResults: string | null;
 }
 
 interface UseAnalysisPollingResult {
@@ -36,6 +41,8 @@ export function useAnalysisPolling(
   const [isLoading, setIsLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTerminalRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isInitialFetchRef = useRef(true);
 
   const isTerminal = analysis
     ? TERMINAL_STATUSES.includes(analysis.status)
@@ -44,10 +51,22 @@ export function useAnalysisPolling(
   const fetchAnalysis = useCallback(async () => {
     if (!projectId || !analysisId) return;
 
+    // Abort previous request
+    abortControllerRef.current?.abort();
+
+    // Create new AbortController
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      setIsLoading(true);
+      // Only set loading for initial fetch
+      if (isInitialFetchRef.current) {
+        setIsLoading(true);
+      }
+
       const response = await fetch(
-        `/api/projects/${projectId}/analyses/${analysisId}`
+        `/api/projects/${projectId}/analyses/${analysisId}`,
+        { signal: controller.signal }
       );
       if (!response.ok) return;
 
@@ -58,10 +77,17 @@ export function useAnalysisPolling(
           isTerminalRef.current = true;
         }
       }
-    } catch {
-      // Retry on next interval
+    } catch (error) {
+      // Ignore abort errors
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      // Retry on next interval for other errors
     } finally {
-      setIsLoading(false);
+      if (isInitialFetchRef.current) {
+        setIsLoading(false);
+        isInitialFetchRef.current = false;
+      }
     }
   }, [projectId, analysisId]);
 
@@ -82,12 +108,44 @@ export function useAnalysisPolling(
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      abortControllerRef.current?.abort();
+    };
+  }, [enabled, analysisId, fetchAnalysis]);
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Pause polling when tab is hidden
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Resume polling when tab becomes visible
+        if (enabled && analysisId && !isTerminalRef.current) {
+          fetchAnalysis();
+          intervalRef.current = setInterval(() => {
+            if (isTerminalRef.current) {
+              if (intervalRef.current) clearInterval(intervalRef.current);
+              return;
+            }
+            fetchAnalysis();
+          }, POLLING_INTERVAL);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [enabled, analysisId, fetchAnalysis]);
 
   // Reset terminal flag when analysisId changes
   useEffect(() => {
     isTerminalRef.current = false;
+    isInitialFetchRef.current = true;
     setAnalysis(null);
   }, [analysisId]);
 

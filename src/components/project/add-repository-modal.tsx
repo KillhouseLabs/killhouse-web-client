@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { RepositorySelector } from "./repository-selector";
 
-type Provider = "GITHUB" | "GITLAB" | "MANUAL";
+type Provider = "GITHUB" | "GITLAB" | "GITLAB_SELF" | "MANUAL";
 
 interface RepositoryData {
   provider: Provider;
@@ -47,6 +47,12 @@ export function AddRepositoryModal({
   const [buildContext, setBuildContext] = useState("");
   const [targetService, setTargetService] = useState("");
 
+  // File upload state
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const resetForm = () => {
     setProvider(null);
     setPendingRepo(null);
@@ -60,6 +66,8 @@ export function AddRepositoryModal({
     setDockerfilePath("");
     setBuildContext("");
     setTargetService("");
+    setUploadFile(null);
+    setUploadProgress(null);
   };
 
   const handleClose = () => {
@@ -82,11 +90,18 @@ export function AddRepositoryModal({
     owner: string;
     name: string;
     defaultBranch: string;
+    provider?: "gitlab" | "gitlab-self";
   }) => {
     if (!provider) return;
 
+    // Determine the actual provider for GitLab repos
+    let repoProvider: Provider = provider;
+    if (provider === "GITLAB" && repo.provider) {
+      repoProvider = repo.provider === "gitlab-self" ? "GITLAB_SELF" : "GITLAB";
+    }
+
     setPendingRepo({
-      provider,
+      provider: repoProvider,
       name: repo.name,
       url: repo.url,
       owner: repo.owner,
@@ -97,6 +112,72 @@ export function AddRepositoryModal({
 
   const handleRemoveRepo = () => {
     setPendingRepo(null);
+  };
+
+  const validateAndSetFile = useCallback(
+    (file: File) => {
+      // Extension check
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        setError("ZIP 파일만 업로드할 수 있습니다");
+        return;
+      }
+
+      // Size check (100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        setError("파일 크기는 100MB 이하여야 합니다");
+        return;
+      }
+
+      if (file.size === 0) {
+        setError("빈 파일은 업로드할 수 없습니다");
+        return;
+      }
+
+      setError("");
+      setUploadFile(file);
+
+      // Auto-fill name from filename if empty
+      if (!manualName) {
+        const nameWithoutExt = file.name.replace(/\.zip$/i, "");
+        setManualName(nameWithoutExt);
+      }
+    },
+    [manualName]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) validateAndSetFile(file);
+    },
+    [validateAndSetFile]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) validateAndSetFile(file);
+    },
+    [validateAndSetFile]
+  );
+
+  const handleRemoveFile = () => {
+    setUploadFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async () => {
@@ -157,6 +238,29 @@ export function AddRepositoryModal({
         return;
       }
 
+      // Upload file if present (MANUAL mode)
+      if (provider === "MANUAL" && uploadFile && data.data?.id) {
+        setUploadProgress("파일 업로드 중...");
+        const formData = new FormData();
+        formData.append("file", uploadFile);
+
+        const uploadResponse = await fetch(
+          `/api/projects/${projectId}/repositories/${data.data.id}/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          setError(uploadData.error || "파일 업로드에 실패했습니다");
+          setUploadProgress(null);
+          return;
+        }
+      }
+
       resetForm();
       onSuccess?.();
       onClose();
@@ -164,6 +268,7 @@ export function AddRepositoryModal({
       setError("저장소 추가 중 오류가 발생했습니다");
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -183,7 +288,7 @@ export function AddRepositoryModal({
         </svg>
       );
     }
-    if (providerType === "GITLAB") {
+    if (providerType === "GITLAB" || providerType === "GITLAB_SELF") {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
           <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
@@ -239,7 +344,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="GITHUB" className="h-6 w-6" />
-                <span className="text-sm font-medium">GitHub</span>
+                <span className="text-xs font-medium">GitHub</span>
               </button>
 
               <button
@@ -252,7 +357,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="GITLAB" className="h-6 w-6" />
-                <span className="text-sm font-medium">GitLab</span>
+                <span className="text-xs font-medium">GitLab</span>
               </button>
 
               <button
@@ -265,7 +370,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="MANUAL" className="h-6 w-6" />
-                <span className="text-sm font-medium">수동 업로드</span>
+                <span className="text-xs font-medium">수동 업로드</span>
               </button>
             </div>
           </div>
@@ -343,6 +448,100 @@ export function AddRepositoryModal({
           {/* Manual Input Form */}
           {provider === "MANUAL" && (
             <div className="mt-6 space-y-4">
+              {/* Drag & Drop Zone */}
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  소스 코드 (ZIP) *
+                </label>
+                {uploadFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5 text-primary"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" x2="12" y1="15" y2="3" />
+                    </svg>
+                    <div className="min-w-0 flex-1">
+                      <span className="truncate text-sm font-medium">
+                        {uploadFile.name}
+                      </span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({(uploadFile.size / 1024 / 1024).toFixed(1)}MB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="p-1 text-muted-foreground hover:text-destructive"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    data-testid="drop-zone"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed py-8 transition-colors ${
+                      isDragOver
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground"
+                    }`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mb-2 h-8 w-8 text-muted-foreground"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" x2="12" y1="3" y2="15" />
+                    </svg>
+                    <p className="text-sm text-muted-foreground">
+                      ZIP 파일을 드래그하거나 클릭하여 업로드
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      최대 100MB
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".zip"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                  data-testid="file-input"
+                />
+              </div>
+
               <div>
                 <label
                   htmlFor="repo-name"
@@ -548,7 +747,11 @@ export function AddRepositoryModal({
               }
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? "추가 중..." : "추가"}
+              {uploadProgress
+                ? uploadProgress
+                : isSubmitting
+                  ? "추가 중..."
+                  : "추가"}
             </button>
           </div>
         </div>

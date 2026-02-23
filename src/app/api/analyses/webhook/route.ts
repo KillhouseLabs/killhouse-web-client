@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/database/prisma";
 import { serverEnv } from "@/config/env";
+import {
+  canTransition,
+  mapStatusToStep,
+  type AnalysisStatus,
+} from "@/domains/analysis/model/analysis-state-machine";
+import { appendLog } from "@/domains/analysis/model/analysis-log";
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +35,10 @@ export async function POST(request: Request) {
       high_count,
       medium_count,
       low_count,
+      info_count,
       error: webhookError,
+      log_message,
+      log_level,
     } = body;
 
     if (!analysis_id) {
@@ -52,49 +61,72 @@ export async function POST(request: Request) {
     }
 
     // Build update data
-    const VALID_STATUSES = [
-      "CLONING",
-      "STATIC_ANALYSIS",
-      "BUILDING",
-      "PENETRATION_TEST",
-      "EXPLOIT_VERIFICATION",
-      "COMPLETED",
-      "COMPLETED_WITH_ERRORS",
-      "FAILED",
-    ];
-    const TERMINAL_STATUSES = [
-      "COMPLETED",
-      "COMPLETED_WITH_ERRORS",
-      "FAILED",
-      "CANCELLED",
-    ];
+    const currentStatus = analysis.status as AnalysisStatus;
+    let resolvedStatus = currentStatus;
+    let updatedLogs = analysis.logs;
 
-    const isCurrentTerminal = TERMINAL_STATUSES.includes(analysis.status);
-    const isNewStatusValid = VALID_STATUSES.includes(status);
-    const isNewTerminal = TERMINAL_STATUSES.includes(status);
+    // Determine the resolved status using the state machine
+    if (status) {
+      const newStatus = status as AnalysisStatus;
+      if (canTransition(currentStatus, newStatus)) {
+        resolvedStatus = newStatus;
 
-    // Allow intermediate status updates only if current status is not terminal.
-    // Always allow COMPLETED/FAILED to override non-terminal states.
-    const resolvedStatus =
-      isNewTerminal && isNewStatusValid
-        ? status
-        : !isCurrentTerminal && isNewStatusValid
-          ? status
-          : analysis.status;
+        // Auto-generate status transition log
+        const timestamp = new Date().toISOString();
+        const step = mapStatusToStep(resolvedStatus);
+        updatedLogs = appendLog(updatedLogs, {
+          timestamp,
+          step,
+          level: "info",
+          message: `상태 변경: ${currentStatus} → ${resolvedStatus}`,
+        });
+      } else {
+        console.error(
+          `Webhook: REJECTED state transition for analysis ${analysis_id}: ` +
+            `${currentStatus} → ${newStatus}. ` +
+            `This may indicate a state machine configuration issue.` +
+            (webhookError ? ` Error: ${webhookError}` : "")
+        );
 
-    const statusTransitionAccepted = resolvedStatus !== analysis.status;
+        updatedLogs = appendLog(updatedLogs, {
+          timestamp: new Date().toISOString(),
+          step: mapStatusToStep(newStatus),
+          level: "warn",
+          message: `상태 전이 거부됨: ${currentStatus} → ${newStatus}`,
+        });
+      }
+    }
 
-    if (!statusTransitionAccepted && isNewStatusValid) {
-      console.error(
-        `Webhook: REJECTED state transition for analysis ${analysis_id}: ` +
-          `${analysis.status} → ${status}. ` +
-          `This may indicate a state machine configuration issue.` +
-          (webhookError ? ` Error: ${webhookError}` : "")
-      );
+    const statusTransitionAccepted = resolvedStatus !== currentStatus;
+
+    // Append custom log message if provided
+    if (log_message) {
+      const timestamp = new Date().toISOString();
+      const step = mapStatusToStep(resolvedStatus);
+      const level = log_level || "info";
+      updatedLogs = appendLog(updatedLogs, {
+        timestamp,
+        step,
+        level: level as "info" | "warn" | "error" | "success",
+        message: log_message,
+      });
+    }
+
+    // Append error log if error is provided
+    if (webhookError) {
+      const timestamp = new Date().toISOString();
+      const step = mapStatusToStep(resolvedStatus);
+      updatedLogs = appendLog(updatedLogs, {
+        timestamp,
+        step,
+        level: "error",
+        message: webhookError,
+      });
     }
 
     const updateData: Record<string, unknown> = {
       status: resolvedStatus,
+      logs: updatedLogs,
     };
 
     if (static_analysis_report) {
@@ -127,6 +159,11 @@ export async function POST(request: Request) {
     }
     if (low_count !== undefined) {
       updateData.lowCount = (analysis.lowCount || 0) + low_count;
+    }
+    if (info_count !== undefined) {
+      const currentInfoCount =
+        ((analysis as Record<string, unknown>).infoCount as number) || 0;
+      updateData.infoCount = currentInfoCount + info_count;
     }
 
     if (executive_summary) {
@@ -163,10 +200,45 @@ export async function POST(request: Request) {
     }
 
     // Update the analysis record
-    const updated = await prisma.analysis.update({
-      where: { id: analysis_id },
-      data: updateData,
-    });
+    let updated;
+    try {
+      updated = await prisma.analysis.update({
+        where: { id: analysis_id },
+        data: updateData,
+      });
+    } catch (dbError) {
+      // Prisma 스키마에 없는 필드가 포함된 경우 해당 필드를 제거하고 재시도
+      console.warn(
+        `Webhook: DB update failed, retrying without unknown fields: ${dbError}`
+      );
+      const safeData = { ...updateData };
+      const knownFields = [
+        "status",
+        "logs",
+        "staticAnalysisReport",
+        "penetrationTestReport",
+        "vulnerabilitiesFound",
+        "criticalCount",
+        "highCount",
+        "mediumCount",
+        "lowCount",
+        "infoCount",
+        "executiveSummary",
+        "stepResults",
+        "exploitSessionId",
+        "completedAt",
+        "sandboxStatus",
+      ];
+      for (const key of Object.keys(safeData)) {
+        if (!knownFields.includes(key)) {
+          delete safeData[key];
+        }
+      }
+      updated = await prisma.analysis.update({
+        where: { id: analysis_id },
+        data: safeData,
+      });
+    }
 
     console.log(`Webhook: Analysis ${analysis_id} updated to ${status}`);
 
@@ -177,7 +249,13 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Webhook processing error:", error);
     return NextResponse.json(
-      { success: false, error: "Webhook processing failed" },
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? `Webhook processing failed: ${error.message}`
+            : "Webhook processing failed",
+      },
       { status: 500 }
     );
   }

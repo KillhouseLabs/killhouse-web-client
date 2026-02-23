@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ResourceItem {
   label: string;
@@ -37,24 +37,69 @@ function getProgressWidth(current: number, limit: number): string {
 export function ResourceUsageCard({ projectId }: ResourceUsageCardProps) {
   const [data, setData] = useState<ResourceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
+    // Abort previous request
+    abortControllerRef.current?.abort();
+
+    // Create new AbortController
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await fetch(`/api/projects/${projectId}/resources`);
+      const res = await fetch(`/api/projects/${projectId}/resources`, {
+        signal: controller.signal,
+      });
       if (res.ok) {
-        setData(await res.json());
+        const json = await res.json();
+        setData(json);
       }
-    } catch {
-      // Silently fail - card is informational
+    } catch (error) {
+      // Ignore abort errors
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      // Silently fail for other errors - card is informational
     } finally {
       setLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
+    // Initial fetch
     fetchData();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+
+    // Set up polling interval
+    intervalRef.current = setInterval(fetchData, 30_000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      abortControllerRef.current?.abort();
+    };
+  }, [fetchData]);
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Pause polling when tab is hidden
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Resume polling when tab becomes visible
+        fetchData();
+        intervalRef.current = setInterval(fetchData, 30_000);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchData]);
 
   if (loading) {

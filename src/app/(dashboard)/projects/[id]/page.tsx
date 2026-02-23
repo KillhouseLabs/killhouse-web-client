@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { ProjectDetail } from "@/components/project/project-detail";
@@ -6,6 +7,29 @@ import { ProjectDetail } from "@/components/project/project-detail";
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+const getProject = cache(async (id: string, userId: string) => {
+  return prisma.project.findFirst({
+    where: {
+      id,
+      userId,
+      status: { not: "DELETED" },
+    },
+    include: {
+      repositories: {
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        include: {
+          _count: { select: { analyses: true } },
+        },
+      },
+      analyses: {
+        orderBy: { startedAt: "desc" },
+        take: 10,
+      },
+      _count: { select: { analyses: true } },
+    },
+  });
+});
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
@@ -15,13 +39,7 @@ export async function generateMetadata({ params }: PageProps) {
     return { title: "프로젝트" };
   }
 
-  const project = await prisma.project.findFirst({
-    where: {
-      id,
-      userId: session.user.id,
-      status: { not: "DELETED" },
-    },
-  });
+  const project = await getProject(id, session.user.id);
 
   return {
     title: project?.name || "프로젝트",
@@ -37,30 +55,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const project = await prisma.project.findFirst({
-    where: {
-      id,
-      userId: session.user.id,
-      status: { not: "DELETED" },
-    },
-    include: {
-      repositories: {
-        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        include: {
-          _count: {
-            select: { analyses: true },
-          },
-        },
-      },
-      analyses: {
-        orderBy: { startedAt: "desc" },
-        take: 10,
-      },
-      _count: {
-        select: { analyses: true },
-      },
-    },
-  });
+  const project = await getProject(id, session.user.id);
 
   if (!project) {
     notFound();

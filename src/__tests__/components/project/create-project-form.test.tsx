@@ -89,12 +89,12 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       // WHEN
       await user.click(screen.getByText("GitLab"));
 
-      // THEN
+      // THEN - GitLab 버튼이 선택 상태
       const gitlabButton = screen.getByText("GitLab").closest("button");
       expect(gitlabButton).toHaveClass("border-primary");
     });
 
-    it("GIVEN GitHub 선택됨 WHEN 수동 업로드 클릭 THEN 저장소 선택 버튼이 숨겨지고 업로드 안내가 표시되어야 한다", async () => {
+    it("GIVEN GitHub 선택됨 WHEN 수동 업로드 클릭 THEN 저장소 선택 버튼이 숨겨지고 업로드 폼이 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
       render(<CreateProjectForm />);
@@ -105,8 +105,9 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       // THEN
       expect(screen.queryByText("저장소 검색 및 선택")).not.toBeInTheDocument();
       expect(
-        screen.getByText("프로젝트 생성 후 코드를 직접 업로드할 수 있습니다")
+        screen.getByText("ZIP 파일을 드래그하거나 클릭하여 업로드")
       ).toBeInTheDocument();
+      expect(screen.getByLabelText(/저장소 이름/)).toBeInTheDocument();
     });
   });
 
@@ -142,22 +143,42 @@ describe("CreateProjectForm (Multi-Repo)", () => {
   });
 
   describe("프로젝트 생성", () => {
-    it("GIVEN 수동 업로드 선택 WHEN 생성 THEN repositories 빈 배열로 전송되어야 한다", async () => {
+    it("GIVEN 수동 업로드 + 파일 첨부 WHEN 생성 THEN MANUAL 레포와 함께 전송 후 파일 업로드되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { id: "new-project-id", name: "Manual Project" },
-          }),
+      const mockFile = new File(["PK\x03\x04content"], "my-app.zip", {
+        type: "application/zip",
       });
+
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                id: "new-project-id",
+                name: "Manual Project",
+                repositories: [{ id: "repo-1" }],
+              },
+            }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, data: { uploadKey: "key" } }),
+        });
       render(<CreateProjectForm />);
 
       // WHEN
       await user.type(screen.getByLabelText(/프로젝트 이름/), "Manual Project");
       await user.click(screen.getByText("수동 업로드"));
+
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+      await user.upload(fileInput, mockFile);
+
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN
@@ -165,27 +186,72 @@ describe("CreateProjectForm (Multi-Repo)", () => {
         expect(global.fetch).toHaveBeenCalledWith("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: expect.stringContaining('"repositories":[]'),
+          body: expect.stringContaining('"provider":"MANUAL"'),
         });
       });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/projects/new-project-id/repositories/repo-1/upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+    });
+
+    it("GIVEN 수동 업로드 + 파일 없음 WHEN 생성 클릭 THEN 에러 메시지가 표시되어야 한다", async () => {
+      // GIVEN
+      const user = userEvent.setup();
+      render(<CreateProjectForm />);
+
+      // WHEN
+      await user.type(screen.getByLabelText(/프로젝트 이름/), "Manual Project");
+      await user.click(screen.getByText("수동 업로드"));
+      await user.type(screen.getByLabelText(/저장소 이름/), "my-app");
+      await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
+
+      // THEN
+      await waitFor(() => {
+        expect(screen.getByText("ZIP 파일을 업로드하세요")).toBeInTheDocument();
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it("GIVEN 생성 성공 WHEN API 응답 성공 THEN 프로젝트 상세 페이지로 이동해야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { id: "new-project-id", name: "New Project" },
-          }),
+      const mockFile = new File(["PK\x03\x04content"], "my-app.zip", {
+        type: "application/zip",
       });
+
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                id: "new-project-id",
+                name: "New Project",
+                repositories: [{ id: "repo-1" }],
+              },
+            }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, data: { uploadKey: "key" } }),
+        });
       render(<CreateProjectForm />);
 
       // WHEN
       await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.click(screen.getByText("수동 업로드"));
+
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+      await user.upload(fileInput, mockFile);
+
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN
@@ -197,6 +263,10 @@ describe("CreateProjectForm (Multi-Repo)", () => {
     it("GIVEN API 에러 WHEN 생성 실패 THEN 에러 메시지가 표시되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
+      const mockFile = new File(["PK\x03\x04content"], "my-app.zip", {
+        type: "application/zip",
+      });
+
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
         json: () =>
@@ -210,6 +280,12 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       // WHEN
       await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.click(screen.getByText("수동 업로드"));
+
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+      await user.upload(fileInput, mockFile);
+
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN
@@ -239,6 +315,10 @@ describe("CreateProjectForm (Multi-Repo)", () => {
     it("GIVEN 생성 진행 중 WHEN 로딩 상태 THEN 버튼이 비활성화되어야 한다", async () => {
       // GIVEN
       const user = userEvent.setup();
+      const mockFile = new File(["PK\x03\x04content"], "my-app.zip", {
+        type: "application/zip",
+      });
+
       (global.fetch as jest.Mock).mockImplementation(
         () =>
           new Promise((resolve) =>
@@ -246,7 +326,14 @@ describe("CreateProjectForm (Multi-Repo)", () => {
               () =>
                 resolve({
                   ok: true,
-                  json: () => Promise.resolve({ success: true, data: {} }),
+                  json: () =>
+                    Promise.resolve({
+                      success: true,
+                      data: {
+                        id: "p1",
+                        repositories: [{ id: "r1" }],
+                      },
+                    }),
                 }),
               1000
             )
@@ -257,6 +344,12 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       // WHEN
       await user.type(screen.getByLabelText(/프로젝트 이름/), "New Project");
       await user.click(screen.getByText("수동 업로드"));
+
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+      await user.upload(fileInput, mockFile);
+
       await user.click(screen.getByRole("button", { name: "프로젝트 생성" }));
 
       // THEN

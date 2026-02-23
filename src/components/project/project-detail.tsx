@@ -22,6 +22,7 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount?: number;
   startedAt: Date;
   completedAt: Date | null;
 }
@@ -114,7 +115,6 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
 
       if (response.ok) {
         router.push("/projects");
-        router.refresh();
       }
     } catch (error) {
       console.error("Delete failed:", error);

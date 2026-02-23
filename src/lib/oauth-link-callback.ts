@@ -27,6 +27,13 @@ const PROVIDER_CONFIG: Record<
     clientSecretEnv: "GITLAB_CLIENT_SECRET",
     extractAccountId: (profile) => String(profile.id),
   },
+  "gitlab-self": {
+    tokenUrl: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/token`,
+    userInfoUrl: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/api/v4/user`,
+    clientIdEnv: "GITLAB_SELF_CLIENT_ID",
+    clientSecretEnv: "GITLAB_SELF_CLIENT_SECRET",
+    extractAccountId: (profile) => String(profile.id),
+  },
 };
 
 /**

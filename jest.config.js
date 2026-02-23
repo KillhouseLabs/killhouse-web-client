@@ -34,6 +34,9 @@ const customJestConfig = {
       statements: 20,
     },
   },
+  transformIgnorePatterns: [
+    "node_modules/(?!(react-markdown|remark-gfm|unified|bail|is-plain-obj|trough|vfile|vfile-message|unist-.*|micromark.*|mdast-.*|decode-named-character-reference|character-entities|escape-string-regexp|markdown-table|property-information|hast-util-whitespace|space-separated-tokens|comma-separated-tokens|ccount|zwitch|html-void-elements|remark-.*|devlop)/)",
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);

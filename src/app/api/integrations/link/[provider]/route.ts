@@ -21,6 +21,11 @@ const PROVIDER_CONFIG: Record<
     clientIdEnv: "GITLAB_CLIENT_ID",
     scope: "read_api read_user read_repository",
   },
+  "gitlab-self": {
+    authUrl: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/authorize`,
+    clientIdEnv: "GITLAB_SELF_CLIENT_ID",
+    scope: "read_api read_user read_repository",
+  },
 };
 
 /**
@@ -98,7 +103,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   // GitHub: prompt=consent는 미지원이지만, login 파라미터 없이 보내면
   // 사용자가 GitHub에서 수동으로 계정을 전환할 수 있음
-  if (provider === "gitlab") {
+  if (provider === "gitlab" || provider === "gitlab-self") {
     authParams.set("response_type", "code");
   }
 

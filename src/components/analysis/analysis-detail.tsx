@@ -7,6 +7,9 @@ import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AnalysisPipeline } from "@/components/project/analysis-pipeline";
 import { CodeDiffViewer } from "@/components/analysis/code-diff-viewer";
+import { AnalysisLiveLog } from "@/components/analysis/analysis-live-log";
+import { ExploitLiveStream } from "@/components/analysis/exploit-live-stream";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 
 const TERMINAL_STATUSES = [
@@ -61,10 +64,12 @@ interface Analysis {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  infoCount?: number;
   staticAnalysisReport: string | null;
   penetrationTestReport: string | null;
   executiveSummary: string | null;
   stepResults: string | null;
+  logs?: string | null;
   exploitSessionId: string | null;
   startedAt: Date;
   completedAt: Date | null;
@@ -97,6 +102,14 @@ const severityColors: Record<string, string> = {
   MEDIUM: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
   LOW: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   INFO: "bg-gray-500/10 text-gray-600 border-gray-500/20",
+};
+
+const SEVERITY_WEIGHT: Record<string, number> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+  INFO: 4,
 };
 
 function parseReport(raw: string | null): Report | null {
@@ -241,10 +254,15 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
       count: analysis.lowCount,
       color: "text-blue-600 bg-blue-500/10",
     },
+    {
+      label: "Info",
+      count: analysis.infoCount ?? 0,
+      color: "text-gray-600 bg-gray-500/10",
+    },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {cards.map((card) => (
         <div
           key={card.label}
@@ -282,7 +300,7 @@ function SummaryCard({ summary }: { summary: string }) {
         </svg>
         <h3 className="text-base font-semibold text-indigo-700">요약</h3>
       </div>
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+      <MarkdownContent content={summary} className="text-sm leading-relaxed" />
     </div>
   );
 }
@@ -321,7 +339,7 @@ function AISummaryCard({
         </svg>
         <h4 className="text-sm font-semibold">{title}</h4>
       </div>
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+      <MarkdownContent content={summary} className="text-sm leading-relaxed" />
     </div>
   );
 }
@@ -750,7 +768,7 @@ function FindingDetailModal({
             <h4 className="mb-1 text-sm font-medium text-muted-foreground">
               설명
             </h4>
-            <p className="whitespace-pre-wrap text-sm">{desc}</p>
+            <MarkdownContent content={desc} className="text-sm" />
           </div>
         )}
 
@@ -897,7 +915,7 @@ function FindingDetailModal({
                       <p className="mb-1 text-xs font-medium text-muted-foreground">
                         {msg.role === "user" ? "질문" : "AI 응답"}
                       </p>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <MarkdownContent content={msg.content} />
                     </div>
                   ))}
                   {isChatLoading && (
@@ -977,6 +995,26 @@ function FindingsTable({
 }) {
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const fixCacheRef = useRef<Map<string, FixCacheValue>>(new Map());
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [severityFilter, setSeverityFilter] = useState<string | null>(null);
+
+  const sortedAndFilteredFindings = useMemo(() => {
+    let results = report.findings || [];
+
+    // Filter
+    if (severityFilter) {
+      results = results.filter(
+        (f) => normalizeSeverity(f.severity) === severityFilter
+      );
+    }
+
+    // Sort by severity
+    return [...results].sort((a, b) => {
+      const weightA = SEVERITY_WEIGHT[normalizeSeverity(a.severity)] ?? 5;
+      const weightB = SEVERITY_WEIGHT[normalizeSeverity(b.severity)] ?? 5;
+      return sortDirection === "desc" ? weightA - weightB : weightB - weightA;
+    });
+  }, [report.findings, sortDirection, severityFilter]);
 
   if (!report.findings || report.findings.length === 0) {
     return (
@@ -990,22 +1028,69 @@ function FindingsTable({
   }
 
   const isSast = report.tool === "semgrep";
+  const severityOptions = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 
   return (
     <div className="rounded-xl border border-border bg-card">
-      <div className="border-b border-border p-4">
-        <h3 className="text-base font-semibold">
-          {title} ({report.total}개)
-        </h3>
-        {report.summary && (
-          <p className="mt-1 text-sm text-muted-foreground">{report.summary}</p>
-        )}
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <div>
+          <h3 className="text-base font-semibold">
+            {title} (
+            {severityFilter ? sortedAndFilteredFindings.length + "/" : ""}
+            {report.total}개)
+          </h3>
+          {report.summary && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {report.summary}
+            </p>
+          )}
+        </div>
+        {/* Severity Filter */}
+        <div className="flex items-center gap-2">
+          <select
+            value={severityFilter || ""}
+            onChange={(e) => setSeverityFilter(e.target.value || null)}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">전체 심각도</option>
+            {severityOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground">
-              <th className="px-4 py-3 font-medium">심각도</th>
+              <th
+                className="cursor-pointer select-none px-4 py-3 font-medium hover:text-foreground"
+                onClick={() =>
+                  setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))
+                }
+              >
+                <span className="flex items-center gap-1">
+                  심각도
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3 w-3"
+                  >
+                    {sortDirection === "desc" ? (
+                      <path d="m6 9 6 6 6-6" />
+                    ) : (
+                      <path d="m18 15-6-6-6 6" />
+                    )}
+                  </svg>
+                </span>
+              </th>
               {isSast ? (
                 <>
                   <th className="px-4 py-3 font-medium">파일</th>
@@ -1022,7 +1107,7 @@ function FindingsTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {report.findings.map((finding, idx) => {
+            {sortedAndFilteredFindings.map((finding, idx) => {
               const filePath = findingFilePath(finding);
               const ruleName = findingRuleName(finding);
               const desc = findingDescription(finding);
@@ -1155,7 +1240,6 @@ export function AnalysisDetail({
         const data = await response.json();
         if (data.success && data.data?.id) {
           router.push(`/projects/${projectId}/analyses/${data.data.id}`);
-          router.refresh();
         }
       }
     } catch (error) {
@@ -1175,6 +1259,14 @@ export function AnalysisDetail({
   const stepResults = useMemo(
     () => parseStepResults(analysis.stepResults),
     [analysis.stepResults]
+  );
+  const polledSastReport = useMemo(
+    () => parseReport(polledAnalysis?.staticAnalysisReport ?? null),
+    [polledAnalysis?.staticAnalysisReport]
+  );
+  const polledDastReport = useMemo(
+    () => parseReport(polledAnalysis?.penetrationTestReport ?? null),
+    [polledAnalysis?.penetrationTestReport]
   );
 
   return (
@@ -1286,6 +1378,12 @@ export function AnalysisDetail({
         />
       </div>
 
+      {/* Live Log */}
+      <AnalysisLiveLog
+        logs={polledAnalysis?.logs ?? analysis.logs ?? null}
+        currentStatus={currentStatus}
+      />
+
       {/* In-progress message */}
       {!TERMINAL_STATUSES.includes(currentStatus) && (
         <div className="flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
@@ -1306,6 +1404,34 @@ export function AnalysisDetail({
           </p>
         </div>
       )}
+
+      {/* Exploit Live Stream during active analysis */}
+      {!TERMINAL_STATUSES.includes(currentStatus) &&
+        analysis.exploitSessionId && (
+          <ExploitLiveStream exploitSessionId={analysis.exploitSessionId} />
+        )}
+
+      {/* Intermediate results - show SAST/DAST as they become available during analysis */}
+      {!TERMINAL_STATUSES.includes(currentStatus) &&
+        (polledSastReport || polledDastReport) && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">중간 분석 결과</h2>
+            {polledSastReport && (
+              <FindingsTable
+                title="SAST 분석 결과 (정적 분석)"
+                report={polledSastReport}
+                analysisId={analysis.id}
+              />
+            )}
+            {polledDastReport && (
+              <FindingsTable
+                title="DAST 분석 결과 (침투 테스트)"
+                report={polledDastReport}
+                analysisId={analysis.id}
+              />
+            )}
+          </div>
+        )}
 
       {/* Vulnerability Summary */}
       {(currentStatus === "COMPLETED" ||
@@ -1425,9 +1551,12 @@ export function AnalysisDetail({
 
           {/* Exploit Session Progress */}
           {analysis.exploitSessionId && (
-            <ExploitSessionProgress
-              exploitSessionId={analysis.exploitSessionId}
-            />
+            <>
+              <ExploitSessionProgress
+                exploitSessionId={analysis.exploitSessionId}
+              />
+              <ExploitLiveStream exploitSessionId={analysis.exploitSessionId} />
+            </>
           )}
         </>
       )}

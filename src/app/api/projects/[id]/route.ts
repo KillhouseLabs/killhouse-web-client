@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { updateProjectSchema } from "@/domains/project/dto/project.dto";
+import {
+  deleteS3Prefix,
+  getProjectPrefix,
+} from "@/infrastructure/storage/s3-client";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -174,6 +178,15 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         { success: false, error: "프로젝트를 찾을 수 없습니다" },
         { status: 404 }
       );
+    }
+
+    // S3 업로드 파일 정리
+    try {
+      const prefix = getProjectPrefix(id);
+      await deleteS3Prefix(prefix);
+    } catch (s3Error) {
+      console.error("S3 cleanup error:", s3Error);
+      // S3 정리 실패해도 프로젝트 삭제는 계속 진행
     }
 
     // Soft delete

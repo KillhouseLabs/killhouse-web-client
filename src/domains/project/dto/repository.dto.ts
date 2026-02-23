@@ -4,6 +4,7 @@ import { z } from "zod";
 export const RepoProvider = {
   GITHUB: "GITHUB",
   GITLAB: "GITLAB",
+  GITLAB_SELF: "GITLAB_SELF",
   MANUAL: "MANUAL",
 } as const;
 
@@ -13,7 +14,7 @@ export type RepoProviderType = (typeof RepoProvider)[keyof typeof RepoProvider];
  * 저장소 생성 스키마
  */
 export const createRepositorySchema = z.object({
-  provider: z.enum(["GITHUB", "GITLAB", "MANUAL"]),
+  provider: z.enum(["GITHUB", "GITLAB", "GITLAB_SELF", "MANUAL"]),
   url: z.string().optional().or(z.literal("")),
   owner: z.string().optional(),
   name: z

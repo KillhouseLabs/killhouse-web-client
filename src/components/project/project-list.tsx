@@ -36,15 +36,27 @@ interface Project {
   };
 }
 
+interface PaginationData {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
 
   useEffect(() => {
     async function fetchProjects() {
+      setIsLoading(true);
+      setError("");
       try {
-        const response = await fetch("/api/projects");
+        const response = await fetch(`/api/projects?page=${page}&limit=20`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -53,6 +65,7 @@ export function ProjectList() {
         }
 
         setProjects(data.data);
+        setPagination(data.pagination);
       } catch {
         setError("프로젝트 목록을 불러오는 중 오류가 발생했습니다");
       } finally {
@@ -61,7 +74,7 @@ export function ProjectList() {
     }
 
     fetchProjects();
-  }, []);
+  }, [page]);
 
   const getProviderIcon = (provider: string | null) => {
     if (provider === "GITHUB") {
@@ -189,82 +202,110 @@ export function ProjectList() {
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => {
-        const repoInfo = getRepositoryInfo(project);
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => {
+          const repoInfo = getRepositoryInfo(project);
 
-        return (
-          <Link
-            key={project.id}
-            href={`/projects/${project.id}`}
-            className="group rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent"
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                {getProviderIcon(repoInfo.provider)}
-              </div>
-              <div className="flex items-center gap-2">
-                {repoInfo.hasMultipleRepos && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {repoInfo.repoCount}개 저장소
+          return (
+            <Link
+              key={project.id}
+              href={`/projects/${project.id}`}
+              className="group rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent"
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {getProviderIcon(repoInfo.provider)}
+                </div>
+                <div className="flex items-center gap-2">
+                  {repoInfo.hasMultipleRepos && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {repoInfo.repoCount}개 저장소
+                    </span>
+                  )}
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-medium ${
+                      project.status === "ACTIVE"
+                        ? "bg-green-500/10 text-green-600"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {project.status === "ACTIVE" ? "활성" : "보관됨"}
                   </span>
-                )}
-                <span
-                  className={`rounded-full px-2 py-1 text-xs font-medium ${
-                    project.status === "ACTIVE"
-                      ? "bg-green-500/10 text-green-600"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {project.status === "ACTIVE" ? "활성" : "보관됨"}
+                </div>
+              </div>
+
+              <h3 className="mb-1 font-semibold group-hover:text-primary">
+                {project.name}
+              </h3>
+
+              {repoInfo.owner && repoInfo.name ? (
+                <p className="mb-2 text-sm text-muted-foreground">
+                  {repoInfo.owner}/{repoInfo.name}
+                  {repoInfo.hasMultipleRepos && " 외"}
+                </p>
+              ) : project.description ? (
+                <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
+                  {project.description}
+                </p>
+              ) : (
+                <p className="mb-2 text-sm text-muted-foreground">
+                  수동 업로드
+                </p>
+              )}
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  분석 {project._count.analyses}회
+                </span>
+                <span>
+                  {formatDistanceToNow(new Date(project.createdAt), {
+                    addSuffix: true,
+                    locale: ko,
+                  })}
                 </span>
               </div>
-            </div>
+            </Link>
+          );
+        })}
+      </div>
 
-            <h3 className="mb-1 font-semibold group-hover:text-primary">
-              {project.name}
-            </h3>
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            이전
+          </button>
 
-            {repoInfo.owner && repoInfo.name ? (
-              <p className="mb-2 text-sm text-muted-foreground">
-                {repoInfo.owner}/{repoInfo.name}
-                {repoInfo.hasMultipleRepos && " 외"}
-              </p>
-            ) : project.description ? (
-              <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
-                {project.description}
-              </p>
-            ) : (
-              <p className="mb-2 text-sm text-muted-foreground">수동 업로드</p>
-            )}
+          <span className="text-sm text-muted-foreground">
+            페이지 {pagination.page} / {pagination.totalPages}
+          </span>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5"
-                >
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                분석 {project._count.analyses}회
-              </span>
-              <span>
-                {formatDistanceToNow(new Date(project.createdAt), {
-                  addSuffix: true,
-                  locale: ko,
-                })}
-              </span>
-            </div>
-          </Link>
-        );
-      })}
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={!pagination.hasMore}
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }

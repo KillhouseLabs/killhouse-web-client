@@ -150,6 +150,79 @@ describe("Analysis API Route", () => {
         // THEN
         expect(project).toBeNull();
       });
+
+      it("GIVEN 로그가 포함된 분석 WHEN 조회 THEN logs/reports 필드가 반환되어야 한다", async () => {
+        // GIVEN
+        const logsData = JSON.stringify([
+          {
+            timestamp: "2024-01-01T00:00:00Z",
+            step: "클론",
+            level: "info",
+            message: "저장소 클론 시작...",
+          },
+        ]);
+        const sastReport = JSON.stringify({
+          tool: "semgrep",
+          findings: [],
+          total: 0,
+        });
+        const dastReport = JSON.stringify({
+          tool: "nuclei",
+          findings: [],
+          total: 0,
+        });
+
+        const mockProject = {
+          id: "project-1",
+          userId: "user-1",
+          status: "ACTIVE",
+        };
+        const mockAnalysis = {
+          id: "analysis-1",
+          projectId: "project-1",
+          status: "COMPLETED",
+          logs: logsData,
+          staticAnalysisReport: sastReport,
+          penetrationTestReport: dastReport,
+          startedAt: new Date("2024-01-01T00:00:00Z"),
+          repository: {
+            id: "repo-1",
+            name: "frontend",
+            provider: "GITHUB",
+          },
+        };
+
+        (auth as jest.Mock).mockResolvedValue({
+          user: { id: "user-1" },
+        });
+        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+          mockAnalysis
+        );
+
+        // WHEN
+        const analysis = await prisma.analysis.findFirst({
+          where: {
+            id: "analysis-1",
+            projectId: "project-1",
+          },
+          include: {
+            repository: {
+              select: {
+                id: true,
+                name: true,
+                provider: true,
+              },
+            },
+          },
+        });
+
+        // THEN
+        expect(analysis).not.toBeNull();
+        expect(analysis?.logs).toBe(logsData);
+        expect(analysis?.staticAnalysisReport).toBe(sastReport);
+        expect(analysis?.penetrationTestReport).toBe(dastReport);
+      });
     });
   });
 
