@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       medium_count,
       low_count,
       info_count,
-      error,
+      error: webhookError,
       log_message,
       log_level,
     } = body;
@@ -81,11 +81,23 @@ export async function POST(request: Request) {
           message: `상태 변경: ${currentStatus} → ${resolvedStatus}`,
         });
       } else {
-        console.warn(
-          `Webhook: Rejected state transition for analysis ${analysis_id}: ${currentStatus} → ${newStatus}`
+        console.error(
+          `Webhook: REJECTED state transition for analysis ${analysis_id}: ` +
+            `${currentStatus} → ${newStatus}. ` +
+            `This may indicate a state machine configuration issue.` +
+            (webhookError ? ` Error: ${webhookError}` : "")
         );
+
+        updatedLogs = appendLog(updatedLogs, {
+          timestamp: new Date().toISOString(),
+          step: mapStatusToStep(newStatus),
+          level: "warn",
+          message: `상태 전이 거부됨: ${currentStatus} → ${newStatus}`,
+        });
       }
     }
+
+    const statusTransitionAccepted = resolvedStatus !== currentStatus;
 
     // Append custom log message if provided
     if (log_message) {
@@ -101,14 +113,14 @@ export async function POST(request: Request) {
     }
 
     // Append error log if error is provided
-    if (error) {
+    if (webhookError) {
       const timestamp = new Date().toISOString();
       const step = mapStatusToStep(resolvedStatus);
       updatedLogs = appendLog(updatedLogs, {
         timestamp,
         step,
         level: "error",
-        message: error,
+        message: webhookError,
       });
     }
 
@@ -169,18 +181,22 @@ export async function POST(request: Request) {
       updateData.exploitSessionId = exploit_session_id;
     }
 
-    if (status === "COMPLETED") {
-      updateData.completedAt = new Date();
-      updateData.sandboxStatus = "COMPLETED";
-    }
+    // Only set terminal fields when the state transition was actually accepted
+    if (statusTransitionAccepted) {
+      if (resolvedStatus === "COMPLETED") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "COMPLETED";
+      }
 
-    if (status === "COMPLETED_WITH_ERRORS") {
-      updateData.completedAt = new Date();
-      updateData.sandboxStatus = "COMPLETED";
-    }
+      if (resolvedStatus === "COMPLETED_WITH_ERRORS") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "COMPLETED";
+      }
 
-    if (status === "FAILED" && error) {
-      updateData.sandboxStatus = "FAILED";
+      if (resolvedStatus === "FAILED") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "FAILED";
+      }
     }
 
     // Update the analysis record

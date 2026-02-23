@@ -8,6 +8,10 @@ import {
 } from "@/domains/subscription/usecase/subscription-limits";
 import { serverEnv } from "@/config/env";
 import { orchestrateSandboxAndDast } from "@/lib/sandbox-orchestrator";
+import { resilientFetch } from "@/lib/resilient-fetch";
+import { CircuitBreaker } from "@/lib/circuit-breaker";
+
+const sastCircuitBreaker = new CircuitBreaker(3, 5 * 60 * 1000);
 
 // Request validation schema
 const startAnalysisSchema = z.object({
@@ -62,6 +66,43 @@ export async function GET(_request: Request, { params }: RouteParams) {
         },
       },
     });
+
+    // Watchdog: auto-fail analyses stuck for more than 30 minutes
+    const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
+    const TERMINAL_STATUSES = [
+      "COMPLETED",
+      "COMPLETED_WITH_ERRORS",
+      "FAILED",
+      "CANCELLED",
+    ];
+    const now = Date.now();
+
+    const stuckAnalyses = analyses.filter(
+      (a) =>
+        !TERMINAL_STATUSES.includes(a.status) &&
+        now - new Date(a.startedAt).getTime() > STUCK_THRESHOLD_MS
+    );
+
+    if (stuckAnalyses.length > 0) {
+      Promise.all(
+        stuckAnalyses.map((a) =>
+          prisma.analysis.update({
+            where: { id: a.id },
+            data: {
+              status: "FAILED",
+              completedAt: new Date(),
+            },
+          })
+        )
+      ).catch((err) => console.error("Watchdog auto-fail error:", err));
+
+      for (const stuck of stuckAnalyses) {
+        const target = analyses.find((a) => a.id === stuck.id);
+        if (target) {
+          (target as Record<string, unknown>).status = "FAILED";
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -218,11 +259,20 @@ export async function POST(request: Request, { params }: RouteParams) {
         scanPayload.branch = effectiveBranch;
       }
 
-      const scanResponse = await fetch(`${scannerUrl}/api/scans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(scanPayload),
-      });
+      const scanResponse = await resilientFetch(
+        `${scannerUrl}/api/scans`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(scanPayload),
+        },
+        {
+          timeoutMs: 30_000,
+          maxRetries: 2,
+          retryDelays: [2_000, 5_000],
+          circuitBreaker: sastCircuitBreaker,
+        }
+      );
 
       if (scanResponse.ok) {
         await prisma.analysis.update({
@@ -231,7 +281,11 @@ export async function POST(request: Request, { params }: RouteParams) {
         });
       }
     } catch (scanError) {
-      console.error("Scanner API call failed:", scanError);
+      console.error("Scanner API call failed after retries:", scanError);
+      await prisma.analysis.update({
+        where: { id: analysis.id },
+        data: { status: "FAILED", completedAt: new Date() },
+      });
     }
 
     // --- Step 2: Sandbox + DAST 백그라운드 실행 ---
