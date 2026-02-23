@@ -87,6 +87,7 @@ export const RATE_LIMITS = {
   aiChat: { windowMs: 60_000, maxRequests: 10 },
   codeFix: { windowMs: 60_000, maxRequests: 10 },
   checkout: { windowMs: 60_000, maxRequests: 5 },
+  analysisCreate: { windowMs: 60_000, maxRequests: 5 },
   general: { windowMs: 60_000, maxRequests: 60 },
 } as const;
 
@@ -105,6 +106,9 @@ export function getRateLimitConfig(pathname: string): {
   }
   if (pathname.startsWith("/api/subscription/checkout")) {
     return { config: RATE_LIMITS.checkout, prefix: "checkout" };
+  }
+  if (pathname.match(/^\/api\/projects\/[^/]+\/analyses$/)) {
+    return { config: RATE_LIMITS.analysisCreate, prefix: "analysis-create" };
   }
   if (pathname.startsWith("/api/")) {
     return { config: RATE_LIMITS.general, prefix: "general" };

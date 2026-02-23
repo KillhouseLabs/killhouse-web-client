@@ -26,7 +26,7 @@ const unlimitedData = {
 
 describe("ResourceUsageCard", () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   it("리소스 사용량을 표시한다", async () => {
