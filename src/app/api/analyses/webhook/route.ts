@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       high_count,
       medium_count,
       low_count,
-      error,
+      error: webhookError,
     } = body;
 
     if (!analysis_id) {
@@ -82,6 +82,17 @@ export async function POST(request: Request) {
           ? status
           : analysis.status;
 
+    const statusTransitionAccepted = resolvedStatus !== analysis.status;
+
+    if (!statusTransitionAccepted && isNewStatusValid) {
+      console.error(
+        `Webhook: REJECTED state transition for analysis ${analysis_id}: ` +
+          `${analysis.status} → ${status}. ` +
+          `This may indicate a state machine configuration issue.` +
+          (webhookError ? ` Error: ${webhookError}` : "")
+      );
+    }
+
     const updateData: Record<string, unknown> = {
       status: resolvedStatus,
     };
@@ -133,18 +144,22 @@ export async function POST(request: Request) {
       updateData.exploitSessionId = exploit_session_id;
     }
 
-    if (status === "COMPLETED") {
-      updateData.completedAt = new Date();
-      updateData.sandboxStatus = "COMPLETED";
-    }
+    // Only set terminal fields when the state transition was actually accepted
+    if (statusTransitionAccepted) {
+      if (resolvedStatus === "COMPLETED") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "COMPLETED";
+      }
 
-    if (status === "COMPLETED_WITH_ERRORS") {
-      updateData.completedAt = new Date();
-      updateData.sandboxStatus = "COMPLETED";
-    }
+      if (resolvedStatus === "COMPLETED_WITH_ERRORS") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "COMPLETED";
+      }
 
-    if (status === "FAILED" && error) {
-      updateData.sandboxStatus = "FAILED";
+      if (resolvedStatus === "FAILED") {
+        updateData.completedAt = new Date();
+        updateData.sandboxStatus = "FAILED";
+      }
     }
 
     // Update the analysis record

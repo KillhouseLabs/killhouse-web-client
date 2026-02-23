@@ -384,15 +384,17 @@ describe("SandboxOrchestrator", () => {
             network_name: null,
           }),
         })
-        .mockRejectedValueOnce(new Error("Scanner unavailable"));
+        .mockRejectedValue(new Error("Scanner unavailable"));
 
       // WHEN
-      await orchestrateSandboxAndDast(
+      const promise = orchestrateSandboxAndDast(
         mockAnalysisId,
         mockUserId,
         mockRepository,
         mockBranch
       );
+      await jest.runAllTimersAsync();
+      await promise;
 
       // THEN: sandboxStatus는 RUNNING 유지
       expect(prisma.analysis.update).toHaveBeenCalledWith({
