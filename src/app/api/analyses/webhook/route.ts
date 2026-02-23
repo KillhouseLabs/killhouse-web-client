@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       error: webhookError,
       log_message,
       log_level,
+      raw_output,
     } = body;
 
     if (!analysis_id) {
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
         step,
         level: level as "info" | "warn" | "error" | "success",
         message: log_message,
+        ...(raw_output ? { rawOutput: raw_output } : {}),
       });
     }
 

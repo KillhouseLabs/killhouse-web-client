@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   parseAnalysisLogs,
   groupLogsByStep,
@@ -9,6 +9,7 @@ import {
   mapStatusToStep,
   type AnalysisStatus,
 } from "@/domains/analysis/model/analysis-state-machine";
+import { parseAnsi } from "@/lib/ansi-parser";
 
 interface AnalysisLiveLogProps {
   logs: string | null;
@@ -34,6 +35,56 @@ const levelColors: Record<string, string> = {
   error: "text-red-600",
   success: "text-green-600",
 };
+
+interface RawOutputBlockProps {
+  rawOutput: string;
+}
+
+function RawOutputBlock({ rawOutput }: RawOutputBlockProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const lines = rawOutput.split("\n");
+  const needsCollapse = lines.length > 10;
+  const displayLines =
+    needsCollapse && !isExpanded ? lines.slice(0, 10) : lines;
+  const displayText = displayLines.join("\n");
+
+  const segments = parseAnsi(displayText);
+
+  return (
+    <div className="mt-1">
+      <div
+        data-testid="raw-output"
+        className="whitespace-pre-wrap rounded-md bg-slate-900 p-3 font-mono text-xs text-slate-200"
+      >
+        {segments.map((segment, idx) => {
+          const style: React.CSSProperties = {};
+          if (segment.color) {
+            style.color = segment.color;
+          }
+          if (segment.bold) {
+            style.fontWeight = "bold";
+          }
+          return (
+            <span key={idx} style={style}>
+              {segment.text}
+            </span>
+          );
+        })}
+      </div>
+      {needsCollapse && !isExpanded && (
+        <button
+          type="button"
+          role="button"
+          onClick={() => setIsExpanded(true)}
+          className="mt-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          더보기
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function AnalysisLiveLog({ logs, currentStatus }: AnalysisLiveLogProps) {
   const lastLogRef = useRef<HTMLDivElement>(null);
@@ -84,19 +135,22 @@ export function AnalysisLiveLog({ logs, currentStatus }: AnalysisLiveLogProps) {
                   const isLastLog =
                     idx === grouped.size - 1 && entryIdx === entries.length - 1;
                   return (
-                    <div
-                      key={entryIdx}
-                      className="flex gap-3 py-0.5 font-mono text-xs"
-                      ref={isLastLog ? lastLogRef : null}
-                    >
-                      <span className="shrink-0 text-muted-foreground">
-                        {formatTime(entry.timestamp)}
-                      </span>
-                      <span
-                        className={levelColors[entry.level] || levelColors.info}
-                      >
-                        {entry.message}
-                      </span>
+                    <div key={entryIdx} ref={isLastLog ? lastLogRef : null}>
+                      <div className="flex gap-3 py-0.5 font-mono text-xs">
+                        <span className="shrink-0 text-muted-foreground">
+                          {formatTime(entry.timestamp)}
+                        </span>
+                        <span
+                          className={
+                            levelColors[entry.level] || levelColors.info
+                          }
+                        >
+                          {entry.message}
+                        </span>
+                      </div>
+                      {entry.rawOutput && entry.rawOutput.trim() && (
+                        <RawOutputBlock rawOutput={entry.rawOutput} />
+                      )}
                     </div>
                   );
                 })}

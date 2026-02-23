@@ -3,6 +3,7 @@ export interface AnalysisLogEntry {
   step: string;
   level: "info" | "warn" | "error" | "success";
   message: string;
+  rawOutput?: string;
 }
 
 export function parseAnalysisLogs(raw: string | null): AnalysisLogEntry[] {
