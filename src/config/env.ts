@@ -38,6 +38,7 @@ export const serverEnv = {
   GOOGLE_CLIENT_SECRET: () => process.env.GOOGLE_CLIENT_SECRET,
   GITHUB_CLIENT_ID: () => process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: () => process.env.GITHUB_CLIENT_SECRET,
+  GITLAB_URL: () => process.env.GITLAB_URL ?? "https://gitlab.com",
 
   // Stripe
   STRIPE_SECRET_KEY: () => process.env.STRIPE_SECRET_KEY,

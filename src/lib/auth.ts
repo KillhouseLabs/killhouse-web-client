@@ -38,13 +38,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GITLAB_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
       authorization: {
-        url: "https://gitlab.com/oauth/authorize",
+        url: `${process.env.GITLAB_URL || "https://gitlab.com"}/oauth/authorize`,
         params: {
           scope: "read_api read_user read_repository",
         },
       },
-      token: "https://gitlab.com/oauth/token",
-      userinfo: "https://gitlab.com/api/v4/user",
+      token: `${process.env.GITLAB_URL || "https://gitlab.com"}/oauth/token`,
+      userinfo: `${process.env.GITLAB_URL || "https://gitlab.com"}/api/v4/user`,
     }),
     Credentials({
       name: "credentials",

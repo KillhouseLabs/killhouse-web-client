@@ -55,6 +55,7 @@ export function parseRepoUrl(url: string): {
     };
   }
 
+  // gitlab.com 기본 매칭
   const gitlabMatch = url.match(
     /^https:\/\/gitlab\.com\/([\w-]+)\/([\w.-]+)\/?$/
   );
@@ -64,6 +65,22 @@ export function parseRepoUrl(url: string): {
       owner: gitlabMatch[1],
       name: gitlabMatch[2].replace(/\.git$/, ""),
     };
+  }
+
+  // 자체 호스팅 GitLab 매칭 (GITLAB_URL 환경변수 기반)
+  const gitlabUrl = process.env.GITLAB_URL;
+  if (gitlabUrl && gitlabUrl !== "https://gitlab.com") {
+    const escapedUrl = gitlabUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const selfHostedMatch = url.match(
+      new RegExp(`^${escapedUrl}/([-\\w.]+(?:/[-\\w.]+)*)/([-\\w.]+)/?$`)
+    );
+    if (selfHostedMatch) {
+      return {
+        provider: RepoProvider.GITLAB,
+        owner: selfHostedMatch[1],
+        name: selfHostedMatch[2].replace(/\.git$/, ""),
+      };
+    }
   }
 
   return null;

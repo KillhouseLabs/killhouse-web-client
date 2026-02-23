@@ -1,4 +1,4 @@
-const GITLAB_API_BASE = "https://gitlab.com/api/v4";
+const GITLAB_API_BASE = `${process.env.GITLAB_URL || "https://gitlab.com"}/api/v4`;
 
 export interface GitLabProject {
   id: number;
