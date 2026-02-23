@@ -582,6 +582,11 @@ function FindingDetailModal({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isChatLoading]);
 
   const filePath = findingFilePath(finding);
   const ruleName = findingRuleName(finding);
@@ -939,6 +944,7 @@ function FindingDetailModal({
                       </div>
                     </div>
                   )}
+                  <div ref={chatEndRef} />
                 </div>
               )}
 
