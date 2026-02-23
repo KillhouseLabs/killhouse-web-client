@@ -47,41 +47,32 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Gather usage counts
-    const [analysisCount, activeScans, activeSandboxes, activeSessions] =
-      await Promise.all([
-        prisma.analysis.count({
-          where: { project: { userId }, startedAt: { gte: monthStart } },
-        }),
-        prisma.analysis.count({
-          where: {
-            project: { userId },
-            status: {
-              in: [
-                "PENDING",
-                "CLONING",
-                "STATIC_ANALYSIS",
-                "BUILDING",
-                "PENETRATION_TEST",
-              ],
-            },
+    const [analysisCount, activeScans, activeSandboxes] = await Promise.all([
+      prisma.analysis.count({
+        where: { project: { userId }, startedAt: { gte: monthStart } },
+      }),
+      prisma.analysis.count({
+        where: {
+          project: { userId },
+          status: {
+            in: [
+              "PENDING",
+              "CLONING",
+              "STATIC_ANALYSIS",
+              "BUILDING",
+              "PENETRATION_TEST",
+            ],
           },
-        }),
-        // Sandbox count - approximate via active sandbox statuses
-        prisma.analysis.count({
-          where: {
-            project: { userId },
-            sandboxStatus: { in: ["CREATING", "RUNNING"] },
-          },
-        }),
-        // Exploit session count - approximate via active analyses with exploit sessions
-        prisma.analysis.count({
-          where: {
-            project: { userId },
-            exploitSessionId: { not: null },
-            status: { in: ["PENETRATION_TEST"] },
-          },
-        }),
-      ]);
+        },
+      }),
+      // Sandbox count - approximate via active sandbox statuses
+      prisma.analysis.count({
+        where: {
+          project: { userId },
+          sandboxStatus: { in: ["CREATING", "RUNNING"] },
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       planId,
@@ -105,12 +96,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
           current: activeSandboxes,
           limit: limits.maxConcurrentSandboxes,
           unlimited: isUnlimited(limits.maxConcurrentSandboxes),
-        },
-        {
-          label: "활성 세션",
-          current: activeSessions,
-          limit: limits.maxConcurrentExploitSessions,
-          unlimited: isUnlimited(limits.maxConcurrentExploitSessions),
         },
       ],
     });

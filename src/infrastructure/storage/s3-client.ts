@@ -105,6 +105,40 @@ export async function uploadToS3(
 }
 
 /**
+ * S3에 스트림으로 파일 업로드 (메모리 효율적)
+ * 대용량 파일을 메모리에 전체 로드하지 않고 멀티파트 업로드 사용
+ *
+ * @param key S3 오브젝트 키 (예: "uploads/project-id/repo-id/source.zip")
+ * @param stream Node.js Readable 스트림
+ * @param contentType MIME 타입
+ * @returns 업로드된 오브젝트의 S3 키
+ */
+export async function uploadStreamToS3(
+  key: string,
+  stream: NodeJS.ReadableStream,
+  contentType: string
+): Promise<string> {
+  const { Upload } = await import("@aws-sdk/lib-storage");
+  const client = await createS3Client();
+  const bucket = await getBucket();
+
+  const upload = new Upload({
+    client,
+    params: {
+      Bucket: bucket,
+      Key: key,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      Body: stream as any, // Type assertion needed for Node.js stream compatibility
+      ContentType: contentType,
+    },
+  });
+
+  await upload.done();
+
+  return key;
+}
+
+/**
  * S3에서 단일 오브젝트 삭제
  */
 export async function deleteFromS3(key: string): Promise<void> {
@@ -130,25 +164,51 @@ export async function deleteS3Prefix(prefix: string): Promise<number> {
   const client = await createS3Client();
   const bucket = await getBucket();
 
-  const listResult = await client.send(
-    new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix })
-  );
+  // 모든 오브젝트 키 수집 (페이지네이션 처리)
+  const allKeys: string[] = [];
+  let continuationToken: string | undefined;
 
-  const objects = listResult.Contents;
-  if (!objects || objects.length === 0) {
+  do {
+    const listResult = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+
+    if (listResult.Contents && listResult.Contents.length > 0) {
+      for (const obj of listResult.Contents) {
+        if (obj.Key) {
+          allKeys.push(obj.Key);
+        }
+      }
+    }
+
+    continuationToken = listResult.IsTruncated
+      ? listResult.NextContinuationToken
+      : undefined;
+  } while (continuationToken);
+
+  if (allKeys.length === 0) {
     return 0;
   }
 
-  await client.send(
-    new DeleteObjectsCommand({
-      Bucket: bucket,
-      Delete: {
-        Objects: objects.map((obj) => ({ Key: obj.Key })),
-      },
-    })
-  );
+  // 1000개씩 배치 삭제 (S3 DeleteObjects 제한)
+  const BATCH_SIZE = 1000;
+  for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
+    const batch = allKeys.slice(i, i + BATCH_SIZE);
+    await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: {
+          Objects: batch.map((key) => ({ Key: key })),
+        },
+      })
+    );
+  }
 
-  return objects.length;
+  return allKeys.length;
 }
 
 /**

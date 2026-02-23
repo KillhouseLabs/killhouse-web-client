@@ -93,3 +93,20 @@ export function validateZipFile(
 
   return { valid: true };
 }
+
+/**
+ * ZIP 파일 스트리밍 유효성 검사 (매직 바이트 검사 제외)
+ * 스트리밍 업로드 시 파일명과 크기만 검사
+ */
+export function validateZipFileMetadata(
+  filename: string,
+  sizeBytes: number
+): ZipValidationResult {
+  const extensionResult = validateZipExtension(filename);
+  if (!extensionResult.valid) return extensionResult;
+
+  const sizeResult = validateFileSize(sizeBytes);
+  if (!sizeResult.valid) return sizeResult;
+
+  return { valid: true };
+}

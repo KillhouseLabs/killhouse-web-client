@@ -1240,7 +1240,6 @@ export function AnalysisDetail({
         const data = await response.json();
         if (data.success && data.data?.id) {
           router.push(`/projects/${projectId}/analyses/${data.data.id}`);
-          router.refresh();
         }
       }
     } catch (error) {

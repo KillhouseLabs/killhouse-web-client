@@ -650,7 +650,6 @@ describe("AnalysisDetail", () => {
         expect(mockPush).toHaveBeenCalledWith(
           "/projects/project-1/analyses/analysis-5"
         );
-        expect(mockRefresh).toHaveBeenCalled();
       });
     });
   });
