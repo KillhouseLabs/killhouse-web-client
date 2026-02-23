@@ -117,6 +117,12 @@ export function CreateProjectForm() {
         );
 
         if (!uploadResponse.ok) {
+          // Rollback: delete the created project since upload failed
+          await fetch(`/api/projects/${data.data.id}`, {
+            method: "DELETE",
+          }).catch(() => {
+            // Ignore cleanup errors
+          });
           const uploadData = await uploadResponse.json();
           setError(uploadData.error || "파일 업로드에 실패했습니다");
           setUploadProgress(null);
