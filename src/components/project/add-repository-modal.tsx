@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { RepositorySelector } from "./repository-selector";
 
-type Provider = "GITHUB" | "GITLAB" | "MANUAL";
+type Provider = "GITHUB" | "GITLAB" | "GITLAB_SELF" | "MANUAL";
 
 interface RepositoryData {
   provider: Provider;
@@ -90,11 +90,18 @@ export function AddRepositoryModal({
     owner: string;
     name: string;
     defaultBranch: string;
+    provider?: "gitlab" | "gitlab-self";
   }) => {
     if (!provider) return;
 
+    // Determine the actual provider for GitLab repos
+    let repoProvider: Provider = provider;
+    if (provider === "GITLAB" && repo.provider) {
+      repoProvider = repo.provider === "gitlab-self" ? "GITLAB_SELF" : "GITLAB";
+    }
+
     setPendingRepo({
-      provider,
+      provider: repoProvider,
       name: repo.name,
       url: repo.url,
       owner: repo.owner,
@@ -281,7 +288,7 @@ export function AddRepositoryModal({
         </svg>
       );
     }
-    if (providerType === "GITLAB") {
+    if (providerType === "GITLAB" || providerType === "GITLAB_SELF") {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
           <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
@@ -337,7 +344,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="GITHUB" className="h-6 w-6" />
-                <span className="text-sm font-medium">GitHub</span>
+                <span className="text-xs font-medium">GitHub</span>
               </button>
 
               <button
@@ -350,7 +357,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="GITLAB" className="h-6 w-6" />
-                <span className="text-sm font-medium">GitLab</span>
+                <span className="text-xs font-medium">GitLab</span>
               </button>
 
               <button
@@ -363,7 +370,7 @@ export function AddRepositoryModal({
                 }`}
               >
                 <ProviderIcon providerType="MANUAL" className="h-6 w-6" />
-                <span className="text-sm font-medium">수동 업로드</span>
+                <span className="text-xs font-medium">수동 업로드</span>
               </button>
             </div>
           </div>

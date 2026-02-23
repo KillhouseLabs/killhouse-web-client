@@ -46,6 +46,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       token: `${process.env.GITLAB_URL || "https://gitlab.com"}/oauth/token`,
       userinfo: `${process.env.GITLAB_URL || "https://gitlab.com"}/api/v4/user`,
     }),
+    GitLab({
+      id: "gitlab-self",
+      name: "GitLab Self-Hosted",
+      clientId: process.env.GITLAB_SELF_CLIENT_ID,
+      clientSecret: process.env.GITLAB_SELF_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        url: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/authorize`,
+        params: {
+          scope: "read_api read_user read_repository",
+        },
+      },
+      token: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/token`,
+      userinfo: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/api/v4/user`,
+    }),
     Credentials({
       name: "credentials",
       credentials: {
@@ -93,7 +108,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       // OAuth 재로그인 시 토큰 갱신
-      if (account?.provider === "github" || account?.provider === "gitlab") {
+      if (
+        account?.provider === "github" ||
+        account?.provider === "gitlab" ||
+        account?.provider === "gitlab-self"
+      ) {
         await prisma.account.updateMany({
           where: {
             provider: account.provider,

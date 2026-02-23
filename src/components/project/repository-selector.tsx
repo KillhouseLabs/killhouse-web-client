@@ -20,7 +20,7 @@ interface Branch {
   protected: boolean;
 }
 
-type Provider = "github" | "gitlab";
+type Provider = "github" | "gitlab" | "gitlab-self";
 
 interface RepositorySelectorProps {
   isOpen: boolean;
@@ -31,12 +31,21 @@ interface RepositorySelectorProps {
     owner: string;
     name: string;
     defaultBranch: string;
+    provider?: "gitlab" | "gitlab-self";
   }) => void;
 }
 
-type Step = "repositories" | "branches";
+type Step = "gitlab-select" | "repositories" | "branches";
 
-const PROVIDER_CONFIG = {
+const PROVIDER_CONFIG: Record<
+  Provider,
+  {
+    name: string;
+    icon: React.JSX.Element;
+    notConnectedCode: string;
+    tokenExpiredCode: string;
+  }
+> = {
   github: {
     name: "GitHub",
     icon: (
@@ -53,6 +62,14 @@ const PROVIDER_CONFIG = {
     notConnectedCode: "GITLAB_NOT_CONNECTED",
     tokenExpiredCode: "GITLAB_TOKEN_EXPIRED",
   },
+  "gitlab-self": {
+    name: "셀프호스팅 GitLab",
+    icon: (
+      <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
+    ),
+    notConnectedCode: "GITLAB_SELF_NOT_CONNECTED",
+    tokenExpiredCode: "GITLAB_SELF_TOKEN_EXPIRED",
+  },
 };
 
 export function RepositorySelector({
@@ -61,8 +78,6 @@ export function RepositorySelector({
   onClose,
   onSelect,
 }: RepositorySelectorProps) {
-  const config = PROVIDER_CONFIG[provider];
-
   const [step, setStep] = useState<Step>("repositories");
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -73,9 +88,17 @@ export function RepositorySelector({
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
+  const [resolvedProvider, setResolvedProvider] = useState<Provider>(provider);
+  const activeConfig = PROVIDER_CONFIG[resolvedProvider];
 
   const fetchRepositories = useCallback(
-    async (pageNum: number, searchQuery: string = "") => {
+    async (
+      pageNum: number,
+      searchQuery: string = "",
+      fetchProvider?: Provider
+    ) => {
+      const activeProvider = fetchProvider || resolvedProvider;
+      const activeConfig = PROVIDER_CONFIG[activeProvider];
       setIsLoading(true);
       setError("");
       try {
@@ -87,18 +110,20 @@ export function RepositorySelector({
           params.append("search", searchQuery);
         }
 
-        const response = await fetch(`/api/${provider}/repositories?${params}`);
+        const response = await fetch(
+          `/api/${activeProvider}/repositories?${params}`
+        );
         const data = await response.json();
 
         if (!data.success) {
-          if (data.code === config.notConnectedCode) {
+          if (data.code === activeConfig.notConnectedCode) {
             setIsConnected(false);
             return;
           }
-          if (data.code === config.tokenExpiredCode) {
+          if (data.code === activeConfig.tokenExpiredCode) {
             setIsConnected(false);
             setError(
-              `${config.name} 토큰이 만료되었습니다. 다시 연동해주세요.`
+              `${activeConfig.name} 토큰이 만료되었습니다. 다시 연동해주세요.`
             );
             return;
           }
@@ -121,7 +146,7 @@ export function RepositorySelector({
         setIsLoading(false);
       }
     },
-    [provider, config.notConnectedCode, config.tokenExpiredCode, config.name]
+    [resolvedProvider]
   );
 
   const fetchBranches = useCallback(
@@ -130,9 +155,11 @@ export function RepositorySelector({
       setError("");
       try {
         let url: string;
-        if (provider === "github") {
+        if (resolvedProvider === "github") {
           const [owner, name] = repo.full_name.split("/");
           url = `/api/github/repositories/${owner}/${name}/branches`;
+        } else if (resolvedProvider === "gitlab-self") {
+          url = `/api/gitlab-self/repositories/${repo.id}/branches`;
         } else {
           url = `/api/gitlab/repositories/${repo.id}/branches`;
         }
@@ -153,18 +180,23 @@ export function RepositorySelector({
         setIsLoading(false);
       }
     },
-    [provider]
+    [resolvedProvider]
   );
 
   useEffect(() => {
     if (isOpen) {
-      fetchRepositories(1);
+      if (provider === "gitlab") {
+        setStep("gitlab-select");
+      } else {
+        fetchRepositories(1);
+      }
     }
-  }, [isOpen, fetchRepositories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, provider]);
 
   useEffect(() => {
     if (!isOpen) {
-      setStep("repositories");
+      setStep(provider === "gitlab" ? "gitlab-select" : "repositories");
       setRepositories([]);
       setBranches([]);
       setSelectedRepo(null);
@@ -172,8 +204,9 @@ export function RepositorySelector({
       setError("");
       setPage(1);
       setIsConnected(null);
+      setResolvedProvider(provider);
     }
-  }, [isOpen]);
+  }, [isOpen, provider]);
 
   const handleSearch = () => {
     fetchRepositories(1, search);
@@ -205,13 +238,25 @@ export function RepositorySelector({
       owner,
       name,
       defaultBranch: branch.name,
+      provider:
+        resolvedProvider === "github"
+          ? undefined
+          : (resolvedProvider as "gitlab" | "gitlab-self"),
     });
     onClose();
   };
 
+  const handleGitLabSelect = (selected: "gitlab" | "gitlab-self") => {
+    setResolvedProvider(selected);
+    setStep("repositories");
+    fetchRepositories(1, "", selected);
+  };
+
   const handleConnect = () => {
     const returnUrl = encodeURIComponent(window.location.href);
-    navigateTo(`/api/integrations/link/${provider}?returnUrl=${returnUrl}`);
+    navigateTo(
+      `/api/integrations/link/${resolvedProvider}?returnUrl=${returnUrl}`
+    );
   };
 
   const handleBack = () => {
@@ -219,15 +264,22 @@ export function RepositorySelector({
       setStep("repositories");
       setSelectedRepo(null);
       setBranches([]);
+    } else if (step === "repositories" && provider === "gitlab") {
+      setStep("gitlab-select");
+      setRepositories([]);
+      setIsConnected(null);
+      setError("");
     }
   };
 
   const getHeaderTitle = (): string => {
+    if (step === "gitlab-select") return "GitLab 연동 방식 선택";
     if (step === "branches") return "브랜치 선택";
-    return `${config.name} 저장소 선택`;
+    return `${activeConfig.name} 저장소 선택`;
   };
 
-  const showBackButton = step === "branches";
+  const showBackButton =
+    step === "branches" || (step === "repositories" && provider === "gitlab");
 
   if (!isOpen) return null;
 
@@ -262,7 +314,7 @@ export function RepositorySelector({
               fill="currentColor"
               className="h-5 w-5 text-muted-foreground"
             >
-              {config.icon}
+              {activeConfig.icon}
             </svg>
             <h3 className="font-semibold">{getHeaderTitle()}</h3>
           </div>
@@ -291,6 +343,50 @@ export function RepositorySelector({
             </div>
           )}
 
+          {step === "gitlab-select" && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                연동할 GitLab 서비스를 선택하세요
+              </p>
+              <button
+                onClick={() => handleGitLabSelect("gitlab")}
+                className="flex w-full items-center gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-8 w-8 text-[#FC6D26]"
+                >
+                  <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
+                </svg>
+                <div>
+                  <div className="font-medium">GitLab.com</div>
+                  <div className="text-sm text-muted-foreground">
+                    gitlab.com의 저장소를 연동합니다
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleGitLabSelect("gitlab-self")}
+                className="flex w-full items-center gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-8 w-8 text-[#FC6D26]"
+                >
+                  <path d="M4.845.904c-.435 0-.82.28-.955.692C2.639 5.449 1.246 9.728.07 13.335a1.437 1.437 0 00.522 1.607l11.071 8.045a.5.5 0 00.59 0l11.07-8.045a1.436 1.436 0 00.522-1.607c-1.176-3.607-2.569-7.886-3.82-11.74A1.004 1.004 0 0019.07.904h-2.774a.495.495 0 00-.477.363L12.73 10.63h-1.46L8.181 1.267A.495.495 0 007.704.904zm.07 1.49h1.862l2.84 8.702H6.978z" />
+                </svg>
+                <div>
+                  <div className="font-medium">셀프호스팅 GitLab</div>
+                  <div className="text-sm text-muted-foreground">
+                    자체 호스팅 GitLab 인스턴스를 연동합니다
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
           {isConnected === null && isLoading && (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -304,10 +400,10 @@ export function RepositorySelector({
                 fill="currentColor"
                 className="mb-4 h-12 w-12 text-muted-foreground"
               >
-                {config.icon}
+                {activeConfig.icon}
               </svg>
               <p className="mb-4 text-center text-muted-foreground">
-                저장소에 접근하려면 {config.name} 연동이 필요합니다
+                저장소에 접근하려면 {activeConfig.name} 연동이 필요합니다
               </p>
               <button
                 onClick={handleConnect}
@@ -318,9 +414,9 @@ export function RepositorySelector({
                   fill="currentColor"
                   className="h-5 w-5"
                 >
-                  {config.icon}
+                  {activeConfig.icon}
                 </svg>
-                {config.name} 연동하기
+                {activeConfig.name} 연동하기
               </button>
             </div>
           )}

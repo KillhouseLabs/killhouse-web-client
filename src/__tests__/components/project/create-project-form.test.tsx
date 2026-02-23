@@ -89,7 +89,7 @@ describe("CreateProjectForm (Multi-Repo)", () => {
       // WHEN
       await user.click(screen.getByText("GitLab"));
 
-      // THEN
+      // THEN - GitLab 버튼이 선택 상태
       const gitlabButton = screen.getByText("GitLab").closest("button");
       expect(gitlabButton).toHaveClass("border-primary");
     });

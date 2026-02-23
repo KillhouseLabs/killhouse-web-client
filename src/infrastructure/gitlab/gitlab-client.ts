@@ -1,4 +1,7 @@
-const GITLAB_API_BASE = `${process.env.GITLAB_URL || "https://gitlab.com"}/api/v4`;
+function getGitLabApiBase(baseUrl?: string): string {
+  const url = baseUrl || process.env.GITLAB_URL || "https://gitlab.com";
+  return `${url}/api/v4`;
+}
 
 export interface GitLabProject {
   id: number;
@@ -33,9 +36,11 @@ export interface ProjectListOptions {
 async function gitlabFetch<T>(
   accessToken: string,
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  baseUrl?: string
 ): Promise<T> {
-  const response = await fetch(`${GITLAB_API_BASE}${endpoint}`, {
+  const apiBase = getGitLabApiBase(baseUrl);
+  const response = await fetch(`${apiBase}${endpoint}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -59,7 +64,8 @@ async function gitlabFetch<T>(
 
 export async function getUserProjects(
   accessToken: string,
-  options: ProjectListOptions = {}
+  options: ProjectListOptions = {},
+  baseUrl?: string
 ): Promise<{ projects: GitLabProject[]; hasNext: boolean }> {
   const {
     page = 1,
@@ -83,7 +89,9 @@ export async function getUserProjects(
 
   const projects = await gitlabFetch<GitLabProject[]>(
     accessToken,
-    `/projects?${params}`
+    `/projects?${params}`,
+    {},
+    baseUrl
   );
 
   const hasNext = projects.length > per_page;
@@ -96,11 +104,14 @@ export async function getUserProjects(
 
 export async function getProjectBranches(
   accessToken: string,
-  projectId: number
+  projectId: number,
+  baseUrl?: string
 ): Promise<GitLabBranch[]> {
   const branches = await gitlabFetch<GitLabBranch[]>(
     accessToken,
-    `/projects/${projectId}/repository/branches?per_page=100`
+    `/projects/${projectId}/repository/branches?per_page=100`,
+    {},
+    baseUrl
   );
 
   return branches.map((branch) => ({
