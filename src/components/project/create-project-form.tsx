@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { RepositorySelector } from "./repository-selector";
 
@@ -28,6 +28,14 @@ export function CreateProjectForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
+  // MANUAL upload state
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [manualName, setManualName] = useState("");
+  const [manualDefaultBranch, setManualDefaultBranch] = useState("main");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -37,8 +45,17 @@ export function CreateProjectForm() {
       return;
     }
 
-    // For non-MANUAL provider, require at least one repository
-    if (currentProvider !== "MANUAL" && repositories.length === 0) {
+    // Validate based on provider
+    if (currentProvider === "MANUAL") {
+      if (!manualName.trim()) {
+        setError("저장소 이름을 입력하세요");
+        return;
+      }
+      if (!uploadFile) {
+        setError("ZIP 파일을 업로드하세요");
+        return;
+      }
+    } else if (repositories.length === 0) {
       setError("저장소를 선택하세요");
       return;
     }
@@ -46,13 +63,23 @@ export function CreateProjectForm() {
     setIsLoading(true);
 
     try {
-      // Ensure first repository is primary if no primary is set
-      const processedRepositories = repositories.map((repo, index) => ({
-        ...repo,
-        isPrimary:
-          repo.isPrimary ||
-          (index === 0 && !repositories.some((r) => r.isPrimary)),
-      }));
+      // Build repositories based on provider
+      const processedRepositories =
+        currentProvider === "MANUAL"
+          ? [
+              {
+                provider: "MANUAL" as const,
+                name: manualName,
+                defaultBranch: manualDefaultBranch,
+                isPrimary: true,
+              },
+            ]
+          : repositories.map((repo, index) => ({
+              ...repo,
+              isPrimary:
+                repo.isPrimary ||
+                (index === 0 && !repositories.some((r) => r.isPrimary)),
+            }));
 
       const response = await fetch("/api/projects", {
         method: "POST",
@@ -73,12 +100,37 @@ export function CreateProjectForm() {
         return;
       }
 
+      // Upload file if MANUAL provider
+      if (
+        currentProvider === "MANUAL" &&
+        uploadFile &&
+        data.data?.repositories?.[0]?.id
+      ) {
+        setUploadProgress("파일 업로드 중...");
+        const repoId = data.data.repositories[0].id;
+        const formData = new FormData();
+        formData.append("file", uploadFile);
+
+        const uploadResponse = await fetch(
+          `/api/projects/${data.data.id}/repositories/${repoId}/upload`,
+          { method: "POST", body: formData }
+        );
+
+        if (!uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          setError(uploadData.error || "파일 업로드에 실패했습니다");
+          setUploadProgress(null);
+          return;
+        }
+      }
+
       router.push(`/projects/${data.data.id}`);
       router.refresh();
     } catch {
       setError("프로젝트 생성 중 오류가 발생했습니다");
     } finally {
       setIsLoading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -126,6 +178,72 @@ export function CreateProjectForm() {
         isPrimary: repo.url === url,
       }))
     );
+  };
+
+  const validateAndSetFile = useCallback(
+    (file: File) => {
+      // Extension check
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        setError("ZIP 파일만 업로드할 수 있습니다");
+        return;
+      }
+
+      // Size check (100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        setError("파일 크기는 100MB 이하여야 합니다");
+        return;
+      }
+
+      if (file.size === 0) {
+        setError("빈 파일은 업로드할 수 없습니다");
+        return;
+      }
+
+      setError("");
+      setUploadFile(file);
+
+      // Auto-fill name from filename if empty
+      if (!manualName) {
+        const nameWithoutExt = file.name.replace(/\.zip$/i, "");
+        setManualName(nameWithoutExt);
+      }
+    },
+    [manualName]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) validateAndSetFile(file);
+    },
+    [validateAndSetFile]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) validateAndSetFile(file);
+    },
+    [validateAndSetFile]
+  );
+
+  const handleRemoveFile = () => {
+    setUploadFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const ProviderIcon = ({
@@ -358,18 +476,135 @@ export function CreateProjectForm() {
         </div>
       )}
 
-      {currentProvider === "MANUAL" && repositories.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
-          <ProviderIcon
-            provider="MANUAL"
-            className="mx-auto h-10 w-10 text-muted-foreground"
-          />
-          <p className="mt-3 text-sm text-muted-foreground">
-            프로젝트 생성 후 코드를 직접 업로드할 수 있습니다
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            ZIP 파일 또는 개별 파일 업로드 지원 (최대 100MB)
-          </p>
+      {currentProvider === "MANUAL" && (
+        <div className="space-y-4">
+          {/* Drag & Drop Zone */}
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              소스 코드 (ZIP) <span className="text-destructive">*</span>
+            </label>
+            {uploadFile ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 text-primary"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                <div className="min-w-0 flex-1">
+                  <span className="truncate text-sm font-medium">
+                    {uploadFile.name}
+                  </span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({(uploadFile.size / 1024 / 1024).toFixed(1)}MB)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveFile}
+                  disabled={isLoading}
+                  className="p-1 text-muted-foreground hover:text-destructive"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed py-8 transition-colors ${
+                  isDragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mb-2 h-8 w-8 text-muted-foreground"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                <p className="text-sm text-muted-foreground">
+                  ZIP 파일을 드래그하거나 클릭하여 업로드
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">최대 100MB</p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              onChange={handleFileInputChange}
+              className="hidden"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="manual-name"
+              className="mb-1 block text-sm font-medium"
+            >
+              저장소 이름 <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="manual-name"
+              type="text"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              placeholder="예: my-frontend-app"
+              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="manual-default-branch"
+              className="mb-1 block text-sm font-medium"
+            >
+              기본 브랜치
+            </label>
+            <input
+              id="manual-default-branch"
+              type="text"
+              value={manualDefaultBranch}
+              onChange={(e) => setManualDefaultBranch(e.target.value)}
+              placeholder="main"
+              className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={isLoading}
+            />
+          </div>
         </div>
       )}
 
@@ -417,10 +652,14 @@ export function CreateProjectForm() {
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || uploadProgress !== null}
           className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {isLoading ? "생성 중..." : "프로젝트 생성"}
+          {uploadProgress
+            ? uploadProgress
+            : isLoading
+              ? "생성 중..."
+              : "프로젝트 생성"}
         </button>
         <button
           type="button"
