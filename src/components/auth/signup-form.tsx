@@ -64,7 +64,6 @@ export function SignupForm() {
         router.push("/login?message=signup_success");
       } else {
         router.push("/dashboard");
-        router.refresh();
       }
     } catch {
       setError(t.auth.signup.errors.signupError);

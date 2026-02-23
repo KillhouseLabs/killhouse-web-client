@@ -125,7 +125,6 @@ export function CreateProjectForm() {
       }
 
       router.push(`/projects/${data.data.id}`);
-      router.refresh();
     } catch {
       setError("프로젝트 생성 중 오류가 발생했습니다");
     } finally {

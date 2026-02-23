@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { Readable } from "stream";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import { validateZipFile } from "@/lib/upload/validate-zip";
 import {
-  uploadToS3,
+  validateZipFileMetadata,
+  validateZipMagicBytes,
+} from "@/lib/upload/validate-zip";
+import {
+  uploadStreamToS3,
   generateUploadKey,
 } from "@/infrastructure/storage/s3-client";
 
@@ -67,22 +71,61 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Read file buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Validate ZIP file
-    const validation = validateZipFile(file.name, buffer, file.size);
-    if (!validation.valid) {
+    // Validate file metadata (name and size)
+    const metadataValidation = validateZipFileMetadata(file.name, file.size);
+    if (!metadataValidation.valid) {
       return NextResponse.json(
-        { success: false, error: validation.error },
+        { success: false, error: metadataValidation.error },
         { status: 400 }
       );
     }
 
-    // Upload to S3
+    // Read first 4 bytes for magic number validation
+    const stream = file.stream();
+    const reader = stream.getReader();
+    const { value: firstChunk } = await reader.read();
+
+    if (!firstChunk || firstChunk.length < 4) {
+      return NextResponse.json(
+        { success: false, error: "유효한 ZIP 파일이 아닙니다" },
+        { status: 400 }
+      );
+    }
+
+    // Validate ZIP magic bytes
+    const magicValidation = validateZipMagicBytes(
+      Buffer.from(firstChunk.slice(0, 4))
+    );
+    if (!magicValidation.valid) {
+      reader.releaseLock();
+      return NextResponse.json(
+        { success: false, error: magicValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Create a new stream that includes the first chunk we already read
+    // Convert Web ReadableStream to Node.js Readable stream
+    const nodeStream = Readable.from(
+      (async function* () {
+        // Yield the first chunk we already read
+        yield firstChunk;
+        // Then yield the rest of the stream
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            yield value;
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      })()
+    );
+
+    // Upload to S3 using streaming
     const s3Key = generateUploadKey(projectId, repoId, file.name);
-    await uploadToS3(s3Key, buffer, "application/zip");
+    await uploadStreamToS3(s3Key, nodeStream, "application/zip");
 
     // Update repository with upload key
     const updatedRepo = await prisma.repository.update({

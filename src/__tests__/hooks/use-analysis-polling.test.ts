@@ -41,7 +41,8 @@ describe("useAnalysisPolling", () => {
       // Then
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          "/api/projects/project-1/analyses/analysis-1"
+          "/api/projects/project-1/analyses/analysis-1",
+          expect.objectContaining({ signal: expect.any(AbortSignal) })
         );
       });
     });

@@ -12,24 +12,44 @@ import {
 
 // GET /api/projects - List user's projects
 export const GET = authenticatedHandler(
-  async (_request: NextRequest, context: AuthenticatedContext) => {
+  async (request: NextRequest, context: AuthenticatedContext) => {
     const { userId } = context;
 
-    const projects = await prisma.project.findMany({
-      where: {
-        userId,
-        status: { not: "DELETED" },
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    // Parse pagination params
+    const searchParams = request.nextUrl.searchParams;
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("limit") || "20", 10))
+    );
+    const skip = (page - 1) * limit;
+
+    // Fetch projects and total count in parallel
+    const [projects, totalCount] = await Promise.all([
+      prisma.project.findMany({
+        where: {
+          userId,
+          status: { not: "DELETED" },
         },
-        _count: {
-          select: { analyses: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          repositories: {
+            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          },
+          _count: {
+            select: { analyses: true },
+          },
         },
-      },
-    });
+      }),
+      prisma.project.count({
+        where: {
+          userId,
+          status: { not: "DELETED" },
+        },
+      }),
+    ]);
 
     // Add backward compatibility fields computed from primary repository
     const projectsWithLegacyFields = projects.map((project) => {
@@ -45,9 +65,19 @@ export const GET = authenticatedHandler(
       };
     });
 
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasMore = page * limit < totalCount;
+
     return NextResponse.json({
       success: true,
       data: projectsWithLegacyFields,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
     });
   }
 );

@@ -115,7 +115,6 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
 
       if (response.ok) {
         router.push("/projects");
-        router.refresh();
       }
     } catch (error) {
       console.error("Delete failed:", error);
