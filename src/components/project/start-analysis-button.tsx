@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
 
 interface UsageInfo {
@@ -23,6 +24,7 @@ export function StartAnalysisButton({
   variant = "primary",
   children,
 }: StartAnalysisButtonProps) {
+  const router = useRouter();
   const [isChecking, setIsChecking] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -87,9 +89,15 @@ export function StartAnalysisButton({
         return;
       }
 
+      // Call onStart callback for backward compatibility
       onStart?.();
+
+      // Navigate to analysis detail page if analysis ID is available
+      if (data.success && data.data?.id) {
+        router.push(`/projects/${projectId}/analyses/${data.data.id}`);
+      }
     } catch {
-      setError("분석 시작 중 오류가 발생했습니다");
+      setError("오류가 발생했습니다");
     } finally {
       setIsStarting(false);
     }
