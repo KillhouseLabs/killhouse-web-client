@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface ResourceItem {
   label: string;
@@ -35,6 +36,7 @@ function getProgressWidth(current: number, limit: number): string {
 }
 
 export function ResourceUsageCard({ projectId }: ResourceUsageCardProps) {
+  const { t } = useLocale();
   const [data, setData] = useState<ResourceData | null>(null);
   const [loading, setLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -125,7 +127,9 @@ export function ResourceUsageCard({ projectId }: ResourceUsageCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">리소스 사용량</h2>
+        <h2 className="text-lg font-semibold">
+          {t.project.resourceUsage.title}
+        </h2>
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
           {data.planName}
         </span>
@@ -137,7 +141,7 @@ export function ResourceUsageCard({ projectId }: ResourceUsageCardProps) {
               <span className="text-muted-foreground">{resource.label}</span>
               {resource.unlimited ? (
                 <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                  무제한
+                  {t.common.unlimited}
                 </span>
               ) : (
                 <span className="font-medium">
@@ -159,7 +163,7 @@ export function ResourceUsageCard({ projectId }: ResourceUsageCardProps) {
               resource.current >= resource.limit &&
               resource.limit > 0 && (
                 <p className="mt-1 text-xs text-destructive">
-                  한도에 도달했습니다. 플랜 업그레이드가 필요합니다.
+                  {t.project.resourceUsage.limitReachedMessage}
                 </p>
               )}
           </div>

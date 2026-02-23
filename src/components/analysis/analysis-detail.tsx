@@ -11,6 +11,7 @@ import { AnalysisLiveLog } from "@/components/analysis/analysis-live-log";
 import { ExploitLiveStream } from "@/components/analysis/exploit-live-stream";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 const TERMINAL_STATUSES = [
   "COMPLETED",
@@ -81,20 +82,6 @@ interface AnalysisDetailProps {
   projectId: string;
   projectName: string;
 }
-
-const statusLabels: Record<string, string> = {
-  PENDING: "대기 중",
-  CLONING: "저장소 클론 중",
-  SCANNING: "스캔 중",
-  STATIC_ANALYSIS: "정적 분석 중",
-  BUILDING: "빌드 중",
-  PENETRATION_TEST: "침투 테스트 중",
-  EXPLOIT_VERIFICATION: "모의 침투 검증 중",
-  COMPLETED: "완료",
-  COMPLETED_WITH_ERRORS: "일부 오류와 함께 완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨",
-};
 
 const severityColors: Record<string, string> = {
   CRITICAL: "bg-red-500/10 text-red-600 border-red-500/20",
@@ -176,6 +163,8 @@ function StepStatusBanner({
   label: string;
   stepResult: StepResult;
 }) {
+  const { t } = useLocale();
+
   if (stepResult.status === "failed") {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
@@ -193,7 +182,9 @@ function StepStatusBanner({
           <line x1="15" y1="9" x2="9" y2="15" />
           <line x1="9" y1="9" x2="15" y2="15" />
         </svg>
-        <span className="text-sm font-medium text-red-600">{label} 실패</span>
+        <span className="text-sm font-medium text-red-600">
+          {label} {t.analysis.stepStatusFailed}
+        </span>
         {stepResult.error && (
           <span className="text-xs text-red-500/80">: {stepResult.error}</span>
         )}
@@ -218,7 +209,7 @@ function StepStatusBanner({
           <line x1="8" y1="12" x2="16" y2="12" />
         </svg>
         <span className="text-sm font-medium text-muted-foreground">
-          {label} 건너뜀
+          {label} {t.analysis.stepStatusSkipped}
         </span>
         {stepResult.error && (
           <span className="text-xs text-muted-foreground">
@@ -279,6 +270,8 @@ function VulnerabilitySummaryCards({ analysis }: { analysis: Analysis }) {
 }
 
 function SummaryCard({ summary }: { summary: string }) {
+  const { t } = useLocale();
+
   return (
     <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6">
       <div className="mb-3 flex items-center gap-2">
@@ -298,7 +291,9 @@ function SummaryCard({ summary }: { summary: string }) {
           <line x1="16" y1="17" x2="8" y2="17" />
           <polyline points="10 9 9 9 8 9" />
         </svg>
-        <h3 className="text-base font-semibold text-indigo-700">요약</h3>
+        <h3 className="text-base font-semibold text-indigo-700">
+          {t.analysis.summaryTitle}
+        </h3>
       </div>
       <MarkdownContent content={summary} className="text-sm leading-relaxed" />
     </div>
@@ -371,6 +366,7 @@ function ExploitSessionProgress({
 }: {
   exploitSessionId: string;
 }) {
+  const { t } = useLocale();
   const [session, setSession] = useState<ExploitSessionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -385,7 +381,7 @@ function ExploitSessionProgress({
           `${exploitAgentUrl}/api/sessions/${exploitSessionId}`
         );
         if (!response.ok) {
-          setError("모의 침투 세션을 불러올 수 없습니다");
+          setError(t.analysis.exploitSessionLoadError);
           return;
         }
         const data = await response.json();
@@ -405,7 +401,7 @@ function ExploitSessionProgress({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [exploitSessionId]);
+  }, [exploitSessionId, t.analysis.exploitSessionLoadError]);
 
   if (error) {
     return (
@@ -418,12 +414,12 @@ function ExploitSessionProgress({
   if (!session) return null;
 
   const statusLabelsExploit: Record<string, string> = {
-    pending: "대기 중",
-    running: "실행 중",
-    success: "성공",
-    failed: "실패",
-    stopped: "중지됨",
-    error: "오류",
+    pending: t.analysis.exploitStatusLabels.pending,
+    running: t.analysis.exploitStatusLabels.running,
+    success: t.analysis.exploitStatusLabels.success,
+    failed: t.analysis.exploitStatusLabels.failed,
+    stopped: t.analysis.exploitStatusLabels.stopped,
+    error: t.analysis.exploitStatusLabels.error,
   };
 
   const isRunning =
@@ -448,7 +444,7 @@ function ExploitSessionProgress({
           >
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
-          <h3 className="text-base font-semibold">모의 침투 테스트</h3>
+          <h3 className="text-base font-semibold">{t.analysis.exploitTitle}</h3>
           {isRunning && (
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -483,7 +479,7 @@ function ExploitSessionProgress({
       <div className="mb-3">
         <div className="mb-1 flex justify-between text-xs text-muted-foreground">
           <span>
-            {done}/{total} 취약점 검증 완료
+            {done}/{total} {t.analysis.exploitProgressLabel}
           </span>
           <span>{progress}%</span>
         </div>
@@ -501,19 +497,25 @@ function ExploitSessionProgress({
           <p className="text-lg font-bold text-red-600">
             {session.exploited_count}
           </p>
-          <p className="text-xs text-muted-foreground">성공</p>
+          <p className="text-xs text-muted-foreground">
+            {t.analysis.exploitResultLabels.success}
+          </p>
         </div>
         <div className="rounded-lg bg-muted/50 p-2">
           <p className="text-lg font-bold text-gray-600">
             {session.failed_count}
           </p>
-          <p className="text-xs text-muted-foreground">실패</p>
+          <p className="text-xs text-muted-foreground">
+            {t.analysis.exploitResultLabels.failed}
+          </p>
         </div>
         <div className="rounded-lg bg-muted/50 p-2">
           <p className="text-lg font-bold text-muted-foreground">
             {total - done}
           </p>
-          <p className="text-xs text-muted-foreground">대기</p>
+          <p className="text-xs text-muted-foreground">
+            {t.analysis.exploitResultLabels.waiting}
+          </p>
         </div>
       </div>
     </div>
@@ -562,6 +564,7 @@ function FindingDetailModal({
   cachedResult?: FixCacheValue | null;
   onCacheResult?: (result: FixCacheValue) => void;
 }) {
+  const { t } = useLocale();
   const [fixSuggestion, setFixSuggestion] = useState<FixSuggestion | null>(
     () =>
       cachedResult && "suggestion" in cachedResult
@@ -605,14 +608,14 @@ function FindingDetailModal({
           body: JSON.stringify({ analysisId, finding }),
         });
         if (!response.ok) {
-          throw new Error("코드 수정 제안을 가져오는데 실패했습니다");
+          throw new Error(t.analysis.fixCodeFixFailed);
         }
         const data = await response.json();
         if (data.success) {
           setCodeFixResult(data.data);
           onCacheResult?.(data.data);
         } else {
-          throw new Error(data.error || "알 수 없는 오류");
+          throw new Error(data.error || t.analysis.errorGeneric);
         }
       } else {
         // DAST: use text-based fix-suggestion API
@@ -622,18 +625,18 @@ function FindingDetailModal({
           body: JSON.stringify(finding),
         });
         if (!response.ok) {
-          throw new Error("AI 수정 제안을 가져오는데 실패했습니다");
+          throw new Error(t.analysis.fixAISuggestionFailed);
         }
         const data = await response.json();
         if (data.success) {
           setFixSuggestion(data.data);
           onCacheResult?.(data.data);
         } else {
-          throw new Error(data.error || "알 수 없는 오류");
+          throw new Error(data.error || t.analysis.errorGeneric);
         }
       }
     } catch (err) {
-      setFixError(err instanceof Error ? err.message : "오류가 발생했습니다");
+      setFixError(err instanceof Error ? err.message : t.analysis.errorGeneric);
     } finally {
       setIsLoadingFix(false);
     }
@@ -661,14 +664,14 @@ function FindingDetailModal({
           ...prev,
           {
             role: "assistant",
-            content: "오류가 발생했습니다. 다시 시도해주세요.",
+            content: `${t.analysis.errorGeneric}. ${t.analysis.retry}.`,
           },
         ]);
       }
     } catch {
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "네트워크 오류가 발생했습니다." },
+        { role: "assistant", content: t.analysis.networkError },
       ]);
     } finally {
       setIsChatLoading(false);
@@ -676,9 +679,9 @@ function FindingDetailModal({
   };
 
   const presetQuestions = [
-    "이 취약점의 영향도를 분석해주세요",
-    "공격 시나리오를 설명해주세요",
-    "개선 코드를 제안해주세요",
+    t.analysis.presetQuestions.impactAnalysis,
+    t.analysis.presetQuestions.attackScenario,
+    t.analysis.presetQuestions.fixSuggestion,
   ];
 
   const hasResult = fixSuggestion || codeFixResult;
@@ -698,12 +701,14 @@ function FindingDetailModal({
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <SeverityBadge severity={finding.severity} />
-            <h3 className="text-lg font-semibold">취약점 상세</h3>
+            <h3 className="text-lg font-semibold">
+              {t.analysis.vulnerabilityDetailTitle}
+            </h3>
           </div>
           <button
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-accent"
-            aria-label="닫기"
+            aria-label={t.common.close}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -725,13 +730,17 @@ function FindingDetailModal({
         <div className="mb-4 space-y-2">
           {ruleName && (
             <div className="text-sm">
-              <span className="font-medium text-muted-foreground">규칙: </span>
+              <span className="font-medium text-muted-foreground">
+                {t.analysis.findingLabels.rule}
+              </span>
               <span className="font-mono">{ruleName}</span>
             </div>
           )}
           {filePath && (
             <div className="text-sm">
-              <span className="font-medium text-muted-foreground">파일: </span>
+              <span className="font-medium text-muted-foreground">
+                {t.analysis.findingLabels.file}
+              </span>
               <span className="font-mono">
                 {filePath}
                 {finding.line ? `:${finding.line}` : ""}
@@ -740,20 +749,24 @@ function FindingDetailModal({
           )}
           {finding.url && (
             <div className="text-sm">
-              <span className="font-medium text-muted-foreground">URL: </span>
+              <span className="font-medium text-muted-foreground">
+                {t.analysis.findingLabels.url}
+              </span>
               <span className="font-mono">{finding.url}</span>
             </div>
           )}
           {finding.cwe && (
             <div className="text-sm">
-              <span className="font-medium text-muted-foreground">CWE: </span>
+              <span className="font-medium text-muted-foreground">
+                {t.analysis.findingLabels.cwe}
+              </span>
               <span>{finding.cwe}</span>
             </div>
           )}
           {finding.reference && (
             <div className="text-sm">
               <span className="font-medium text-muted-foreground">
-                참고 자료:{" "}
+                {t.analysis.findingLabels.reference}
               </span>
               <a
                 href={finding.reference}
@@ -771,7 +784,7 @@ function FindingDetailModal({
         {desc && (
           <div className="mb-4">
             <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-              설명
+              {t.analysis.findingLabels.description}
             </h4>
             <MarkdownContent content={desc} className="text-sm" />
           </div>
@@ -786,8 +799,8 @@ function FindingDetailModal({
             className="w-full rounded-lg border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
           >
             {isSastFinding && analysisId
-              ? "코드 수정 제안 보기"
-              : "AI 수정 제안 받기"}
+              ? t.analysis.fixButtonCodeFix
+              : t.analysis.fixButtonAISuggestion}
           </button>
         )}
 
@@ -807,8 +820,8 @@ function FindingDetailModal({
             </svg>
             <span className="text-sm text-muted-foreground">
               {isSastFinding
-                ? "소스코드를 분석하고 수정 코드를 생성하고 있습니다..."
-                : "AI 수정 제안을 생성하고 있습니다..."}
+                ? t.analysis.fixLoadingCodeAnalysis
+                : t.analysis.fixLoadingAISuggestion}
             </span>
           </div>
         )}
@@ -820,7 +833,7 @@ function FindingDetailModal({
               onClick={handleGetFixSuggestion}
               className="mt-2 text-sm font-medium text-red-600 underline hover:text-red-700"
             >
-              다시 시도
+              {t.analysis.retry}
             </button>
           </div>
         )}
@@ -841,20 +854,20 @@ function FindingDetailModal({
           <div className="space-y-3">
             <div>
               <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                문제 설명
+                {t.analysis.fixSectionExplanation}
               </h4>
               <p className="text-sm">{fixSuggestion.explanation}</p>
             </div>
             <div>
               <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                수정 제안
+                {t.analysis.fixSectionSuggestion}
               </h4>
               <p className="text-sm">{fixSuggestion.suggestion}</p>
             </div>
             {fixSuggestion.exampleCode && (
               <div>
                 <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                  예시 코드
+                  {t.analysis.fixSectionExampleCode}
                 </h4>
                 <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">
                   <code>{fixSuggestion.exampleCode}</code>
@@ -883,11 +896,13 @@ function FindingDetailModal({
               >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              AI에게 질문하기
+              {t.analysis.askAIButton}
             </button>
           ) : (
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold">AI 질의</h4>
+              <h4 className="text-sm font-semibold">
+                {t.analysis.aiChatHeading}
+              </h4>
 
               {/* Preset questions */}
               {chatMessages.length === 0 && (
@@ -918,7 +933,9 @@ function FindingDetailModal({
                       }`}
                     >
                       <p className="mb-1 text-xs font-medium text-muted-foreground">
-                        {msg.role === "user" ? "질문" : "AI 응답"}
+                        {msg.role === "user"
+                          ? t.analysis.chatLabels.user
+                          : t.analysis.chatLabels.assistant}
                       </p>
                       <MarkdownContent content={msg.content} />
                     </div>
@@ -939,7 +956,7 @@ function FindingDetailModal({
                           <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                         </svg>
                         <span className="text-xs text-muted-foreground">
-                          응답 생성 중...
+                          {t.analysis.aiChatGenerating}
                         </span>
                       </div>
                     </div>
@@ -960,7 +977,7 @@ function FindingDetailModal({
                       handleAskAI(chatInput);
                     }
                   }}
-                  placeholder="취약점에 대해 질문하세요..."
+                  placeholder={t.analysis.chatInputPlaceholder}
                   disabled={isChatLoading}
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                 />
@@ -969,7 +986,7 @@ function FindingDetailModal({
                   disabled={isChatLoading || !chatInput.trim()}
                   className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
-                  전송
+                  {t.analysis.sendButton}
                 </button>
               </div>
             </div>
@@ -982,7 +999,7 @@ function FindingDetailModal({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
           >
-            닫기
+            {t.common.close}
           </button>
         </div>
       </div>
@@ -999,6 +1016,7 @@ function FindingsTable({
   report: Report;
   analysisId?: string;
 }) {
+  const { t } = useLocale();
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const fixCacheRef = useRef<Map<string, FixCacheValue>>(new Map());
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -1027,7 +1045,7 @@ function FindingsTable({
       <div className="rounded-xl border border-border bg-card p-6">
         <h3 className="mb-2 text-base font-semibold">{title}</h3>
         <p className="text-sm text-muted-foreground">
-          발견된 취약점이 없습니다.
+          {t.analysis.noFindingsInTable}
         </p>
       </div>
     );
@@ -1043,7 +1061,8 @@ function FindingsTable({
           <h3 className="text-base font-semibold">
             {title} (
             {severityFilter ? sortedAndFilteredFindings.length + "/" : ""}
-            {report.total}개)
+            {report.total}
+            {t.analysis.countSuffix})
           </h3>
           {report.summary && (
             <p className="mt-1 text-sm text-muted-foreground">
@@ -1058,7 +1077,7 @@ function FindingsTable({
             onChange={(e) => setSeverityFilter(e.target.value || null)}
             className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="">전체 심각도</option>
+            <option value="">{t.analysis.severityFilterAll}</option>
             {severityOptions.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -1078,7 +1097,7 @@ function FindingsTable({
                 }
               >
                 <span className="flex items-center gap-1">
-                  심각도
+                  {t.analysis.severityColumnLabel}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -1099,17 +1118,29 @@ function FindingsTable({
               </th>
               {isSast ? (
                 <>
-                  <th className="px-4 py-3 font-medium">파일</th>
-                  <th className="px-4 py-3 font-medium">라인</th>
-                  <th className="px-4 py-3 font-medium">규칙</th>
+                  <th className="px-4 py-3 font-medium">
+                    {t.analysis.tableColumns.file}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t.analysis.tableColumns.line}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t.analysis.tableColumns.rule}
+                  </th>
                 </>
               ) : (
                 <>
-                  <th className="px-4 py-3 font-medium">URL</th>
-                  <th className="px-4 py-3 font-medium">템플릿</th>
+                  <th className="px-4 py-3 font-medium">
+                    {t.analysis.tableColumns.url}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t.analysis.tableColumns.template}
+                  </th>
                 </>
               )}
-              <th className="px-4 py-3 font-medium">설명</th>
+              <th className="px-4 py-3 font-medium">
+                {t.analysis.tableColumns.description}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -1189,6 +1220,7 @@ export function AnalysisDetail({
   projectId,
   projectName,
 }: AnalysisDetailProps) {
+  const { t } = useLocale();
   const router = useRouter();
   const isActive = !TERMINAL_STATUSES.includes(analysis.status);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -1299,7 +1331,7 @@ export function AnalysisDetail({
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">분석 결과</h1>
+              <h1 className="text-2xl font-bold">{t.analysis.resultsTitle}</h1>
               <span
                 className={`rounded-full px-2 py-1 text-xs font-medium ${
                   currentStatus === "COMPLETED"
@@ -1312,7 +1344,9 @@ export function AnalysisDetail({
                         : "bg-yellow-500/10 text-yellow-600"
                 }`}
               >
-                {statusLabels[currentStatus] || currentStatus}
+                {t.analysis.statusLabels[
+                  currentStatus as keyof typeof t.analysis.statusLabels
+                ] || currentStatus}
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -1333,7 +1367,7 @@ export function AnalysisDetail({
               onClick={() => setShowCancelConfirm(true)}
               className="rounded-lg border border-destructive/50 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
             >
-              취소
+              {t.common.cancel}
             </button>
           )}
           {TERMINAL_STATUSES.includes(currentStatus) && (
@@ -1342,7 +1376,7 @@ export function AnalysisDetail({
               disabled={isRerunning}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {isRerunning ? "재실행 중..." : "재실행"}
+              {isRerunning ? t.analysis.rerunningLabel : t.analysis.rerunButton}
             </button>
           )}
         </div>
@@ -1352,23 +1386,27 @@ export function AnalysisDetail({
       {showCancelConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="mx-4 w-full max-w-md rounded-xl bg-card p-6">
-            <h3 className="text-lg font-semibold">분석 취소</h3>
+            <h3 className="text-lg font-semibold">
+              {t.analysis.cancelModalTitle}
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              진행 중인 분석을 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              {t.analysis.cancelConfirmMessage}
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
               >
-                돌아가기
+                {t.common.back}
               </button>
               <button
                 onClick={handleCancel}
                 disabled={isCancelling}
                 className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {isCancelling ? "취소 중..." : "분석 취소"}
+                {isCancelling
+                  ? t.analysis.cancellingLabel
+                  : t.analysis.cancelAnalysisButton}
               </button>
             </div>
           </div>
@@ -1377,7 +1415,9 @@ export function AnalysisDetail({
 
       {/* Pipeline */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">분석 진행 상태</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.analysis.progressHeading}
+        </h2>
         <AnalysisPipeline
           currentStatus={currentStatus}
           stepResults={stepResults ?? undefined}
@@ -1406,7 +1446,7 @@ export function AnalysisDetail({
             <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
           <p className="text-sm text-blue-600">
-            분석이 진행 중입니다. 완료되면 자동으로 업데이트됩니다.
+            {t.analysis.inProgressMessage}
           </p>
         </div>
       )}
@@ -1421,17 +1461,19 @@ export function AnalysisDetail({
       {!TERMINAL_STATUSES.includes(currentStatus) &&
         (polledSastReport || polledDastReport) && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">중간 분석 결과</h2>
+            <h2 className="text-lg font-semibold">
+              {t.analysis.intermediateResultsHeading}
+            </h2>
             {polledSastReport && (
               <FindingsTable
-                title="SAST 분석 결과 (정적 분석)"
+                title={t.analysis.sastResultsTitle}
                 report={polledSastReport}
                 analysisId={analysis.id}
               />
             )}
             {polledDastReport && (
               <FindingsTable
-                title="DAST 분석 결과 (침투 테스트)"
+                title={t.analysis.dastResultsTitle}
                 report={polledDastReport}
                 analysisId={analysis.id}
               />
@@ -1452,14 +1494,14 @@ export function AnalysisDetail({
           {sastReport?.step_result &&
             sastReport.step_result.status !== "success" && (
               <StepStatusBanner
-                label="SAST 정적 분석"
+                label={t.analysis.sastStepLabel}
                 stepResult={sastReport.step_result}
               />
             )}
           {dastReport?.step_result &&
             dastReport.step_result.status !== "success" && (
               <StepStatusBanner
-                label="DAST 침투 테스트"
+                label={t.analysis.dastStepLabel}
                 stepResult={dastReport.step_result}
               />
             )}
@@ -1480,10 +1522,10 @@ export function AnalysisDetail({
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
                 <p className="text-lg font-semibold text-green-600">
-                  취약점이 발견되지 않았습니다
+                  {t.analysis.noVulnerabilitiesHeading}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  실행된 스캔에서 취약점이 발견되지 않았습니다.
+                  {t.analysis.noVulnerabilitiesMessage}
                 </p>
               </div>
             ) : (
@@ -1503,11 +1545,10 @@ export function AnalysisDetail({
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <p className="text-lg font-semibold text-yellow-600">
-                  스캔이 실행되지 않았습니다
+                  {t.analysis.scanNotRunHeading}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  모든 스캔 단계가 건너뛰어졌거나 실패했습니다. 위 상태를
-                  확인하세요.
+                  {t.analysis.scanNotRunMessage}
                 </p>
               </div>
             )
@@ -1520,14 +1561,14 @@ export function AnalysisDetail({
                 <div className="grid gap-4 sm:grid-cols-2">
                   {sastReport?.summary && (
                     <AISummaryCard
-                      title="SAST 분석 요약"
+                      title={t.analysis.sastSummaryTitle}
                       summary={sastReport.summary}
                       type="sast"
                     />
                   )}
                   {dastReport?.summary && (
                     <AISummaryCard
-                      title="DAST 분석 요약"
+                      title={t.analysis.dastSummaryTitle}
                       summary={dastReport.summary}
                       type="dast"
                     />
@@ -1538,7 +1579,7 @@ export function AnalysisDetail({
               {/* SAST Results */}
               {sastReport && (
                 <FindingsTable
-                  title="SAST 분석 결과 (정적 분석)"
+                  title={t.analysis.sastResultsTitle}
                   report={sastReport}
                   analysisId={analysis.id}
                 />
@@ -1547,7 +1588,7 @@ export function AnalysisDetail({
               {/* DAST Results */}
               {dastReport && (
                 <FindingsTable
-                  title="DAST 분석 결과 (침투 테스트)"
+                  title={t.analysis.dastResultsTitle}
                   report={dastReport}
                   analysisId={analysis.id}
                 />
@@ -1585,10 +1626,10 @@ export function AnalysisDetail({
             <line x1="9" y1="9" x2="15" y2="15" />
           </svg>
           <p className="text-lg font-semibold text-red-600">
-            분석에 실패했습니다
+            {t.analysis.failedHeading}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            잠시 후 다시 시도해주세요.
+            {t.analysis.failedMessage}
           </p>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface Repository {
   id: string;
@@ -45,6 +46,7 @@ interface PaginationData {
 }
 
 export function ProjectList() {
+  const { t } = useLocale();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,14 +62,14 @@ export function ProjectList() {
         const data = await response.json();
 
         if (!response.ok) {
-          setError(data.error || "프로젝트 목록을 불러오는데 실패했습니다");
+          setError(data.error || t.project.list.loadFailed);
           return;
         }
 
         setProjects(data.data);
         setPagination(data.pagination);
       } catch {
-        setError("프로젝트 목록을 불러오는 중 오류가 발생했습니다");
+        setError(t.project.list.loadError);
       } finally {
         setIsLoading(false);
       }
@@ -145,10 +147,11 @@ export function ProjectList() {
               <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
             </svg>
           </div>
-          <h3 className="mb-1 text-lg font-medium">프로젝트가 없습니다</h3>
+          <h3 className="mb-1 text-lg font-medium">
+            {t.project.list.emptyHeading}
+          </h3>
           <p className="mb-6 max-w-sm text-sm text-muted-foreground">
-            첫 번째 프로젝트를 만들어 GitHub/GitLab 저장소의 취약점을
-            분석해보세요
+            {t.project.list.emptyMessage}
           </p>
           <Link
             href="/projects/new"
@@ -167,7 +170,7 @@ export function ProjectList() {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            첫 프로젝트 만들기
+            {t.project.list.createFirstProjectButton}
           </Link>
         </div>
       </div>
@@ -220,7 +223,8 @@ export function ProjectList() {
                 <div className="flex items-center gap-2">
                   {repoInfo.hasMultipleRepos && (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {repoInfo.repoCount}개 저장소
+                      {repoInfo.repoCount}
+                      {t.project.list.multipleReposBadge}
                     </span>
                   )}
                   <span
@@ -230,7 +234,9 @@ export function ProjectList() {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {project.status === "ACTIVE" ? "활성" : "보관됨"}
+                    {project.status === "ACTIVE"
+                      ? t.project.statusLabels.active
+                      : t.project.statusLabels.archived}
                   </span>
                 </div>
               </div>
@@ -250,7 +256,7 @@ export function ProjectList() {
                 </p>
               ) : (
                 <p className="mb-2 text-sm text-muted-foreground">
-                  수동 업로드
+                  {t.project.list.manualUploadLabel}
                 </p>
               )}
 
@@ -269,7 +275,8 @@ export function ProjectList() {
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                     <polyline points="22 4 12 14.01 9 11.01" />
                   </svg>
-                  분석 {project._count.analyses}회
+                  분석 {project._count.analyses}
+                  {t.project.list.analysisCountLabel}
                 </span>
                 <span>
                   {formatDistanceToNow(new Date(project.createdAt), {
@@ -290,11 +297,12 @@ export function ProjectList() {
             disabled={page === 1}
             className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
-            이전
+            {t.project.list.previousButton}
           </button>
 
           <span className="text-sm text-muted-foreground">
-            페이지 {pagination.page} / {pagination.totalPages}
+            {t.project.list.paginationLabel} {pagination.page} /{" "}
+            {pagination.totalPages}
           </span>
 
           <button
@@ -302,7 +310,7 @@ export function ProjectList() {
             disabled={!pagination.hasMore}
             className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
-            다음
+            {t.project.list.nextButton}
           </button>
         </div>
       )}

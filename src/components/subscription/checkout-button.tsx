@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 // PortOne V1 (아임포트) 설정
 const IMP_CODE = process.env.NEXT_PUBLIC_IMP_CODE;
@@ -70,6 +71,7 @@ export function CheckoutButton({
   planName,
   className = "",
 }: CheckoutButtonProps) {
+  const { t } = useLocale();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -126,23 +128,31 @@ export function CheckoutButton({
         const verifyResult = await verifyResponse.json();
 
         if (!verifyResponse.ok || !verifyResult.success) {
-          setError(verifyResult.error || "결제 처리에 실패했습니다");
+          setError(verifyResult.error || t.subscription.checkout.paymentFailed);
           setIsLoading(false);
           return;
         }
 
         setIsLoading(false);
-        alert(`${checkoutData.planName} 플랜으로 업그레이드되었습니다!`);
+        alert(
+          t.subscription.checkout.upgradeSuccess.replace(
+            "{planName}",
+            checkoutData.planName
+          )
+        );
         router.refresh();
       } catch (err) {
         console.error("[Checkout] Test payment error:", err);
         setError(
-          `결제 처리 중 오류: ${err instanceof Error ? err.message : String(err)}`
+          t.subscription.checkout.errorProcessing.replace(
+            "{error}",
+            err instanceof Error ? err.message : String(err)
+          )
         );
         setIsLoading(false);
       }
     },
-    [router]
+    [router, t]
   );
 
   // 결제 검증
@@ -158,15 +168,19 @@ export function CheckoutButton({
       const verifyResult = await verifyResponse.json();
 
       if (!verifyResponse.ok || !verifyResult.success) {
-        setError(verifyResult.error || "결제 검증에 실패했습니다");
+        setError(
+          verifyResult.error || t.subscription.checkout.verificationFailed
+        );
         return false;
       }
 
-      alert(`${planName} 플랜으로 업그레이드되었습니다!`);
+      alert(
+        t.subscription.checkout.upgradeSuccess.replace("{planName}", planName)
+      );
       router.refresh();
       return true;
     },
-    [planName, router]
+    [planName, router, t]
   );
 
   const handleCheckout = async () => {
@@ -185,7 +199,9 @@ export function CheckoutButton({
       const checkoutResult = await checkoutResponse.json();
 
       if (!checkoutResponse.ok || !checkoutResult.success) {
-        setError(checkoutResult.error || "결제 준비에 실패했습니다");
+        setError(
+          checkoutResult.error || t.subscription.checkout.preparationFailed
+        );
         setIsLoading(false);
         return;
       }
@@ -237,14 +253,14 @@ export function CheckoutButton({
           } else {
             // 결제 실패 또는 취소
             console.log("[Checkout] Payment failed:", response.error_msg);
-            setError(response.error_msg || "결제가 취소되었습니다");
+            setError(response.error_msg || t.subscription.checkout.cancelled);
             setIsLoading(false);
           }
         }
       );
     } catch (err) {
       console.error("[Checkout] Error:", err);
-      setError("결제 처리 중 오류가 발생했습니다");
+      setError(t.subscription.checkout.processingError);
       setIsLoading(false);
     }
   };
@@ -260,10 +276,13 @@ export function CheckoutButton({
         {isLoading ? (
           <span className="flex items-center justify-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-            처리 중...
+            {t.subscription.checkout.processingLabel}
           </span>
         ) : (
-          `${planName} 플랜 구독하기`
+          t.subscription.checkout.subscribeButton.replace(
+            "{planName}",
+            planName
+          )
         )}
       </button>
       {error && (

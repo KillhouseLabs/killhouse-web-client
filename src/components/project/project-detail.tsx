@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { useLocale } from "@/lib/i18n/locale-context";
 import { RepositoryList, Repository } from "./repository-list";
 import { AddRepositoryModal } from "./add-repository-modal";
 import { StartAnalysisButton } from "./start-analysis-button";
@@ -59,19 +60,8 @@ const TERMINAL_STATUSES_SET = [
   "CANCELLED",
 ];
 
-const statusLabels: Record<string, string> = {
-  PENDING: "대기 중",
-  CLONING: "저장소 클론 중",
-  STATIC_ANALYSIS: "정적 분석 중",
-  BUILDING: "빌드 중",
-  PENETRATION_TEST: "침투 테스트 중",
-  COMPLETED: "완료",
-  COMPLETED_WITH_ERRORS: "부분 완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨",
-};
-
 export function ProjectDetail({ project }: ProjectDetailProps) {
+  const { t } = useLocale();
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -189,7 +179,9 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                     : "bg-muted text-muted-foreground"
                 }`}
               >
-                {project.status === "ACTIVE" ? "활성" : "보관됨"}
+                {project.status === "ACTIVE"
+                  ? t.project.statusLabels.active
+                  : t.project.statusLabels.archived}
               </span>
             </div>
             {project.description && (
@@ -205,7 +197,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
             onClick={() => setShowDeleteConfirm(true)}
             className="rounded-lg border border-destructive/50 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
           >
-            삭제
+            {t.project.detail.deleteButton}
           </button>
           <StartAnalysisButton
             projectId={project.id}
@@ -218,24 +210,28 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="mx-4 w-full max-w-md rounded-xl bg-card p-6">
-            <h3 className="text-lg font-semibold">프로젝트 삭제</h3>
+            <h3 className="text-lg font-semibold">
+              {t.project.detail.deleteModalTitle}
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              정말로 &ldquo;{project.name}&rdquo; 프로젝트를 삭제하시겠습니까?
-              모든 분석 결과도 함께 삭제됩니다.
+              {t.project.detail.deleteConfirmMessage.replace(
+                "{name}",
+                project.name
+              )}
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
               >
-                취소
+                {t.common.cancel}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {isDeleting ? "삭제 중..." : "삭제"}
+                {isDeleting ? t.project.detail.deletingLabel : t.common.delete}
               </button>
             </div>
           </div>
@@ -260,7 +256,9 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
         </>
       ) : (
         <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold">저장소 정보</h2>
+          <h2 className="mb-4 text-lg font-semibold">
+            {t.project.detail.repositoryInfoTitle}
+          </h2>
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
               {getProviderIcon()}
@@ -300,9 +298,11 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                 </>
               ) : (
                 <div>
-                  <p className="font-medium">수동 업로드</p>
+                  <p className="font-medium">
+                    {t.project.detail.manualUploadLabel}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    코드 파일을 직접 업로드하여 분석합니다
+                    {t.project.detail.manualUploadMessage}
                   </p>
                 </div>
               )}
@@ -314,7 +314,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                 rel="noopener noreferrer"
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
               >
-                저장소 열기
+                {t.project.detail.openRepositoryButton}
               </a>
             )}
           </div>
@@ -340,10 +340,11 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            총 분석 횟수
+            {t.project.detail.totalAnalyses}
           </div>
           <p className="mt-2 text-lg font-semibold">
-            {project._count.analyses}회
+            {project._count.analyses}
+            {t.project.detail.analysisSuffix}
           </p>
         </div>
 
@@ -363,14 +364,14 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
-            발견된 취약점
+            {t.project.detail.vulnerabilitiesFound}
           </div>
           <p className="mt-2 text-lg font-semibold">
             {project.analyses.find(
               (a) =>
                 a.status === "COMPLETED" || a.status === "COMPLETED_WITH_ERRORS"
             )?.vulnerabilitiesFound ?? 0}
-            개
+            {t.project.detail.vulnerabilitySuffix}
           </p>
         </div>
 
@@ -391,7 +392,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            생성일
+            {t.project.detail.createdDateLabel}
           </div>
           <p className="mt-2 text-lg font-semibold">
             {formatDistanceToNow(project.createdAt, {
@@ -404,14 +405,18 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
 
       {/* Analysis Pipeline */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">분석 프로세스</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.project.detail.processPipelineTitle}
+        </h2>
         <AnalysisPipeline currentStatus={pipelineStatus} />
       </div>
 
       {/* Recent Analyses */}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border p-6">
-          <h2 className="text-lg font-semibold">최근 분석</h2>
+          <h2 className="text-lg font-semibold">
+            {t.project.detail.recentAnalysesTitle}
+          </h2>
         </div>
 
         {project.analyses.length === 0 ? (
@@ -431,9 +436,11 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
               </svg>
             </div>
-            <h3 className="mb-1 font-medium">분석 기록이 없습니다</h3>
+            <h3 className="mb-1 font-medium">
+              {t.project.detail.noAnalysesHeading}
+            </h3>
             <p className="mb-6 text-sm text-muted-foreground">
-              분석을 시작하여 취약점을 찾아보세요
+              {t.project.detail.noAnalysesMessage}
             </p>
             <StartAnalysisButton
               projectId={project.id}
@@ -449,7 +456,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                 strokeLinejoin="round"
                 className="h-4 w-4"
               />
-              첫 분석 시작하기
+              {t.project.detail.startFirstAnalysisButton}
             </StartAnalysisButton>
           </div>
         ) : (
@@ -518,7 +525,9 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                   </div>
                   <div>
                     <p className="text-sm font-medium">
-                      {statusLabels[analysis.status] || analysis.status}
+                      {t.project.detail.statusLabels[
+                        analysis.status as keyof typeof t.project.detail.statusLabels
+                      ] || analysis.status}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>
@@ -568,7 +577,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
                     href={`/projects/${project.id}/analyses/${analysis.id}`}
                     className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent"
                   >
-                    상세 보기
+                    {t.project.detail.viewDetailsButton}
                   </Link>
                 </div>
               </div>

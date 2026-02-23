@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface DashboardStats {
   totalProjects: number;
@@ -22,6 +23,7 @@ interface DashboardStats {
 }
 
 export function DashboardStats() {
+  const { t } = useLocale();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -91,7 +93,7 @@ export function DashboardStats() {
               </svg>
             </div>
             <span className="text-sm font-medium text-muted-foreground">
-              총 프로젝트
+              {t.dashboard.statsLabels.totalProjects}
             </span>
           </div>
           <p className="mt-4 text-3xl font-bold">
@@ -117,7 +119,7 @@ export function DashboardStats() {
               </svg>
             </div>
             <span className="text-sm font-medium text-muted-foreground">
-              완료된 분석
+              {t.dashboard.statsLabels.completedAnalyses}
             </span>
           </div>
           <p className="mt-4 text-3xl font-bold">
@@ -144,7 +146,7 @@ export function DashboardStats() {
               </svg>
             </div>
             <span className="text-sm font-medium text-muted-foreground">
-              발견된 취약점
+              {t.dashboard.statsLabels.vulnerabilitiesFound}
             </span>
           </div>
           <p className="mt-4 text-3xl font-bold">
@@ -171,7 +173,7 @@ export function DashboardStats() {
               </svg>
             </div>
             <span className="text-sm font-medium text-muted-foreground">
-              심각한 취약점
+              {t.dashboard.statsLabels.criticalVulnerabilities}
             </span>
           </div>
           <p className="mt-4 text-3xl font-bold">
@@ -182,7 +184,9 @@ export function DashboardStats() {
 
       {/* Quick Actions */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">빠른 시작</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.dashboard.quickStartTitle}
+        </h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/projects/new"
@@ -204,9 +208,11 @@ export function DashboardStats() {
               </svg>
             </div>
             <div>
-              <h3 className="font-medium">새 프로젝트 만들기</h3>
+              <h3 className="font-medium">
+                {t.dashboard.quickActions.createProject}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                코드나 컨테이너를 분석하세요
+                {t.dashboard.quickActions.createProjectDescription}
               </p>
             </div>
           </Link>
@@ -230,9 +236,11 @@ export function DashboardStats() {
               </svg>
             </div>
             <div>
-              <h3 className="font-medium">프로젝트 보기</h3>
+              <h3 className="font-medium">
+                {t.dashboard.quickActions.viewProjects}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                모든 프로젝트를 확인하세요
+                {t.dashboard.quickActions.viewProjectsDescription}
               </p>
             </div>
           </Link>
@@ -257,9 +265,11 @@ export function DashboardStats() {
               </svg>
             </div>
             <div>
-              <h3 className="font-medium">플랜 업그레이드</h3>
+              <h3 className="font-medium">
+                {t.dashboard.quickActions.upgradePlan}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                더 많은 기능을 이용하세요
+                {t.dashboard.quickActions.upgradePlanDescription}
               </p>
             </div>
           </Link>
@@ -268,7 +278,9 @@ export function DashboardStats() {
 
       {/* Recent Activity */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">최근 활동</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.dashboard.recentActivityTitle}
+        </h2>
         {displayStats.recentActivities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -286,9 +298,11 @@ export function DashboardStats() {
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
-            <h3 className="mb-1 font-medium">아직 활동이 없습니다</h3>
+            <h3 className="mb-1 font-medium">
+              {t.dashboard.noActivityHeading}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              프로젝트를 만들고 분석을 시작하면 여기에 표시됩니다
+              {t.dashboard.noActivityMessage}
             </p>
           </div>
         ) : (
@@ -353,10 +367,10 @@ export function DashboardStats() {
                     <p className="font-medium">{activity.projectName}</p>
                     <p className="text-sm text-muted-foreground">
                       {activity.status === "COMPLETED"
-                        ? `분석 완료 · ${activity.vulnerabilitiesFound || 0}개 취약점 발견`
+                        ? `${t.dashboard.activity.completed} · ${activity.vulnerabilitiesFound || 0}개 취약점 발견`
                         : activity.status === "FAILED"
-                          ? "분석 실패"
-                          : "분석 진행 중"}
+                          ? t.dashboard.activity.failed
+                          : t.dashboard.activity.inProgress}
                     </p>
                   </div>
                 </div>
