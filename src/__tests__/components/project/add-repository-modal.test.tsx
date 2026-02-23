@@ -75,7 +75,7 @@ describe("AddRepositoryModal", () => {
       );
 
       // WHEN
-      const gitlabButton = screen.getByRole("button", { name: /GitLab/i });
+      const gitlabButton = screen.getByRole("button", { name: /^GitLab$/i });
       fireEvent.click(gitlabButton);
 
       // THEN

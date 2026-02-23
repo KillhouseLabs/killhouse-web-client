@@ -38,13 +38,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GITLAB_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
       authorization: {
-        url: "https://gitlab.com/oauth/authorize",
+        url: `${process.env.GITLAB_URL || "https://gitlab.com"}/oauth/authorize`,
         params: {
           scope: "read_api read_user read_repository",
         },
       },
-      token: "https://gitlab.com/oauth/token",
-      userinfo: "https://gitlab.com/api/v4/user",
+      token: `${process.env.GITLAB_URL || "https://gitlab.com"}/oauth/token`,
+      userinfo: `${process.env.GITLAB_URL || "https://gitlab.com"}/api/v4/user`,
+    }),
+    GitLab({
+      id: "gitlab-self",
+      name: "GitLab Self-Hosted",
+      clientId: process.env.GITLAB_SELF_CLIENT_ID,
+      clientSecret: process.env.GITLAB_SELF_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        url: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/authorize`,
+        params: {
+          scope: "read_api read_user read_repository",
+        },
+      },
+      token: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/oauth/token`,
+      userinfo: `${process.env.GITLAB_SELF_URL || "https://gitlab.com"}/api/v4/user`,
     }),
     Credentials({
       name: "credentials",
@@ -62,6 +77,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            password: true,
+          },
         });
 
         if (!user || !user.password) {
@@ -86,26 +108,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       // OAuth 재로그인 시 토큰 갱신
-      if (account?.provider === "github" || account?.provider === "gitlab") {
-        // 기존 account가 있으면 토큰 업데이트
-        const existingAccount = await prisma.account.findFirst({
+      if (
+        account?.provider === "github" ||
+        account?.provider === "gitlab" ||
+        account?.provider === "gitlab-self"
+      ) {
+        await prisma.account.updateMany({
           where: {
             provider: account.provider,
             providerAccountId: account.providerAccountId,
           },
+          data: {
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
+            expires_at: account.expires_at,
+            scope: account.scope,
+          },
         });
-
-        if (existingAccount) {
-          await prisma.account.update({
-            where: { id: existingAccount.id },
-            data: {
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: account.expires_at,
-              scope: account.scope,
-            },
-          });
-        }
         return true;
       }
       // Allow Google OAuth sign in

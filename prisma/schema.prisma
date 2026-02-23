@@ -96,6 +96,7 @@ model Repository {
   dockerfilePath    String?
   buildContext      String?
   targetService     String?
+  uploadKey         String?
   projectId         String
   accountId         String?
   createdAt         DateTime   @default(now())

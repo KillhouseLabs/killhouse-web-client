@@ -27,6 +27,19 @@ jest.mock("react-diff-viewer-continued", () => {
   };
 });
 
+// Mock react-markdown (ESM module incompatible with Jest)
+jest.mock("react-markdown", () => {
+  return {
+    __esModule: true,
+    default: ({ children }: { children: string }) => <div>{children}</div>,
+  };
+});
+
+jest.mock("remark-gfm", () => ({
+  __esModule: true,
+  default: () => {},
+}));
+
 // Mock useAnalysisPolling hook
 jest.mock("@/hooks/use-analysis-polling", () => ({
   useAnalysisPolling: jest.fn().mockReturnValue({

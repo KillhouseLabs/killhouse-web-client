@@ -5,6 +5,7 @@ import { createRepositorySchema } from "./repository.dto";
 export const RepoProvider = {
   GITHUB: "GITHUB",
   GITLAB: "GITLAB",
+  GITLAB_SELF: "GITLAB_SELF",
   MANUAL: "MANUAL",
 } as const;
 
@@ -55,8 +56,9 @@ export function parseRepoUrl(url: string): {
     };
   }
 
+  // gitlab.com 매칭 (중첩 그룹 지원)
   const gitlabMatch = url.match(
-    /^https:\/\/gitlab\.com\/([\w-]+)\/([\w.-]+)\/?$/
+    /^https:\/\/gitlab\.com\/([\w.-]+(?:\/[\w.-]+)*)\/([\w.-]+)\/?$/
   );
   if (gitlabMatch) {
     return {
@@ -64,6 +66,22 @@ export function parseRepoUrl(url: string): {
       owner: gitlabMatch[1],
       name: gitlabMatch[2].replace(/\.git$/, ""),
     };
+  }
+
+  // 셀프호스팅 GitLab 매칭 (GITLAB_SELF_URL 환경변수 기반)
+  const gitlabSelfUrl = process.env.GITLAB_SELF_URL;
+  if (gitlabSelfUrl && gitlabSelfUrl !== "https://gitlab.com") {
+    const escapedUrl = gitlabSelfUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const selfHostedMatch = url.match(
+      new RegExp(`^${escapedUrl}/([-\\w.]+(?:/[-\\w.]+)*)/([-\\w.]+)/?$`)
+    );
+    if (selfHostedMatch) {
+      return {
+        provider: RepoProvider.GITLAB_SELF,
+        owner: selfHostedMatch[1],
+        name: selfHostedMatch[2].replace(/\.git$/, ""),
+      };
+    }
   }
 
   return null;
