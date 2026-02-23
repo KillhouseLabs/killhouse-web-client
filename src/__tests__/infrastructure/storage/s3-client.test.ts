@@ -1,7 +1,7 @@
 /**
  * S3 Client 테스트
  *
- * S3 업로드, 삭제, 프리픽스 삭제 기능 테스트
+ * S3 업로드, 삭제, 프리픽스 삭제, 버킷 자동 생성 폴백 테스트
  */
 
 // Mock AWS SDK before imports
@@ -26,14 +26,24 @@ jest.mock("@aws-sdk/client-s3", () => ({
     ...params,
     _type: "ListObjectsV2",
   })),
+  HeadBucketCommand: jest.fn().mockImplementation((params) => ({
+    ...params,
+    _type: "HeadBucket",
+  })),
+  CreateBucketCommand: jest.fn().mockImplementation((params) => ({
+    ...params,
+    _type: "CreateBucket",
+  })),
 }));
+
+let mockBucket: string | undefined = "test-bucket";
 
 jest.mock("@/config/env", () => ({
   serverEnv: {
     AWS_REGION: () => "ap-northeast-2",
     AWS_ACCESS_KEY_ID: () => "test-access-key",
     AWS_SECRET_ACCESS_KEY: () => "test-secret-key",
-    AWS_S3_BUCKET: () => "test-bucket",
+    AWS_S3_BUCKET: () => mockBucket,
   },
 }));
 
@@ -43,12 +53,15 @@ import {
   deleteS3Prefix,
   generateUploadKey,
   getProjectPrefix,
+  _resetBucketCache,
 } from "@/infrastructure/storage/s3-client";
 
 describe("S3 Client", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockResolvedValue({});
+    mockBucket = "test-bucket";
+    _resetBucketCache();
   });
 
   describe("uploadToS3", () => {
@@ -82,7 +95,6 @@ describe("S3 Client", () => {
 
   describe("deleteS3Prefix", () => {
     it("GIVEN 오브젝트가 있는 프리픽스 WHEN 삭제 THEN 모든 오브젝트가 삭제되어야 한다", async () => {
-      // First call: ListObjectsV2 returns objects
       mockSend
         .mockResolvedValueOnce({
           Contents: [
@@ -90,7 +102,6 @@ describe("S3 Client", () => {
             { Key: "uploads/project-1/repo-2/app.zip" },
           ],
         })
-        // Second call: DeleteObjects succeeds
         .mockResolvedValueOnce({});
 
       const count = await deleteS3Prefix("uploads/project-1/");
@@ -114,6 +125,66 @@ describe("S3 Client", () => {
       const count = await deleteS3Prefix("uploads/no-content/");
 
       expect(count).toBe(0);
+    });
+  });
+
+  describe("getBucket 폴백", () => {
+    it("GIVEN AWS_S3_BUCKET 미설정 + 버킷 존재 WHEN 업로드 THEN 기존 버킷을 사용해야 한다", async () => {
+      mockBucket = undefined;
+      // HeadBucket 성공 → 버킷 존재
+      mockSend
+        .mockResolvedValueOnce({}) // HeadBucket
+        .mockResolvedValueOnce({}); // PutObject
+
+      const buffer = Buffer.from("test");
+      const result = await uploadToS3("key", buffer, "application/zip");
+
+      expect(result).toBe("key");
+      // HeadBucket + PutObject = 2 calls
+      expect(mockSend).toHaveBeenCalledTimes(2);
+    });
+
+    it("GIVEN AWS_S3_BUCKET 미설정 + 버킷 미존재 WHEN 업로드 THEN 버킷을 생성해야 한다", async () => {
+      mockBucket = undefined;
+      mockSend
+        .mockRejectedValueOnce(new Error("NotFound")) // HeadBucket 실패
+        .mockResolvedValueOnce({}) // CreateBucket 성공
+        .mockResolvedValueOnce({}); // PutObject
+
+      const buffer = Buffer.from("test");
+      const result = await uploadToS3("key", buffer, "application/zip");
+
+      expect(result).toBe("key");
+      // HeadBucket + CreateBucket + PutObject = 3 calls
+      expect(mockSend).toHaveBeenCalledTimes(3);
+    });
+
+    it("GIVEN AWS_S3_BUCKET 미설정 + 버킷 생성 실패 WHEN 업로드 THEN 에러가 throw되어야 한다", async () => {
+      mockBucket = undefined;
+      mockSend
+        .mockRejectedValueOnce(new Error("NotFound")) // HeadBucket 실패
+        .mockRejectedValueOnce(new Error("AccessDenied")); // CreateBucket 실패
+
+      const buffer = Buffer.from("test");
+      await expect(
+        uploadToS3("key", buffer, "application/zip")
+      ).rejects.toThrow("S3 버킷을 생성할 수 없습니다");
+    });
+
+    it("GIVEN 버킷이 한 번 resolve됨 WHEN 두 번째 업로드 THEN HeadBucket 재호출 없이 캐시 사용해야 한다", async () => {
+      mockBucket = undefined;
+      // 첫 번째: HeadBucket + PutObject
+      mockSend
+        .mockResolvedValueOnce({}) // HeadBucket
+        .mockResolvedValueOnce({}) // PutObject (1st upload)
+        .mockResolvedValueOnce({}); // PutObject (2nd upload)
+
+      const buffer = Buffer.from("test");
+      await uploadToS3("key1", buffer, "application/zip");
+      await uploadToS3("key2", buffer, "application/zip");
+
+      // HeadBucket(1) + PutObject(2) = 3, NOT 4
+      expect(mockSend).toHaveBeenCalledTimes(3);
     });
   });
 

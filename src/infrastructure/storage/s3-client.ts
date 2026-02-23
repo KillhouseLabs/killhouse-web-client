@@ -1,28 +1,78 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  DeleteObjectsCommand,
-  ListObjectsV2Command,
-} from "@aws-sdk/client-s3";
 import { serverEnv } from "@/config/env";
 
-function createS3Client(): S3Client {
+const DEFAULT_BUCKET_NAME = "killhouse-uploads";
+
+let resolvedBucket: string | null = null;
+
+async function createS3Client() {
+  const { S3Client } = await import("@aws-sdk/client-s3");
+
+  const accessKeyId = serverEnv.AWS_ACCESS_KEY_ID();
+  const secretAccessKey = serverEnv.AWS_SECRET_ACCESS_KEY();
+
+  if (accessKeyId && secretAccessKey) {
+    return new S3Client({
+      region: serverEnv.AWS_REGION(),
+      credentials: { accessKeyId, secretAccessKey },
+    });
+  }
+
+  // AWS_ACCESS_KEY_ID 미설정 시 AWS SDK 기본 자격 증명 체인 사용
+  // (~/.aws/credentials, IAM role, 등)
   return new S3Client({
     region: serverEnv.AWS_REGION(),
-    credentials: {
-      accessKeyId: serverEnv.AWS_ACCESS_KEY_ID() ?? "",
-      secretAccessKey: serverEnv.AWS_SECRET_ACCESS_KEY() ?? "",
-    },
   });
 }
 
-function getBucket(): string {
-  const bucket = serverEnv.AWS_S3_BUCKET();
-  if (!bucket) {
-    throw new Error("AWS_S3_BUCKET 환경변수가 설정되지 않았습니다");
+/**
+ * S3 버킷 이름을 반환.
+ * AWS_S3_BUCKET 환경변수가 있으면 그대로 사용.
+ * 없으면 기본 버킷(killhouse-uploads)을 확인 후 없으면 생성.
+ * 생성도 실패하면 에러를 throw.
+ */
+async function getBucket(): Promise<string> {
+  const envBucket = serverEnv.AWS_S3_BUCKET();
+  if (envBucket) {
+    return envBucket;
   }
-  return bucket;
+
+  if (resolvedBucket) {
+    return resolvedBucket;
+  }
+
+  const { HeadBucketCommand, CreateBucketCommand } =
+    await import("@aws-sdk/client-s3");
+  const client = await createS3Client();
+  const region = serverEnv.AWS_REGION();
+
+  // 버킷 존재 여부 확인
+  try {
+    await client.send(new HeadBucketCommand({ Bucket: DEFAULT_BUCKET_NAME }));
+    resolvedBucket = DEFAULT_BUCKET_NAME;
+    return resolvedBucket;
+  } catch {
+    // 버킷이 없으면 생성 시도
+  }
+
+  try {
+    await client.send(
+      new CreateBucketCommand({
+        Bucket: DEFAULT_BUCKET_NAME,
+        ...(region !== "us-east-1" && {
+          CreateBucketConfiguration: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            LocationConstraint: region as any,
+          },
+        }),
+      })
+    );
+    resolvedBucket = DEFAULT_BUCKET_NAME;
+    return resolvedBucket;
+  } catch (createError) {
+    throw new Error(
+      `S3 버킷을 생성할 수 없습니다 (${DEFAULT_BUCKET_NAME}): ${createError instanceof Error ? createError.message : String(createError)}`
+    );
+  }
 }
 
 /**
@@ -38,8 +88,9 @@ export async function uploadToS3(
   body: Buffer,
   contentType: string
 ): Promise<string> {
-  const client = createS3Client();
-  const bucket = getBucket();
+  const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = await createS3Client();
+  const bucket = await getBucket();
 
   await client.send(
     new PutObjectCommand({
@@ -57,8 +108,9 @@ export async function uploadToS3(
  * S3에서 단일 오브젝트 삭제
  */
 export async function deleteFromS3(key: string): Promise<void> {
-  const client = createS3Client();
-  const bucket = getBucket();
+  const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = await createS3Client();
+  const bucket = await getBucket();
 
   await client.send(
     new DeleteObjectCommand({
@@ -73,14 +125,13 @@ export async function deleteFromS3(key: string): Promise<void> {
  * 프로젝트 삭제 시 해당 프로젝트의 모든 업로드 파일을 정리
  */
 export async function deleteS3Prefix(prefix: string): Promise<number> {
-  const client = createS3Client();
-  const bucket = getBucket();
+  const { ListObjectsV2Command, DeleteObjectsCommand } =
+    await import("@aws-sdk/client-s3");
+  const client = await createS3Client();
+  const bucket = await getBucket();
 
   const listResult = await client.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
-    })
+    new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix })
   );
 
   const objects = listResult.Contents;
@@ -116,4 +167,9 @@ export function generateUploadKey(
  */
 export function getProjectPrefix(projectId: string): string {
   return `uploads/${projectId}/`;
+}
+
+/** 테스트용: resolvedBucket 캐시 초기화 */
+export function _resetBucketCache(): void {
+  resolvedBucket = null;
 }
