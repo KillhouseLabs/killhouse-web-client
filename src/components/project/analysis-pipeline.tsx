@@ -1,12 +1,38 @@
 "use client";
 
-const PIPELINE_STEPS = [
-  { key: "CLONING", label: "클론" },
-  { key: "STATIC_ANALYSIS", label: "SAST" },
-  { key: "BUILDING", label: "빌드" },
-  { key: "PENETRATION_TEST", label: "침투 테스트" },
-  { key: "COMPLETED", label: "리포트" },
-] as const;
+import { useLocale } from "@/lib/i18n/locale-context";
+
+type PipelineStepKey =
+  | "CLONING"
+  | "STATIC_ANALYSIS"
+  | "BUILDING"
+  | "PENETRATION_TEST"
+  | "COMPLETED";
+
+interface PipelineStep {
+  key: PipelineStepKey;
+  label: string;
+}
+
+function getPipelineSteps(t: {
+  analysis: {
+    pipelineSteps: {
+      clone: string;
+      sast: string;
+      build: string;
+      pentest: string;
+      report: string;
+    };
+  };
+}): readonly PipelineStep[] {
+  return [
+    { key: "CLONING", label: t.analysis.pipelineSteps.clone },
+    { key: "STATIC_ANALYSIS", label: t.analysis.pipelineSteps.sast },
+    { key: "BUILDING", label: t.analysis.pipelineSteps.build },
+    { key: "PENETRATION_TEST", label: t.analysis.pipelineSteps.pentest },
+    { key: "COMPLETED", label: t.analysis.pipelineSteps.report },
+  ] as const;
+}
 
 type StepStatus = "completed" | "active" | "failed" | "pending";
 
@@ -21,13 +47,17 @@ interface AnalysisPipelineProps {
   stepResults?: Record<string, StepResult>;
 }
 
-function getStepIndex(status: string): number {
-  return PIPELINE_STEPS.findIndex((s) => s.key === status);
+function getStepIndex(
+  status: string,
+  pipelineSteps: readonly PipelineStep[]
+): number {
+  return pipelineSteps.findIndex((s) => s.key === status);
 }
 
 function getStepStatuses(
   currentStatus: string,
-  stepResults?: Record<string, StepResult>
+  stepResults: Record<string, StepResult> | undefined,
+  pipelineSteps: readonly PipelineStep[]
 ): StepStatus[] {
   const isCompleted = currentStatus === "COMPLETED";
   const isCompletedWithErrors = currentStatus === "COMPLETED_WITH_ERRORS";
@@ -46,7 +76,7 @@ function getStepStatuses(
         COMPLETED: "completed",
       };
 
-      return PIPELINE_STEPS.map((step) => {
+      return pipelineSteps.map((step) => {
         const resultKey = stepKeyToResultKey[step.key];
         const result = resultKey ? stepResults[resultKey] : undefined;
 
@@ -57,15 +87,15 @@ function getStepStatuses(
       });
     }
     // Without stepResults, show all as completed (analysis finished but with some errors)
-    return PIPELINE_STEPS.map(() => "completed");
+    return pipelineSteps.map(() => "completed");
   }
 
-  if (isCompleted) return PIPELINE_STEPS.map(() => "completed");
-  if (isCancelled || isPending) return PIPELINE_STEPS.map(() => "pending");
+  if (isCompleted) return pipelineSteps.map(() => "completed");
+  if (isCancelled || isPending) return pipelineSteps.map(() => "pending");
 
   // For FAILED, mark all preceding steps as completed and last active as failed
   if (isFailed) {
-    const currentIndex = getStepIndex(currentStatus);
+    const currentIndex = getStepIndex(currentStatus, pipelineSteps);
     if (currentIndex === -1) {
       // FAILED is not a pipeline step — find the last known step from stepResults
       if (stepResults) {
@@ -81,7 +111,7 @@ function getStepStatuses(
             break;
           }
         }
-        return PIPELINE_STEPS.map((_, i) => {
+        return pipelineSteps.map((_, i) => {
           if (lastActiveIndex === -1) return "pending";
           if (i < lastActiveIndex) return "completed";
           if (i === lastActiveIndex) return "failed";
@@ -89,9 +119,9 @@ function getStepStatuses(
         });
       }
       // No stepResults: show all as failed at first step
-      return PIPELINE_STEPS.map((_, i) => (i === 0 ? "failed" : "pending"));
+      return pipelineSteps.map((_, i) => (i === 0 ? "failed" : "pending"));
     }
-    return PIPELINE_STEPS.map((_, i) => {
+    return pipelineSteps.map((_, i) => {
       if (i < currentIndex) return "completed";
       if (i === currentIndex) return "failed";
       return "pending";
@@ -99,8 +129,8 @@ function getStepStatuses(
   }
 
   // Active intermediate step
-  const currentIndex = getStepIndex(currentStatus);
-  return PIPELINE_STEPS.map((_, i) => {
+  const currentIndex = getStepIndex(currentStatus, pipelineSteps);
+  return pipelineSteps.map((_, i) => {
     if (currentIndex >= 0) {
       if (i < currentIndex) return "completed";
       if (i === currentIndex) return "active";
@@ -263,11 +293,13 @@ export function AnalysisPipeline({
   currentStatus,
   stepResults,
 }: AnalysisPipelineProps) {
-  const statuses = getStepStatuses(currentStatus, stepResults);
+  const { t } = useLocale();
+  const pipelineSteps = getPipelineSteps(t);
+  const statuses = getStepStatuses(currentStatus, stepResults, pipelineSteps);
 
   return (
     <div className="flex items-center justify-between">
-      {PIPELINE_STEPS.map((step, i) => {
+      {pipelineSteps.map((step, i) => {
         const status = statuses[i];
         const styles = stepStyles[status];
 
@@ -292,7 +324,7 @@ export function AnalysisPipeline({
               </div>
               <p className={`mt-2 text-xs ${styles.label}`}>{step.label}</p>
             </div>
-            {i < PIPELINE_STEPS.length - 1 && (
+            {i < pipelineSteps.length - 1 && (
               <div
                 className={`mx-2 h-px flex-1 transition-all ${
                   statuses[i] === "completed" && statuses[i + 1] !== "pending"

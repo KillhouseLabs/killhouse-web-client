@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { DeleteAccountButton } from "./delete-account-button";
 import { PasswordInput } from "@/components/ui/password-input";
+import { PageHeader } from "@/components/layout/page-header";
 
 export function MypageContent() {
   const { data: session } = useSession();
@@ -10,12 +11,7 @@ export function MypageContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold">마이페이지</h1>
-        <p className="mt-1 text-muted-foreground">
-          계정 정보를 확인하고 설정을 변경하세요
-        </p>
-      </div>
+      <PageHeader titleKey="mypage" />
 
       {/* Profile Section */}
       <div className="rounded-xl border border-border bg-card p-6">

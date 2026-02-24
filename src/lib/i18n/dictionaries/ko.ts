@@ -182,6 +182,30 @@ const ko: Dictionary = {
     allRights: "All rights reserved.",
     systemStatus: "전체 시스템 정상 운영 중",
   },
+  sidebar: {
+    dashboard: "대시보드",
+    projects: "프로젝트",
+    mypage: "마이페이지",
+    subscription: "구독 관리",
+  },
+  pages: {
+    dashboard: {
+      title: "대시보드",
+      subtitle: "프로젝트 현황과 최근 분석 결과를 확인하세요",
+    },
+    projects: {
+      title: "프로젝트",
+      subtitle: "프로젝트를 관리하고 분석 결과를 확인하세요",
+    },
+    newProject: {
+      title: "새 프로젝트",
+      subtitle: "분석할 프로젝트의 정보를 입력하세요",
+    },
+    mypage: {
+      title: "마이페이지",
+      subtitle: "계정 정보를 확인하고 수정하세요",
+    },
+  },
   common: {
     cancel: "취소",
     delete: "삭제",
@@ -198,6 +222,11 @@ const ko: Dictionary = {
     perMonth: "/월",
     user: "사용자",
     logout: "로그아웃",
+    themeToggleDark: "다크 모드로 전환",
+    themeToggleLight: "라이트 모드로 전환",
+    showPassword: "비밀번호 보기",
+    hidePassword: "비밀번호 숨기기",
+    showMore: "더보기",
   },
   auth: {
     login: {
@@ -303,6 +332,14 @@ const ko: Dictionary = {
       COMPLETED_WITH_ERRORS: "일부 오류와 함께 완료",
       FAILED: "실패",
       CANCELLED: "취소됨",
+    },
+    logTitle: "분석 로그",
+    pipelineSteps: {
+      clone: "클론",
+      sast: "SAST",
+      build: "빌드",
+      pentest: "침투 테스트",
+      report: "리포트",
     },
     resultsTitle: "분석 결과",
     progressHeading: "분석 진행 상태",

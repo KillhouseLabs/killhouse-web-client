@@ -10,6 +10,7 @@ import {
   type AnalysisStatus,
 } from "@/domains/analysis/model/analysis-state-machine";
 import { parseAnsi } from "@/lib/ansi-parser";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface AnalysisLiveLogProps {
   logs: string | null;
@@ -41,6 +42,7 @@ interface RawOutputBlockProps {
 }
 
 function RawOutputBlock({ rawOutput }: RawOutputBlockProps) {
+  const { t } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const lines = rawOutput.split("\n");
@@ -79,7 +81,7 @@ function RawOutputBlock({ rawOutput }: RawOutputBlockProps) {
           onClick={() => setIsExpanded(true)}
           className="mt-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
         >
-          더보기
+          {t.common.showMore}
         </button>
       )}
     </div>
@@ -87,6 +89,7 @@ function RawOutputBlock({ rawOutput }: RawOutputBlockProps) {
 }
 
 export function AnalysisLiveLog({ logs, currentStatus }: AnalysisLiveLogProps) {
+  const { t } = useLocale();
   const lastLogRef = useRef<HTMLDivElement>(null);
 
   const logEntries = useMemo(() => parseAnalysisLogs(logs), [logs]);
@@ -105,7 +108,7 @@ export function AnalysisLiveLog({ logs, currentStatus }: AnalysisLiveLogProps) {
   return (
     <div className="rounded-xl border border-border bg-card">
       <div className="border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold">분석 로그</h3>
+        <h3 className="text-sm font-semibold">{t.analysis.logTitle}</h3>
       </div>
       <div className="max-h-96 overflow-y-auto">
         {Array.from(grouped.entries()).map(([stepName, entries], idx) => {

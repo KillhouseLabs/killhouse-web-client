@@ -119,6 +119,35 @@ const en: {
     perMonth: string;
     user: string;
     logout: string;
+    themeToggleDark: string;
+    themeToggleLight: string;
+    showPassword: string;
+    hidePassword: string;
+    showMore: string;
+  };
+  sidebar: {
+    dashboard: string;
+    projects: string;
+    mypage: string;
+    subscription: string;
+  };
+  pages: {
+    dashboard: {
+      title: string;
+      subtitle: string;
+    };
+    projects: {
+      title: string;
+      subtitle: string;
+    };
+    newProject: {
+      title: string;
+      subtitle: string;
+    };
+    mypage: {
+      title: string;
+      subtitle: string;
+    };
   };
   auth: {
     login: {
@@ -222,6 +251,14 @@ const en: {
       COMPLETED_WITH_ERRORS: string;
       FAILED: string;
       CANCELLED: string;
+    };
+    logTitle: string;
+    pipelineSteps: {
+      clone: string;
+      sast: string;
+      build: string;
+      pentest: string;
+      report: string;
     };
     resultsTitle: string;
     progressHeading: string;
@@ -658,6 +695,30 @@ const en: {
     allRights: "All rights reserved.",
     systemStatus: "All systems operational",
   },
+  sidebar: {
+    dashboard: "Dashboard",
+    projects: "Projects",
+    mypage: "My Page",
+    subscription: "Subscription",
+  },
+  pages: {
+    dashboard: {
+      title: "Dashboard",
+      subtitle: "Check project status and recent analysis results",
+    },
+    projects: {
+      title: "Projects",
+      subtitle: "Manage projects and check analysis results",
+    },
+    newProject: {
+      title: "New Project",
+      subtitle: "Enter information about the project to analyze",
+    },
+    mypage: {
+      title: "My Page",
+      subtitle: "Check and edit your account information",
+    },
+  },
   common: {
     cancel: "Cancel",
     delete: "Delete",
@@ -674,6 +735,11 @@ const en: {
     perMonth: "/mo",
     user: "user",
     logout: "Log out",
+    themeToggleDark: "Switch to dark mode",
+    themeToggleLight: "Switch to light mode",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    showMore: "Show more",
   },
   auth: {
     login: {
@@ -779,6 +845,14 @@ const en: {
       COMPLETED_WITH_ERRORS: "Completed with Errors",
       FAILED: "Failed",
       CANCELLED: "Cancelled",
+    },
+    logTitle: "Analysis Logs",
+    pipelineSteps: {
+      clone: "Clone",
+      sast: "SAST",
+      build: "Build",
+      pentest: "Pen Test",
+      report: "Report",
     },
     resultsTitle: "Analysis Results",
     progressHeading: "Analysis Progress",
