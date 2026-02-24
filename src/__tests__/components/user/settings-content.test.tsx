@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { renderWithLocale } from "@/__tests__/test-utils";
 import { SettingsContent } from "@/components/user/settings-content";
 
@@ -15,14 +15,34 @@ jest.mock("next-auth/react", () => ({
   })),
 }));
 
-// Mock DeleteAccountButton component
+// Mock DeleteAccountButton component — capture props
 jest.mock("@/components/user/delete-account-button", () => ({
-  DeleteAccountButton: () => (
-    <div data-testid="delete-account-button">DeleteAccountButton</div>
+  DeleteAccountButton: ({
+    hasActiveSubscription,
+  }: {
+    hasActiveSubscription?: boolean;
+  }) => (
+    <div
+      data-testid="delete-account-button"
+      data-active-subscription={String(!!hasActiveSubscription)}
+    >
+      DeleteAccountButton
+    </div>
   ),
 }));
 
+// Mock fetch
+global.fetch = jest.fn();
+
 describe("SettingsContent", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: "CANCELLED", planId: "free" }),
+    });
+  });
+
   describe("영어 로케일 렌더링", () => {
     it("GIVEN 영어 로케일 WHEN 컴포넌트 렌더링 THEN 페이지 제목이 'Settings'로 표시된다", () => {
       renderWithLocale(<SettingsContent />, "en");
@@ -143,6 +163,53 @@ describe("SettingsContent", () => {
       renderWithLocale(<SettingsContent />, "en");
 
       expect(screen.getByTestId("delete-account-button")).toBeInTheDocument();
+    });
+  });
+
+  describe("구독 상태 전달", () => {
+    it("GIVEN 활성 구독 WHEN 컴포넌트 렌더링 THEN DeleteAccountButton에 hasActiveSubscription=true 전달", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ status: "ACTIVE", planId: "pro" }),
+      });
+
+      renderWithLocale(<SettingsContent />, "en");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("delete-account-button")).toHaveAttribute(
+          "data-active-subscription",
+          "true"
+        );
+      });
+    });
+
+    it("GIVEN 비활성 구독 WHEN 컴포넌트 렌더링 THEN DeleteAccountButton에 hasActiveSubscription=false 전달", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ status: "CANCELLED", planId: "free" }),
+      });
+
+      renderWithLocale(<SettingsContent />, "en");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("delete-account-button")).toHaveAttribute(
+          "data-active-subscription",
+          "false"
+        );
+      });
+    });
+
+    it("GIVEN API 실패 WHEN 컴포넌트 렌더링 THEN DeleteAccountButton에 hasActiveSubscription=false 전달", async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new Error("Network error"));
+
+      renderWithLocale(<SettingsContent />, "en");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("delete-account-button")).toHaveAttribute(
+          "data-active-subscription",
+          "false"
+        );
+      });
     });
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { DeleteAccountButton } from "./delete-account-button";
@@ -8,6 +9,24 @@ import { PasswordInput } from "@/components/ui/password-input";
 export function SettingsContent() {
   const { data: session } = useSession();
   const { t } = useLocale();
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+
+  useEffect(() => {
+    async function fetchSubscriptionStatus() {
+      try {
+        const response = await fetch("/api/subscription");
+        if (response.ok) {
+          const data = await response.json();
+          setHasActiveSubscription(
+            data.status === "ACTIVE" || data.status === "TRIALING"
+          );
+        }
+      } catch {
+        // Fail silently — default to allowing deletion
+      }
+    }
+    fetchSubscriptionStatus();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -123,7 +142,7 @@ export function SettingsContent() {
         <p className="mb-4 text-sm text-muted-foreground">
           {t.settings.account.deleteWarning}
         </p>
-        <DeleteAccountButton />
+        <DeleteAccountButton hasActiveSubscription={hasActiveSubscription} />
       </div>
     </div>
   );
