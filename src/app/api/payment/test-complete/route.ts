@@ -5,7 +5,8 @@
  * PAYMENT_MODE 환경변수로 테스트/실제 결제 모드를 제어
  * - PAYMENT_MODE=test → 테스트 결제 허용 (NODE_ENV 무관)
  * - PAYMENT_MODE=real → 테스트 결제 차단
- * - 미설정 시 → NODE_ENV=production이면 차단
+ * - 미설정 시 → NEXT_PUBLIC_IMP_CODE 설정 여부로 판단
+ *   (클라이언트 checkout-button.tsx의 USE_TEST_MODE 로직과 일관성 유지)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,12 +24,12 @@ const testCompleteSchema = z.object({
  * 테스트 결제 완료 처리
  */
 export async function POST(request: NextRequest) {
-  // PAYMENT_MODE=real이면 테스트 결제 차단 (실제 PG 사용해야 함)
-  // PAYMENT_MODE=test이면 NODE_ENV 관계없이 테스트 결제 허용
+  // 클라이언트(checkout-button.tsx)와 동일한 판단 기준 사용:
+  // USE_TEST_MODE = IMP_CODE ? false : PAYMENT_MODE !== "real"
+  // 서버 등가 로직: PAYMENT_MODE=real이거나, PAYMENT_MODE 미설정 시 IMP_CODE가 있으면 차단
   const paymentMode = process.env.PAYMENT_MODE;
-  const isTestBlocked =
-    paymentMode === "real" ||
-    (!paymentMode && process.env.NODE_ENV === "production");
+  const impCode = process.env.NEXT_PUBLIC_IMP_CODE;
+  const isTestBlocked = paymentMode === "real" || (!paymentMode && !!impCode);
 
   if (isTestBlocked) {
     return NextResponse.json(

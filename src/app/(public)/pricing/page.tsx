@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { PLANS } from "@/config/constants";
 import { useLocale } from "@/lib/i18n/locale-context";
 
 export default function PricingPage() {
   const { t } = useLocale();
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const proCtaHref = isAuthenticated ? "/subscription" : "/signup";
 
   function formatLimit(value: number): string {
     return value === -1 ? t.pricing.features.unlimited : value.toString();
@@ -129,7 +133,7 @@ export default function PricingPage() {
               </li>
             </ul>
             <Link
-              href="/signup"
+              href={proCtaHref}
               className="mt-8 block w-full rounded-lg bg-primary py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {t.pricing.pro.cta}
