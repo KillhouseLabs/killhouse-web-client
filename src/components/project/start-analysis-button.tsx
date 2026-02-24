@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useLocale } from "@/lib/i18n/locale-context";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
 
 interface UsageInfo {
@@ -23,6 +25,8 @@ export function StartAnalysisButton({
   variant = "primary",
   children,
 }: StartAnalysisButtonProps) {
+  const { t } = useLocale();
+  const router = useRouter();
   const [isChecking, setIsChecking] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -39,7 +43,7 @@ export function StartAnalysisButton({
       const subscriptionData = await subscriptionResponse.json();
 
       if (!subscriptionResponse.ok) {
-        setError("구독 정보를 확인할 수 없습니다");
+        setError(t.project.subscriptionCheckError);
         return;
       }
 
@@ -58,7 +62,7 @@ export function StartAnalysisButton({
       setUsage(analysisThisMonth);
       setShowUpgradeModal(true);
     } catch {
-      setError("오류가 발생했습니다");
+      setError(t.analysis.errorGeneric);
     } finally {
       setIsChecking(false);
     }
@@ -83,13 +87,19 @@ export function StartAnalysisButton({
           setShowUpgradeModal(true);
           return;
         }
-        setError(data.error || "분석을 시작할 수 없습니다");
+        setError(data.error || t.project.cannotStartError);
         return;
       }
 
+      // Call onStart callback for backward compatibility
       onStart?.();
+
+      // Navigate to analysis detail page if analysis ID is available
+      if (data.success && data.data?.id) {
+        router.push(`/projects/${projectId}/analyses/${data.data.id}`);
+      }
     } catch {
-      setError("분석 시작 중 오류가 발생했습니다");
+      setError(t.analysis.errorGeneric);
     } finally {
       setIsStarting(false);
     }
@@ -113,7 +123,7 @@ export function StartAnalysisButton({
         {isLoading ? (
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-            {isChecking ? "확인 중..." : "시작 중..."}
+            {isChecking ? t.project.checkingLabel : t.project.startingLabel}
           </div>
         ) : (
           children || (
@@ -130,7 +140,7 @@ export function StartAnalysisButton({
               >
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
-              분석 시작
+              {t.project.startAnalysisButton}
             </div>
           )
         )}

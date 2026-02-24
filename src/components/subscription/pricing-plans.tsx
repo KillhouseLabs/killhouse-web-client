@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { PLANS } from "@/config/constants";
 import { CheckoutButton } from "./checkout-button";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface UsageStats {
   planId: string;
@@ -40,6 +41,7 @@ const planFeatures = {
 };
 
 export function PricingPlans() {
+  const { t } = useLocale();
   const [currentPlan, setCurrentPlan] = useState<string>("free");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -79,6 +81,7 @@ export function PricingPlans() {
           features={planFeatures.free}
           isCurrent={currentPlan === "free"}
           isDowngrade={currentPlan !== "free"}
+          t={t}
         />
 
         {/* Pro Plan */}
@@ -88,6 +91,7 @@ export function PricingPlans() {
           isCurrent={currentPlan === "pro"}
           isUpgrade={currentPlan === "free"}
           isPopular
+          t={t}
         />
 
         {/* Enterprise Plan */}
@@ -97,6 +101,7 @@ export function PricingPlans() {
           isCurrent={currentPlan === "enterprise"}
           isUpgrade={currentPlan !== "enterprise"}
           isEnterprise
+          t={t}
         />
       </div>
     </div>
@@ -111,6 +116,7 @@ interface PlanCardProps {
   isDowngrade?: boolean;
   isPopular?: boolean;
   isEnterprise?: boolean;
+  t: ReturnType<typeof useLocale>["t"];
 }
 
 function PlanCard({
@@ -120,6 +126,7 @@ function PlanCard({
   isUpgrade,
   isPopular,
   isEnterprise,
+  t,
 }: PlanCardProps) {
   return (
     <div
@@ -131,13 +138,13 @@ function PlanCard({
     >
       {isPopular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-medium text-primary-foreground">
-          인기
+          {t.subscription.popularBadge}
         </div>
       )}
 
       {isCurrent && (
         <div className="absolute -top-3 right-4 rounded-full bg-green-500 px-3 py-1 text-xs font-medium text-white">
-          현재 플랜
+          {t.subscription.currentPlanBadge}
         </div>
       )}
 
@@ -152,13 +159,13 @@ function PlanCard({
           {plan.price === 0 ? (
             <span className="text-3xl font-bold">무료</span>
           ) : plan.price === -1 ? (
-            <span className="text-3xl font-bold">문의</span>
+            <span className="text-3xl font-bold">{t.common.contactUs}</span>
           ) : (
             <>
               <span className="text-3xl font-bold">
                 ₩{plan.price.toLocaleString()}
               </span>
-              <span className="text-muted-foreground">/월</span>
+              <span className="text-muted-foreground">{t.common.perMonth}</span>
             </>
           )}
         </div>
@@ -193,21 +200,21 @@ function PlanCard({
               disabled
               className="w-full rounded-lg border border-border bg-muted py-2 text-sm font-medium text-muted-foreground"
             >
-              현재 플랜
+              {t.subscription.currentPlanBadge}
             </button>
           ) : isEnterprise ? (
             <a
               href="mailto:sales@killhouse.io"
               className="block w-full rounded-lg border border-primary bg-transparent py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/10"
             >
-              문의하기
+              {t.subscription.contactSalesButton}
             </a>
           ) : plan.price === 0 ? (
             <button
               disabled
               className="w-full rounded-lg border border-border bg-muted py-2 text-sm font-medium text-muted-foreground"
             >
-              무료 플랜
+              {t.subscription.freePlanButton}
             </button>
           ) : isUpgrade ? (
             <CheckoutButton planId={plan.id} planName={plan.name} />
@@ -216,7 +223,7 @@ function PlanCard({
               disabled
               className="w-full rounded-lg border border-border bg-muted py-2 text-sm font-medium text-muted-foreground"
             >
-              현재 플랜보다 낮음
+              {t.subscription.lowerThanCurrentButton}
             </button>
           )}
         </div>

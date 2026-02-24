@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PLANS } from "@/config/constants";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 interface UsageInfo {
   current: number;
@@ -21,19 +22,33 @@ export function UpgradeModal({
   type,
   usage,
 }: UpgradeModalProps) {
+  const { t } = useLocale();
+
   if (!isOpen) return null;
 
   const title =
-    type === "project" ? "프로젝트 생성 한도 초과" : "분석 한도 초과";
+    type === "project"
+      ? t.subscription.modal.projectLimitTitle
+      : t.subscription.modal.analysisLimitTitle;
   const description =
     type === "project"
-      ? "무료 플랜의 프로젝트 생성 한도에 도달했습니다."
-      : "이번 달 분석 한도에 도달했습니다.";
+      ? t.subscription.modal.projectLimitDescription
+      : t.subscription.modal.analysisLimitDescription;
 
   const limitText =
     type === "project"
-      ? `현재 ${usage?.current || 0}개 / 최대 ${usage?.limit || PLANS.FREE.limits.projects}개`
-      : `이번 달 ${usage?.current || 0}회 / 최대 ${usage?.limit || PLANS.FREE.limits.analysisPerMonth}회`;
+      ? t.subscription.modal.projectLimitText
+          .replace("{current}", String(usage?.current || 0))
+          .replace(
+            "{limit}",
+            String(usage?.limit || PLANS.FREE.limits.projects)
+          )
+      : t.subscription.modal.analysisLimitText
+          .replace("{current}", String(usage?.current || 0))
+          .replace(
+            "{limit}",
+            String(usage?.limit || PLANS.FREE.limits.analysisPerMonth)
+          );
 
   return (
     <div
@@ -68,7 +83,9 @@ export function UpgradeModal({
         {/* Usage Info */}
         <div className="mt-4 rounded-lg bg-muted/50 p-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">현재 사용량</span>
+            <span className="text-muted-foreground">
+              {t.subscription.modal.usageLabel}
+            </span>
             <span className="font-medium">{limitText}</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
@@ -78,7 +95,9 @@ export function UpgradeModal({
 
         {/* Plan Comparison */}
         <div className="mt-6 space-y-3">
-          <h3 className="text-sm font-medium">Pro 플랜으로 업그레이드하면</h3>
+          <h3 className="text-sm font-medium">
+            {t.subscription.modal.upgradeFeatureTitle}
+          </h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">
               <svg
@@ -93,10 +112,7 @@ export function UpgradeModal({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>
-                <strong className="text-foreground">무제한</strong> 프로젝트
-                생성
-              </span>
+              <span>{t.subscription.modal.features.unlimitedProjects}</span>
             </li>
             <li className="flex items-center gap-2">
               <svg
@@ -111,9 +127,7 @@ export function UpgradeModal({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>
-                월 <strong className="text-foreground">100회</strong> 분석
-              </span>
+              <span>{t.subscription.modal.features.monthlyAnalyses}</span>
             </li>
             <li className="flex items-center gap-2">
               <svg
@@ -128,9 +142,7 @@ export function UpgradeModal({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>
-                <strong className="text-foreground">10GB</strong> 저장 공간
-              </span>
+              <span>{t.subscription.modal.features.storage}</span>
             </li>
             <li className="flex items-center gap-2">
               <svg
@@ -145,7 +157,7 @@ export function UpgradeModal({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>우선 지원 및 고급 리포트</span>
+              <span>{t.subscription.modal.features.prioritySupport}</span>
             </li>
           </ul>
         </div>
@@ -155,7 +167,7 @@ export function UpgradeModal({
           <span className="text-3xl font-bold">
             ₩{PLANS.PRO.price.toLocaleString()}
           </span>
-          <span className="text-muted-foreground">/월</span>
+          <span className="text-muted-foreground">{t.common.perMonth}</span>
         </div>
 
         {/* Actions */}
@@ -177,14 +189,14 @@ export function UpgradeModal({
             >
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
-            플랜 업그레이드
+            {t.subscription.modal.upgradeButton}
           </Link>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
           >
-            나중에
+            {t.subscription.modal.laterButton}
           </button>
         </div>
       </div>

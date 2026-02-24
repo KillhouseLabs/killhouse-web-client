@@ -220,3 +220,100 @@ export async function getUsageStats(userId: string): Promise<UsageStats> {
     },
   };
 }
+
+export interface CreateAnalysisInput {
+  userId: string;
+  projectId: string;
+  repositoryId: string | null;
+  branch: string;
+  commitHash: string | null;
+}
+
+export interface CreateAnalysisResult {
+  success: boolean;
+  analysis?: {
+    id: string;
+    status: string;
+    branch: string;
+    commitHash: string | null;
+  };
+  code?: "LIMIT_EXCEEDED" | "CONCURRENT_LIMIT_EXCEEDED";
+  message?: string;
+  usage?: { current: number; limit: number };
+}
+
+export async function createAnalysisWithLimitCheck(
+  input: CreateAnalysisInput
+): Promise<CreateAnalysisResult> {
+  // Fetch policy limits OUTSIDE the transaction (can be cached)
+  const subscription = await getUserSubscription(input.userId);
+  const limits = await getPlanLimits(subscription.planId);
+  const policy = await fetchPolicy();
+  const policyLimits = getPolicyPlanLimits(policy, subscription.planId);
+
+  // Run count + create atomically inside a serializable transaction
+  return prisma.$transaction(
+    async (tx) => {
+      // Monthly limit check
+      const monthlyCount = await tx.analysis.count({
+        where: {
+          project: { userId: input.userId },
+          startedAt: { gte: getMonthStart() },
+        },
+      });
+
+      if (!canPerformAction(monthlyCount, limits.analysisPerMonth)) {
+        return {
+          success: false,
+          code: "LIMIT_EXCEEDED" as const,
+          message: `이번 달 분석 한도(${limits.analysisPerMonth}회)에 도달했습니다. 플랜을 업그레이드하세요.`,
+          usage: { current: monthlyCount, limit: limits.analysisPerMonth },
+        };
+      }
+
+      // Concurrent scan limit check
+      const concurrentCount = await tx.analysis.count({
+        where: {
+          project: { userId: input.userId },
+          status: { notIn: TERMINAL_STATUSES },
+        },
+      });
+
+      if (!canPerformAction(concurrentCount, policyLimits.maxConcurrentScans)) {
+        return {
+          success: false,
+          code: "CONCURRENT_LIMIT_EXCEEDED" as const,
+          message: `동시 스캔 한도(${policyLimits.maxConcurrentScans}개)에 도달했습니다. 진행 중인 분석이 완료될 때까지 기다려주세요.`,
+          usage: {
+            current: concurrentCount,
+            limit: policyLimits.maxConcurrentScans,
+          },
+        };
+      }
+
+      // Create analysis atomically within the same transaction
+      const analysis = await tx.analysis.create({
+        data: {
+          projectId: input.projectId,
+          repositoryId: input.repositoryId,
+          branch: input.branch,
+          commitHash: input.commitHash,
+          status: "PENDING",
+        },
+      });
+
+      return {
+        success: true,
+        analysis: {
+          id: analysis.id,
+          status: analysis.status,
+          branch: analysis.branch,
+          commitHash: analysis.commitHash,
+        },
+      };
+    },
+    {
+      isolationLevel: "Serializable",
+    }
+  );
+}

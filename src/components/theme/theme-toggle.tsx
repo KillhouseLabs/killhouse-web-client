@@ -1,9 +1,11 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useLocale } from "@/lib/i18n/locale-context";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useLocale();
   const isDark = resolvedTheme === "dark";
 
   return (
@@ -11,7 +13,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className="rounded-lg border border-border p-2 transition-colors hover:bg-accent"
-      aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
+      aria-label={isDark ? t.common.themeToggleLight : t.common.themeToggleDark}
     >
       {isDark ? (
         <svg
