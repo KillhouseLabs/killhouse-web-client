@@ -43,7 +43,7 @@ export const authConfig: NextAuthConfig = {
       const protectedRoutes = [
         "/dashboard",
         "/projects",
-        "/mypage",
+        "/settings",
         "/subscription",
       ];
       const authRoutes = [

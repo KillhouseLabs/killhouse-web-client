@@ -1,25 +1,27 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useLocale } from "@/lib/i18n/locale-context";
 import { DeleteAccountButton } from "./delete-account-button";
 import { PasswordInput } from "@/components/ui/password-input";
 
-export function MypageContent() {
+export function SettingsContent() {
   const { data: session } = useSession();
+  const { t } = useLocale();
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold">마이페이지</h1>
-        <p className="mt-1 text-muted-foreground">
-          계정 정보를 확인하고 설정을 변경하세요
-        </p>
+        <h1 className="text-2xl font-bold">{t.settings.title}</h1>
+        <p className="mt-1 text-muted-foreground">{t.settings.subtitle}</p>
       </div>
 
       {/* Profile Section */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">프로필</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.settings.profile.title}
+        </h2>
         <div className="flex items-start gap-6">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
             {session?.user?.image ? (
@@ -47,7 +49,9 @@ export function MypageContent() {
           </div>
           <div className="flex-1 space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">이름</label>
+              <label className="mb-1 block text-sm font-medium">
+                {t.settings.profile.name}
+              </label>
               <input
                 type="text"
                 defaultValue={session?.user?.name || ""}
@@ -55,7 +59,9 @@ export function MypageContent() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">이메일</label>
+              <label className="mb-1 block text-sm font-medium">
+                {t.settings.profile.email}
+              </label>
               <input
                 type="email"
                 defaultValue={session?.user?.email || ""}
@@ -63,38 +69,40 @@ export function MypageContent() {
                 disabled
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                이메일은 변경할 수 없습니다
+                {t.settings.profile.emailReadonly}
               </p>
             </div>
             <button
               type="button"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              변경사항 저장
+              {t.settings.profile.save}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Password Section */}
+      {/* Security Section */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">비밀번호 변경</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t.settings.security.title}
+        </h2>
         <div className="max-w-md space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium">
-              현재 비밀번호
+              {t.settings.security.currentPassword}
             </label>
             <PasswordInput />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
-              새 비밀번호
+              {t.settings.security.newPassword}
             </label>
             <PasswordInput />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
-              새 비밀번호 확인
+              {t.settings.security.confirmPassword}
             </label>
             <PasswordInput />
           </div>
@@ -102,18 +110,18 @@ export function MypageContent() {
             type="button"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            비밀번호 변경
+            {t.settings.security.changePassword}
           </button>
         </div>
       </div>
 
-      {/* Danger Zone */}
+      {/* Account Management Section */}
       <div className="rounded-xl border border-destructive/50 bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold text-destructive">
-          위험 구역
+          {t.settings.account.title}
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+          {t.settings.account.deleteWarning}
         </p>
         <DeleteAccountButton />
       </div>
