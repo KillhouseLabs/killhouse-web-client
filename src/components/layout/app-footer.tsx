@@ -1,25 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { APP_NAME, BUSINESS_INFO, LEGAL_ROUTES } from "@/config/constants";
-
-function ShieldIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-    </svg>
-  );
-}
 
 export function AppFooter({
   variant = "full",
@@ -60,9 +44,13 @@ export function AppFooter({
           {/* Brand */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <ShieldIcon className="h-3.5 w-3.5" />
-              </div>
+              <Image
+                src="/killhouse-logo-no-bg.png"
+                alt="Killhouse"
+                width={28}
+                height={28}
+                className="h-7 w-7"
+              />
               <span className="text-sm font-semibold">Killhouse</span>
             </Link>
             <p className="mt-3 text-sm text-muted-foreground">
