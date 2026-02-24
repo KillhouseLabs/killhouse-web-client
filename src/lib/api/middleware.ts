@@ -21,6 +21,7 @@ import {
   canCreateProject,
   canRunAnalysis,
 } from "@/domains/subscription/usecase/subscription-limits";
+import { prisma } from "@/infrastructure/database/prisma";
 import type { Session } from "next-auth";
 
 // ============================================================================
@@ -129,6 +130,35 @@ export function withSubscriptionCheck(
     };
   };
 }
+
+/**
+ * 활성 구독 가드 미들웨어
+ *
+ * 구독이 ACTIVE 또는 TRIALING 상태인 경우 요청을 차단
+ * 계정 삭제 전 구독 취소를 강제하기 위한 게이트웨이
+ */
+export const withActiveSubscriptionGuard: MiddlewareFunction = (handler) => {
+  return async (request: NextRequest, context: AuthenticatedContext) => {
+    const { userId } = context;
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (subscription && ["ACTIVE", "TRIALING"].includes(subscription.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "활성 구독이 있습니다. 구독을 먼저 취소해주세요.",
+          code: "ACTIVE_SUBSCRIPTION",
+        },
+        { status: 409 }
+      );
+    }
+
+    return handler(request, context);
+  };
+};
 
 /**
  * 에러 핸들링 미들웨어
@@ -252,4 +282,17 @@ export const analysisRunHandler = withMiddleware(
   withErrorHandling,
   withAuth,
   withSubscriptionCheck("runAnalysis")
+);
+
+/**
+ * 계정 삭제 API를 위한 프리셋
+ *
+ * - 에러 핸들링
+ * - 인증 검증
+ * - 활성 구독 가드 (구독 취소 후에만 삭제 가능)
+ */
+export const accountDeletionHandler = withMiddleware(
+  withErrorHandling,
+  withAuth,
+  withActiveSubscriptionGuard
 );

@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { useLocale } from "@/lib/i18n/locale-context";
 
-export function DeleteAccountButton() {
+interface DeleteAccountButtonProps {
+  hasActiveSubscription?: boolean;
+}
+
+export function DeleteAccountButton({
+  hasActiveSubscription = false,
+}: DeleteAccountButtonProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useLocale();
 
   const handleDelete = async () => {
     if (!isConfirming) {
@@ -25,15 +34,14 @@ export function DeleteAccountButton() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "계정 삭제에 실패했습니다");
+        setError(data.error || t.settings.account.deleteFailed);
         setIsDeleting(false);
         return;
       }
 
-      // Sign out and redirect to home
       await signOut({ callbackUrl: "/" });
     } catch {
-      setError("계정 삭제 중 오류가 발생했습니다");
+      setError(t.settings.account.deleteError);
       setIsDeleting(false);
     }
   };
@@ -42,6 +50,22 @@ export function DeleteAccountButton() {
     setIsConfirming(false);
     setError("");
   };
+
+  if (hasActiveSubscription) {
+    return (
+      <div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {t.settings.account.cancelSubscriptionFirst}
+        </p>
+        <Link
+          href="/subscription"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          {t.settings.account.goToSubscription}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -55,7 +79,9 @@ export function DeleteAccountButton() {
             disabled={isDeleting}
             className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
           >
-            {isDeleting ? "삭제 중..." : "정말 삭제합니다"}
+            {isDeleting
+              ? t.settings.account.deleting
+              : t.settings.account.confirmDelete}
           </button>
           <button
             type="button"
@@ -63,7 +89,7 @@ export function DeleteAccountButton() {
             disabled={isDeleting}
             className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
-            취소
+            {t.common.cancel}
           </button>
         </div>
       ) : (
@@ -72,7 +98,7 @@ export function DeleteAccountButton() {
           onClick={handleDelete}
           className="rounded-lg border border-destructive px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
         >
-          계정 삭제
+          {t.settings.account.deleteButton}
         </button>
       )}
     </div>

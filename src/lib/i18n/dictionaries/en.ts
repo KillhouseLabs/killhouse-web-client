@@ -148,6 +148,39 @@ const en: {
       title: string;
       subtitle: string;
     };
+    settings: {
+      title: string;
+      subtitle: string;
+    };
+  };
+  settings: {
+    title: string;
+    subtitle: string;
+    profile: {
+      title: string;
+      name: string;
+      email: string;
+      emailReadonly: string;
+      save: string;
+    };
+    security: {
+      title: string;
+      changePassword: string;
+      currentPassword: string;
+      newPassword: string;
+      confirmPassword: string;
+    };
+    account: {
+      title: string;
+      deleteWarning: string;
+      deleteButton: string;
+      deleting: string;
+      confirmDelete: string;
+      cancelSubscriptionFirst: string;
+      goToSubscription: string;
+      deleteFailed: string;
+      deleteError: string;
+    };
   };
   auth: {
     login: {
@@ -718,6 +751,10 @@ const en: {
       title: "My Page",
       subtitle: "Check and edit your account information",
     },
+    settings: {
+      title: "Settings",
+      subtitle: "Check and edit your account settings",
+    },
   },
   common: {
     cancel: "Cancel",
@@ -740,6 +777,37 @@ const en: {
     showPassword: "Show password",
     hidePassword: "Hide password",
     showMore: "Show more",
+  },
+  settings: {
+    title: "Settings",
+    subtitle: "Manage your account information and preferences",
+    profile: {
+      title: "Profile",
+      name: "Name",
+      email: "Email",
+      emailReadonly: "Email cannot be changed",
+      save: "Save changes",
+    },
+    security: {
+      title: "Security",
+      changePassword: "Change Password",
+      currentPassword: "Current password",
+      newPassword: "New password",
+      confirmPassword: "Confirm new password",
+    },
+    account: {
+      title: "Account Management",
+      deleteWarning:
+        "Deleting your account will permanently remove all data and cannot be undone.",
+      deleteButton: "Delete account",
+      deleting: "Deleting...",
+      confirmDelete: "Yes, delete my account",
+      cancelSubscriptionFirst:
+        "You must cancel your subscription before deleting your account.",
+      goToSubscription: "Go to Subscription",
+      deleteFailed: "Failed to delete account",
+      deleteError: "An error occurred while deleting your account",
+    },
   },
   auth: {
     login: {

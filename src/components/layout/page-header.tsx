@@ -3,7 +3,7 @@
 import { useLocale } from "@/lib/i18n/locale-context";
 
 interface PageHeaderProps {
-  titleKey: "dashboard" | "projects" | "newProject" | "mypage";
+  titleKey: "dashboard" | "projects" | "newProject" | "mypage" | "settings";
 }
 
 export function PageHeader({ titleKey }: PageHeaderProps) {

@@ -205,6 +205,10 @@ const ko: Dictionary = {
       title: "마이페이지",
       subtitle: "계정 정보를 확인하고 수정하세요",
     },
+    settings: {
+      title: "설정",
+      subtitle: "계정 정보를 확인하고 설정을 변경하세요",
+    },
   },
   common: {
     cancel: "취소",
@@ -227,6 +231,36 @@ const ko: Dictionary = {
     showPassword: "비밀번호 보기",
     hidePassword: "비밀번호 숨기기",
     showMore: "더보기",
+  },
+  settings: {
+    title: "설정",
+    subtitle: "계정 정보를 확인하고 설정을 변경하세요",
+    profile: {
+      title: "프로필",
+      name: "이름",
+      email: "이메일",
+      emailReadonly: "이메일은 변경할 수 없습니다",
+      save: "변경사항 저장",
+    },
+    security: {
+      title: "보안",
+      changePassword: "비밀번호 변경",
+      currentPassword: "현재 비밀번호",
+      newPassword: "새 비밀번호",
+      confirmPassword: "새 비밀번호 확인",
+    },
+    account: {
+      title: "계정 관리",
+      deleteWarning:
+        "계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.",
+      deleteButton: "계정 삭제",
+      deleting: "삭제 중...",
+      confirmDelete: "정말 삭제합니다",
+      cancelSubscriptionFirst: "계정을 삭제하려면 먼저 구독을 취소해야 합니다.",
+      goToSubscription: "구독 관리로 이동",
+      deleteFailed: "계정 삭제에 실패했습니다",
+      deleteError: "계정 삭제 중 오류가 발생했습니다",
+    },
   },
   auth: {
     login: {
