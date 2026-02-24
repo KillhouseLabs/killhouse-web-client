@@ -1,96 +1,102 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LocaleToggle } from "@/components/theme/locale-toggle";
+import type { Dictionary } from "@/lib/i18n/dictionaries/en";
 
-const navItems = [
-  {
-    href: "/dashboard",
-    label: "대시보드",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5"
-      >
-        <rect width="7" height="9" x="3" y="3" rx="1" />
-        <rect width="7" height="5" x="14" y="3" rx="1" />
-        <rect width="7" height="9" x="14" y="12" rx="1" />
-        <rect width="7" height="5" x="3" y="16" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: "/projects",
-    label: "프로젝트",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5"
-      >
-        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/settings",
-    label: "settings",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5"
-      >
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    ),
-  },
-  {
-    href: "/subscription",
-    label: "구독 관리",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-5 w-5"
-      >
-        <rect width="20" height="14" x="2" y="5" rx="2" />
-        <line x1="2" x2="22" y1="10" y2="10" />
-      </svg>
-    ),
-  },
-];
+function getNavItems(t: Dictionary) {
+  return [
+    {
+      href: "/dashboard",
+      label: t.sidebar.dashboard,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5"
+        >
+          <rect width="7" height="9" x="3" y="3" rx="1" />
+          <rect width="7" height="5" x="14" y="3" rx="1" />
+          <rect width="7" height="9" x="14" y="12" rx="1" />
+          <rect width="7" height="5" x="3" y="16" rx="1" />
+        </svg>
+      ),
+    },
+    {
+      href: "/projects",
+      label: t.sidebar.projects,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5"
+        >
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+        </svg>
+      ),
+    },
+    {
+      href: "/settings",
+      label: t.settings.title,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5"
+        >
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ),
+    },
+    {
+      href: "/subscription",
+      label: t.sidebar.subscription,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5"
+        >
+          <rect width="20" height="14" x="2" y="5" rx="2" />
+          <line x1="2" x2="22" y1="10" y2="10" />
+        </svg>
+      ),
+    },
+  ];
+}
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { t } = useLocale();
+  const navItems = getNavItems(t);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-card">
@@ -98,20 +104,13 @@ export function DashboardSidebar() {
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b border-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-              </svg>
-            </div>
+            <Image
+              src="/killhouse-logo-no-bg.png"
+              alt="Killhouse"
+              width={32}
+              height={32}
+              className="h-8 w-8"
+            />
             <span className="text-lg font-bold">Killhouse</span>
           </Link>
         </div>
@@ -131,7 +130,7 @@ export function DashboardSidebar() {
               )}
             >
               {item.icon}
-              {item.href === "/settings" ? t.settings.title : item.label}
+              {item.label}
             </Link>
           ))}
         </nav>
@@ -165,7 +164,7 @@ export function DashboardSidebar() {
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-sm font-medium">
-                {session?.user?.name || "사용자"}
+                {session?.user?.name || t.common.user}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {session?.user?.email || ""}
@@ -179,6 +178,8 @@ export function DashboardSidebar() {
 }
 
 export function DashboardHeader() {
+  const { t } = useLocale();
+
   const handleLogout = () => {
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
@@ -200,6 +201,7 @@ export function DashboardHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex flex-1 items-center justify-end gap-4">
+        <LocaleToggle />
         <ThemeToggle />
         <button
           type="button"
@@ -224,7 +226,7 @@ export function DashboardHeader() {
           onClick={handleLogout}
           className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
         >
-          로그아웃
+          {t.common.logout}
         </button>
       </div>
     </header>

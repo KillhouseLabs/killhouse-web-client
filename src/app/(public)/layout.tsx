@@ -1,27 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LocaleToggle } from "@/components/theme/locale-toggle";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { AppFooter } from "@/components/layout/app-footer";
-
-function ShieldIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-    </svg>
-  );
-}
 
 function PublicNav() {
   const { t } = useLocale();
@@ -30,9 +14,13 @@ function PublicNav() {
     <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/60 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ShieldIcon className="h-4 w-4" />
-          </div>
+          <Image
+            src="/killhouse-logo-no-bg.png"
+            alt="Killhouse"
+            width={32}
+            height={32}
+            className="h-8 w-8"
+          />
           <span className="text-lg font-semibold tracking-tight">
             Killhouse
           </span>

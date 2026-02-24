@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { DeleteAccountButton } from "./delete-account-button";
 import { PasswordInput } from "@/components/ui/password-input";
+import { PageHeader } from "@/components/layout/page-header";
 
 export function SettingsContent() {
   const { data: session } = useSession();
@@ -31,10 +32,7 @@ export function SettingsContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold">{t.settings.title}</h1>
-        <p className="mt-1 text-muted-foreground">{t.settings.subtitle}</p>
-      </div>
+      <PageHeader titleKey="settings" />
 
       {/* Profile Section */}
       <div className="rounded-xl border border-border bg-card p-6">

@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import {
-  canRunAnalysis,
-  canStartConcurrentScan,
-} from "@/domains/subscription/usecase/subscription-limits";
+import { createAnalysisWithLimitCheck } from "@/domains/subscription/usecase/subscription-limits";
 import { serverEnv } from "@/config/env";
 import { orchestrateSandboxAndDast } from "@/lib/sandbox-orchestrator";
 import { resilientFetch } from "@/lib/resilient-fetch";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const sastCircuitBreaker = new CircuitBreaker(3, 5 * 60 * 1000);
 
@@ -130,35 +128,19 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Check subscription limits: monthly analysis count
-    const limitCheck = await canRunAnalysis(session.user.id);
-    if (!limitCheck.allowed) {
+    // Add per-user rate limit check for analysis creation
+    const userRateLimit = checkRateLimit(
+      session.user.id,
+      "analysis-create-user",
+      RATE_LIMITS.analysisCreate
+    );
+    if (!userRateLimit.allowed) {
       return NextResponse.json(
         {
           success: false,
-          error: limitCheck.message,
-          code: "LIMIT_EXCEEDED",
-          usage: {
-            current: limitCheck.currentCount,
-            limit: limitCheck.limit,
-          },
-        },
-        { status: 403 }
-      );
-    }
-
-    // Check policy limits: concurrent scan count
-    const concurrentCheck = await canStartConcurrentScan(session.user.id);
-    if (!concurrentCheck.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: concurrentCheck.message,
-          code: "CONCURRENT_LIMIT_EXCEEDED",
-          usage: {
-            current: concurrentCheck.currentCount,
-            limit: concurrentCheck.limit,
-          },
+          error: "분석 요청이 너무 빈번합니다. 잠시 후 다시 시도해주세요.",
+          code: "RATE_LIMITED",
+          retryAfter: userRateLimit.retryAfter,
         },
         { status: 429 }
       );
@@ -226,15 +208,33 @@ export async function POST(request: Request, { params }: RouteParams) {
     const effectiveBranch =
       branch !== "main" ? branch : targetRepository?.defaultBranch || branch;
 
-    // Create new analysis
-    const analysis = await prisma.analysis.create({
-      data: {
-        projectId,
-        repositoryId: repositoryId || targetRepository?.id || null,
-        branch: effectiveBranch,
-        commitHash: commitHash || null,
-        status: "PENDING",
-      },
+    // Atomic limit check + create
+    const result = await createAnalysisWithLimitCheck({
+      userId: session.user.id,
+      projectId,
+      repositoryId: repositoryId || targetRepository?.id || null,
+      branch: effectiveBranch,
+      commitHash: commitHash || null,
+    });
+
+    if (!result.success) {
+      const status = result.code === "CONCURRENT_LIMIT_EXCEEDED" ? 429 : 403;
+      return NextResponse.json(
+        {
+          success: false,
+          error: result.message,
+          code: result.code,
+          usage: result.usage,
+        },
+        { status }
+      );
+    }
+
+    const analysis = result.analysis!;
+
+    // Fetch repository info for response
+    const analysisWithRepository = await prisma.analysis.findUnique({
+      where: { id: analysis.id },
       include: {
         repository: {
           select: {
@@ -307,7 +307,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: true,
-        data: analysis,
+        data: analysisWithRepository,
       },
       { status: 201 }
     );

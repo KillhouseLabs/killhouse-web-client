@@ -8,6 +8,31 @@ import {
 } from "@/domains/analysis/model/analysis-state-machine";
 import { appendLog } from "@/domains/analysis/model/analysis-log";
 
+// Helper: determine if incoming report should update the stored report
+function shouldUpdateReport(
+  incoming: unknown,
+  existingReport: string | null
+): boolean {
+  const parsed = typeof incoming === "string" ? JSON.parse(incoming) : incoming;
+
+  // If there's no existing report, always save the incoming report
+  if (!existingReport) return true;
+
+  // Don't overwrite if the step was skipped
+  if (parsed?.step_result?.status === "skipped") return false;
+
+  // Don't overwrite existing report with empty findings
+  if (parsed?.findings?.length === 0) {
+    try {
+      const existing = JSON.parse(existingReport);
+      if (existing?.findings?.length > 0) return false;
+    } catch {
+      // If existing report is not valid JSON, allow overwrite
+    }
+  }
+  return true;
+}
+
 export async function POST(request: Request) {
   try {
     // API key verification
@@ -39,6 +64,7 @@ export async function POST(request: Request) {
       error: webhookError,
       log_message,
       log_level,
+      raw_output,
     } = body;
 
     if (!analysis_id) {
@@ -109,6 +135,7 @@ export async function POST(request: Request) {
         step,
         level: level as "info" | "warn" | "error" | "success",
         message: log_message,
+        ...(raw_output ? { rawOutput: raw_output } : {}),
       });
     }
 
@@ -129,14 +156,23 @@ export async function POST(request: Request) {
       logs: updatedLogs,
     };
 
-    if (static_analysis_report) {
+    if (
+      static_analysis_report &&
+      shouldUpdateReport(static_analysis_report, analysis.staticAnalysisReport)
+    ) {
       updateData.staticAnalysisReport =
         typeof static_analysis_report === "string"
           ? static_analysis_report
           : JSON.stringify(static_analysis_report);
     }
 
-    if (penetration_test_report) {
+    if (
+      penetration_test_report &&
+      shouldUpdateReport(
+        penetration_test_report,
+        analysis.penetrationTestReport
+      )
+    ) {
       updateData.penetrationTestReport =
         typeof penetration_test_report === "string"
           ? penetration_test_report

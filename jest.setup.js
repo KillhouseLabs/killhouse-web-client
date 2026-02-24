@@ -92,6 +92,21 @@ jest.mock("next-auth/react", () => ({
   })),
 }));
 
+// Mock locale context to default to Korean for backward compatibility with tests
+jest.mock("@/lib/i18n/locale-context", () => {
+  const actual = jest.requireActual("@/lib/i18n/locale-context");
+  const koDict = jest.requireActual("@/lib/i18n/dictionaries/ko").default;
+
+  return {
+    ...actual,
+    useLocale: jest.fn(() => ({
+      locale: "ko",
+      t: koDict,
+      setLocale: jest.fn(),
+    })),
+  };
+});
+
 // Suppress console errors in tests (optional)
 const originalError = console.error;
 beforeAll(() => {
