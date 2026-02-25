@@ -8,7 +8,7 @@ const TERMINAL_STATUSES = [
   "FAILED",
   "CANCELLED",
 ];
-const POLLING_INTERVAL = 3000;
+const POLLING_INTERVAL = 500;
 
 interface PollingAnalysis {
   id: string;
