@@ -106,6 +106,7 @@ export function CheckoutButton({
     };
     script.onerror = () => {
       console.error("[Checkout] Failed to load IMP SDK");
+      setError("결제 모듈 로드에 실패했습니다. 페이지를 새로고침해주세요.");
     };
     document.head.appendChild(script);
 
@@ -209,15 +210,23 @@ export function CheckoutButton({
       const checkoutData: CheckoutData = checkoutResult.data;
       console.log("[Checkout] Order created:", checkoutData.orderId);
 
-      // 2. 테스트 모드 또는 SDK 미로드 시 테스트 결제 처리
-      if (USE_TEST_MODE || !sdkLoaded || !window.IMP) {
-        console.log(
-          "[Checkout] Using test mode payment, USE_TEST_MODE:",
-          USE_TEST_MODE,
-          "SDK loaded:",
-          sdkLoaded
-        );
+      // 2. 테스트 모드: test-complete API로 처리
+      if (USE_TEST_MODE) {
+        console.log("[Checkout] Using test mode payment");
         await handleTestPayment(checkoutData);
+        return;
+      }
+
+      // 2-1. 실제 모드인데 SDK 미로드 시: fallback 없이 에러 표시
+      if (!sdkLoaded || !window.IMP) {
+        console.warn(
+          "[Checkout] SDK not ready, sdkLoaded:",
+          sdkLoaded,
+          "window.IMP:",
+          !!window.IMP
+        );
+        setError("결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+        setIsLoading(false);
         return;
       }
 
@@ -270,13 +279,18 @@ export function CheckoutButton({
       <button
         type="button"
         onClick={handleCheckout}
-        disabled={isLoading}
+        disabled={isLoading || (!USE_TEST_MODE && !sdkLoaded)}
         className={`w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 ${className}`}
       >
         {isLoading ? (
           <span className="flex items-center justify-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             {t.subscription.checkout.processingLabel}
+          </span>
+        ) : !USE_TEST_MODE && !sdkLoaded ? (
+          <span className="flex items-center justify-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+            결제 모듈 로딩 중...
           </span>
         ) : (
           t.subscription.checkout.subscribeButton.replace(
