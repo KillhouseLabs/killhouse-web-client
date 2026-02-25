@@ -47,7 +47,7 @@ describe("useAnalysisPolling", () => {
       });
     });
 
-    it("When 3초가 경과하면 Then 다시 fetch를 호출해야 한다", async () => {
+    it("When 500ms가 경과하면 Then 다시 fetch를 호출해야 한다", async () => {
       // Given
       const mockResponse = {
         success: true,
@@ -76,7 +76,7 @@ describe("useAnalysisPolling", () => {
       });
 
       // When
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then
       await waitFor(() => {
@@ -84,7 +84,7 @@ describe("useAnalysisPolling", () => {
       });
     });
 
-    it("When 여러 번 폴링하면 Then 3초 간격으로 계속 fetch해야 한다", async () => {
+    it("When 여러 번 폴링하면 Then 500ms 간격으로 계속 fetch해야 한다", async () => {
       // Given
       const mockResponse = {
         success: true,
@@ -112,8 +112,8 @@ describe("useAnalysisPolling", () => {
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
 
-      // When - advance 9 seconds (3 more intervals)
-      jest.advanceTimersByTime(9000);
+      // When - advance 1500ms (3 more intervals)
+      jest.advanceTimersByTime(1500);
 
       // Then
       await waitFor(() => {
@@ -175,7 +175,7 @@ describe("useAnalysisPolling", () => {
       });
 
       // Advance to second fetch
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then
       await waitFor(() => {
@@ -186,7 +186,7 @@ describe("useAnalysisPolling", () => {
       // Verify polling stopped
       const fetchCallsBeforeAdvance = (global.fetch as jest.Mock).mock.calls
         .length;
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
       await waitFor(() => {
         expect((global.fetch as jest.Mock).mock.calls.length).toBe(
           fetchCallsBeforeAdvance
@@ -228,7 +228,7 @@ describe("useAnalysisPolling", () => {
 
       // Verify polling stopped
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
@@ -268,7 +268,7 @@ describe("useAnalysisPolling", () => {
 
       // Verify polling stopped
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
@@ -284,7 +284,7 @@ describe("useAnalysisPolling", () => {
       expect(global.fetch).not.toHaveBeenCalled();
 
       // Advance time and verify no polling
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -335,7 +335,7 @@ describe("useAnalysisPolling", () => {
       expect(global.fetch).not.toHaveBeenCalled();
 
       // Advance time and verify no polling
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -481,7 +481,7 @@ describe("useAnalysisPolling", () => {
       expect(result.current.analysis).toBeNull();
 
       // Advance to next interval
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then - should retry and succeed
       await waitFor(() => {
@@ -530,7 +530,7 @@ describe("useAnalysisPolling", () => {
       expect(result.current.analysis).toBeNull();
 
       // Advance to next interval
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then - should retry and succeed
       await waitFor(() => {
@@ -584,7 +584,7 @@ describe("useAnalysisPolling", () => {
       expect(result.current.analysis).toBeNull();
 
       // Advance to next interval
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then - should retry and succeed
       await waitFor(() => {
@@ -688,7 +688,7 @@ describe("useAnalysisPolling", () => {
       unmount();
 
       // Advance time
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(500);
 
       // Then - no additional fetch should happen
       expect(global.fetch).toHaveBeenCalledTimes(1);
