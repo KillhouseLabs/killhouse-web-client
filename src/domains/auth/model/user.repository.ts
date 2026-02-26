@@ -3,6 +3,7 @@ export interface UserRecord {
   name: string | null;
   email: string;
   password: string | null;
+  image: string | null;
 }
 
 export interface UserRepository {
