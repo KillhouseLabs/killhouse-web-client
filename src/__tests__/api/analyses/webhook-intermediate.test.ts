@@ -8,12 +8,10 @@
  */
 
 // Mock dependencies
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    analysis: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    findById: jest.fn(),
+    update: jest.fn(),
   },
 }));
 
@@ -24,7 +22,7 @@ jest.mock("@/config/env", () => ({
 }));
 
 import { POST } from "@/app/api/analyses/webhook/route";
-import { prisma } from "@/infrastructure/database/prisma";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 describe("Analyses Webhook API - Intermediate Status", () => {
   beforeEach(() => {
@@ -39,10 +37,10 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENDING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
-        (prisma.analysis.update as jest.Mock).mockResolvedValue({
+        (analysisRepository.update as jest.Mock).mockResolvedValue({
           ...mockAnalysis,
           status: "CLONING",
         });
@@ -119,7 +117,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
 
       it("GIVEN 존재하지 않는 analysis_id WHEN 웹훅 요청 THEN 404 에러가 반환되어야 한다", async () => {
         // GIVEN
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(null);
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(null);
 
         const request = new Request("http://localhost/api/analyses/webhook", {
           method: "POST",
@@ -151,7 +149,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENDING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -159,7 +157,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "CLONING",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -183,12 +181,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("CLONING");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "CLONING",
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN CLONING 상태 WHEN status=STATIC_ANALYSIS THEN 분석 상태가 STATIC_ANALYSIS로 업데이트되어야 한다", async () => {
@@ -197,7 +195,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "CLONING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -205,7 +203,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "STATIC_ANALYSIS",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -229,12 +227,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("STATIC_ANALYSIS");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "STATIC_ANALYSIS",
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN STATIC_ANALYSIS 상태 WHEN status=BUILDING THEN 분석 상태가 BUILDING으로 업데이트되어야 한다", async () => {
@@ -243,7 +241,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "STATIC_ANALYSIS",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -251,7 +249,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "BUILDING",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -275,12 +273,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("BUILDING");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "BUILDING",
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN BUILDING 상태 WHEN status=PENETRATION_TEST THEN 분석 상태가 PENETRATION_TEST로 업데이트되어야 한다", async () => {
@@ -289,7 +287,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "BUILDING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -297,7 +295,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENETRATION_TEST",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -321,12 +319,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("PENETRATION_TEST");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "PENETRATION_TEST",
-          }),
-        });
+          })
+        );
       });
     });
 
@@ -337,7 +335,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENETRATION_TEST",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -346,7 +344,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           status: "COMPLETED_WITH_ERRORS",
           completedAt: new Date(),
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -375,15 +373,15 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("COMPLETED_WITH_ERRORS");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "COMPLETED_WITH_ERRORS",
             completedAt: expect.any(Date),
             sandboxStatus: "COMPLETED",
             vulnerabilitiesFound: 3,
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN PENETRATION_TEST 상태 WHEN status=COMPLETED THEN DB가 COMPLETED로 업데이트되고 completedAt이 설정되어야 한다", async () => {
@@ -392,7 +390,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENETRATION_TEST",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -401,7 +399,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           status: "COMPLETED",
           completedAt: new Date(),
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -430,9 +428,9 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("COMPLETED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "COMPLETED",
             completedAt: expect.any(Date),
             sandboxStatus: "COMPLETED",
@@ -441,8 +439,8 @@ describe("Analyses Webhook API - Intermediate Status", () => {
             highCount: 2,
             mediumCount: 1,
             lowCount: 1,
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN 중간 상태 WHEN status=FAILED THEN DB가 FAILED로 업데이트되어야 한다", async () => {
@@ -451,7 +449,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "BUILDING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -459,7 +457,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "FAILED",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -484,13 +482,13 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("FAILED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "FAILED",
             sandboxStatus: "FAILED",
-          }),
-        });
+          })
+        );
       });
     });
 
@@ -501,7 +499,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "COMPLETED",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -509,7 +507,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "COMPLETED", // 상태 유지
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -533,12 +531,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("COMPLETED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "COMPLETED", // 터미널 상태 유지
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN FAILED 상태 WHEN 중간 상태(CLONING) 요청 THEN 상태가 FAILED로 유지되어야 한다", async () => {
@@ -547,7 +545,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "FAILED",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -555,7 +553,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "FAILED", // 상태 유지
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -579,12 +577,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("FAILED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "FAILED", // 터미널 상태 유지
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN CANCELLED 상태 WHEN 중간 상태(STATIC_ANALYSIS) 요청 THEN 상태가 CANCELLED로 유지되어야 한다", async () => {
@@ -593,7 +591,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "CANCELLED",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -601,7 +599,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "CANCELLED", // 상태 유지
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -625,12 +623,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("CANCELLED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "CANCELLED", // 터미널 상태 유지
-          }),
-        });
+          })
+        );
       });
 
       it("GIVEN COMPLETED 상태 WHEN status=FAILED 요청 THEN 상태가 FAILED로 업데이트되어야 한다", async () => {
@@ -639,7 +637,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "COMPLETED",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -647,7 +645,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "FAILED",
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -672,13 +670,13 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("FAILED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "FAILED",
             sandboxStatus: "FAILED",
-          }),
-        });
+          })
+        );
       });
     });
 
@@ -689,7 +687,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENDING",
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -697,7 +695,7 @@ describe("Analyses Webhook API - Intermediate Status", () => {
           id: "analysis-1",
           status: "PENDING", // 상태 유지
         };
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           updatedAnalysis
         );
 
@@ -721,12 +719,12 @@ describe("Analyses Webhook API - Intermediate Status", () => {
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.data.status).toBe("PENDING");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "PENDING", // 기존 상태 유지
-          }),
-        });
+          })
+        );
       });
     });
   });

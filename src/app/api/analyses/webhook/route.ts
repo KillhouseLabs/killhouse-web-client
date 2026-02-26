@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/infrastructure/database/prisma";
 import { serverEnv } from "@/config/env";
 import { processWebhook } from "@/domains/analysis/usecase/process-webhook.usecase";
+import type { AnalysisRecord } from "@/domains/analysis/usecase/process-webhook.usecase";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 const KNOWN_DB_FIELDS = [
   "status",
@@ -45,9 +46,7 @@ export async function POST(request: Request) {
     }
 
     // Find the analysis record
-    const analysis = await prisma.analysis.findUnique({
-      where: { id: analysis_id },
-    });
+    const analysis = await analysisRepository.findById(analysis_id);
 
     if (!analysis) {
       return NextResponse.json(
@@ -57,15 +56,15 @@ export async function POST(request: Request) {
     }
 
     // Delegate business logic to usecase
-    const updateData = processWebhook(analysis, body);
+    const updateData = processWebhook(
+      analysis as unknown as AnalysisRecord,
+      body
+    );
 
     // Update the analysis record
     let updated;
     try {
-      updated = await prisma.analysis.update({
-        where: { id: analysis_id },
-        data: updateData,
-      });
+      updated = await analysisRepository.update(analysis_id, updateData);
     } catch (dbError) {
       // Prisma 스키마에 없는 필드가 포함된 경우 해당 필드를 제거하고 재시도
       console.warn(
@@ -77,10 +76,7 @@ export async function POST(request: Request) {
           delete safeData[key];
         }
       }
-      updated = await prisma.analysis.update({
-        where: { id: analysis_id },
-        data: safeData,
-      });
+      updated = await analysisRepository.update(analysis_id, safeData);
     }
 
     console.log(`Webhook: Analysis ${analysis_id} updated to ${body.status}`);

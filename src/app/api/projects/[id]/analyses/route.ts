@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { createAnalysisWithLimitCheck } from "@/domains/subscription/usecase/subscription-limits";
 import { findStuckAnalysisIds } from "@/domains/analysis/usecase/watchdog";
 import { serverEnv } from "@/config/env";
@@ -9,6 +8,8 @@ import { orchestrateSandboxAndDast } from "@/domains/analysis/usecase/sandbox-or
 import { resilientFetch } from "@/lib/resilient-fetch";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 const sastCircuitBreaker = new CircuitBreaker(3, 5 * 60 * 1000);
 
@@ -35,13 +36,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -50,28 +48,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    const analyses = await prisma.analysis.findMany({
-      where: { projectId },
-      orderBy: { startedAt: "desc" },
-      include: {
-        repository: {
-          select: { id: true, name: true, provider: true },
-        },
-      },
-    });
+    const analyses = await analysisRepository.findManyByProject(projectId);
 
     // Watchdog: auto-fail stuck analyses
     const stuckIds = findStuckAnalysisIds(analyses);
 
     if (stuckIds.length > 0) {
-      Promise.all(
-        stuckIds.map((id) =>
-          prisma.analysis.update({
-            where: { id },
-            data: { status: "FAILED", completedAt: new Date() },
-          })
-        )
-      ).catch((err) => console.error("Watchdog auto-fail error:", err));
+      analysisRepository
+        .batchUpdateStatus(stuckIds, {
+          status: "FAILED",
+          completedAt: new Date(),
+        })
+        .catch((err) => console.error("Watchdog auto-fail error:", err));
 
       for (const id of stuckIds) {
         const target = analyses.find((a) => a.id === id);
@@ -122,15 +110,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-      include: { repositories: true },
-    });
+    // Verify project ownership with repositories
+    const project = await projectRepository.findDetailByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -200,14 +184,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const analysis = result.analysis!;
 
-    const analysisWithRepository = await prisma.analysis.findUnique({
-      where: { id: analysis.id },
-      include: {
-        repository: {
-          select: { id: true, name: true, provider: true },
-        },
-      },
-    });
+    const analysisWithRepository = await analysisRepository.findByIdAndProject(
+      analysis.id,
+      projectId
+    );
 
     // SAST scan trigger
     try {
@@ -238,16 +218,13 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
 
       if (scanResponse.ok) {
-        await prisma.analysis.update({
-          where: { id: analysis.id },
-          data: { status: "SCANNING" },
-        });
+        await analysisRepository.update(analysis.id, { status: "SCANNING" });
       }
     } catch (scanError) {
       console.error("Scanner API call failed after retries:", scanError);
-      await prisma.analysis.update({
-        where: { id: analysis.id },
-        data: { status: "FAILED", completedAt: new Date() },
+      await analysisRepository.update(analysis.id, {
+        status: "FAILED",
+        completedAt: new Date(),
       });
     }
 

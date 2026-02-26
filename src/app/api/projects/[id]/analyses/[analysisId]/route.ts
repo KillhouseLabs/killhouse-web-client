@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 interface RouteParams {
   params: Promise<{ id: string; analysisId: string }>;
@@ -20,13 +21,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -35,21 +33,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    const analysis = await prisma.analysis.findFirst({
-      where: {
-        id: analysisId,
-        projectId,
-      },
-      include: {
-        repository: {
-          select: {
-            id: true,
-            name: true,
-            provider: true,
-          },
-        },
-      },
-    });
+    const analysis = await analysisRepository.findByIdAndProject(
+      analysisId,
+      projectId
+    );
 
     if (!analysis) {
       return NextResponse.json(
@@ -95,13 +82,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -110,12 +94,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const analysis = await prisma.analysis.findFirst({
-      where: {
-        id: analysisId,
-        projectId,
-      },
-    });
+    const analysis = await analysisRepository.findByIdAndProject(
+      analysisId,
+      projectId
+    );
 
     if (!analysis) {
       return NextResponse.json(
@@ -132,9 +114,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const updated = await prisma.analysis.update({
-      where: { id: analysisId },
-      data: { status: "CANCELLED", completedAt: new Date() },
+    const updated = await analysisRepository.update(analysisId, {
+      status: "CANCELLED",
+      completedAt: new Date(),
     });
 
     return NextResponse.json({

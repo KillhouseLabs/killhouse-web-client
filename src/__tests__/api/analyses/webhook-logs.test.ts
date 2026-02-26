@@ -9,12 +9,10 @@
  */
 
 // Mock dependencies
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    analysis: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    findById: jest.fn(),
+    update: jest.fn(),
   },
 }));
 
@@ -25,7 +23,7 @@ jest.mock("@/config/env", () => ({
 }));
 
 import { POST } from "@/app/api/analyses/webhook/route";
-import { prisma } from "@/infrastructure/database/prisma";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import { parseAnalysisLogs } from "@/domains/analysis/model/analysis-log";
 
 describe("Analyses Webhook API - Log Persistence", () => {
@@ -42,13 +40,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "PENDING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -103,13 +101,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "CLONING",
           logs: existingLog,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -152,13 +150,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "CLONING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -204,13 +202,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "BUILDING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -250,13 +248,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "PENETRATION_TEST",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -301,13 +299,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "BUILDING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -350,13 +348,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "BUILDING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -406,13 +404,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "PENDING",
           logs: null,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValueOnce(
+        (analysisRepository.findById as jest.Mock).mockResolvedValueOnce(
           mockAnalysis1
         );
 
         let firstCallLogs: string | null = null;
-        (prisma.analysis.update as jest.Mock).mockImplementationOnce(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementationOnce(
+          (_id: string, data: any) => {
             firstCallLogs = data.logs;
             return Promise.resolve({
               id: "analysis-1",
@@ -444,13 +442,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "CLONING",
           logs: firstCallLogs,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValueOnce(
+        (analysisRepository.findById as jest.Mock).mockResolvedValueOnce(
           mockAnalysis2
         );
 
         let secondCallLogs: string | null = null;
-        (prisma.analysis.update as jest.Mock).mockImplementationOnce(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementationOnce(
+          (_id: string, data: any) => {
             secondCallLogs = data.logs;
             return Promise.resolve({
               id: "analysis-1",
@@ -511,13 +509,13 @@ describe("Analyses Webhook API - Log Persistence", () => {
           status: "BUILDING",
           logs: existingLogs,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -566,11 +564,11 @@ describe("Analyses Webhook API - Log Persistence", () => {
           mediumCount: 0,
           lowCount: 0,
         };
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
-        (prisma.analysis.update as jest.Mock).mockResolvedValue({
+        (analysisRepository.update as jest.Mock).mockResolvedValue({
           id: "analysis-1",
           status: "COMPLETED",
         });
@@ -599,17 +597,17 @@ describe("Analyses Webhook API - Log Persistence", () => {
         // THEN
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: expect.objectContaining({
+        expect(analysisRepository.update).toHaveBeenCalledWith(
+          "analysis-1",
+          expect.objectContaining({
             status: "COMPLETED",
             vulnerabilitiesFound: 5,
             criticalCount: 1,
             highCount: 2,
             mediumCount: 1,
             lowCount: 1,
-          }),
-        });
+          })
+        );
       });
     });
   });
