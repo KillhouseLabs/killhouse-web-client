@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 import { PLANS } from "@/domains/subscription/model/plan";
 import { calculateRefundAmount } from "@/domains/payment/usecase/refund.usecase";
 import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
@@ -90,13 +91,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. 결제 정보 조회
-    const payment = await prisma.payment.findFirst({
-      where: {
-        id: paymentId,
-        userId: session.user.id,
-        status: "COMPLETED",
-      },
-    });
+    const payment = await paymentRepository.findCompletedByIdAndUserId(
+      paymentId,
+      session.user.id
+    );
 
     if (!payment) {
       return NextResponse.json(
@@ -106,9 +104,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. 구독 정보 조회
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: session.user.id },
-    });
+    const subscription = await subscriptionRepository.findByUserId(
+      session.user.id
+    );
 
     if (!subscription || !subscription.currentPeriodEnd) {
       return NextResponse.json({

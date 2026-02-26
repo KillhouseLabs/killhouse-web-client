@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
 
 export async function GET() {
   try {
@@ -13,22 +13,7 @@ export async function GET() {
       );
     }
 
-    const payments = await prisma.payment.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        orderId: true,
-        planId: true,
-        amount: true,
-        status: true,
-        portonePaymentId: true,
-        paidAt: true,
-        cancelledAt: true,
-        cancelReason: true,
-        createdAt: true,
-      },
-    });
+    const payments = await paymentRepository.findManyByUserId(session.user.id);
 
     return NextResponse.json({
       success: true,

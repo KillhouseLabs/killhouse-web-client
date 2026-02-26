@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import {
   buildDedupKey,
   parseReportFindings,
@@ -20,55 +21,25 @@ export async function GET() {
     }
 
     // Get projects count
-    const totalProjects = await prisma.project.count({
-      where: {
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const totalProjects = await projectRepository.countActiveByUser(
+      session.user.id
+    );
 
     // Get completed analyses count
-    const completedAnalyses = await prisma.analysis.count({
-      where: {
-        project: {
-          userId: session.user.id,
-          status: { not: "DELETED" },
-        },
-        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
-      },
-    });
+    const completedAnalyses = await analysisRepository.countCompletedByUser(
+      session.user.id
+    );
 
     // Get aggregate vulnerability counts across all completed analyses
-    const aggregateStats = await prisma.analysis.aggregate({
-      where: {
-        project: {
-          userId: session.user.id,
-          status: { not: "DELETED" },
-        },
-        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
-      },
-      _sum: {
-        vulnerabilitiesFound: true,
-        criticalCount: true,
-      },
-    });
+    const aggregateStats = await analysisRepository.aggregateByUser(
+      session.user.id
+    );
 
     // For unique vulnerability count, limit to 100 most recent analyses for deduplication
-    const recentAnalysesForDedup = await prisma.analysis.findMany({
-      where: {
-        project: {
-          userId: session.user.id,
-          status: { not: "DELETED" },
-        },
-        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
-      },
-      orderBy: { startedAt: "desc" },
-      take: 100,
-      select: {
-        staticAnalysisReport: true,
-        penetrationTestReport: true,
-      },
-    });
+    const recentAnalysesForDedup = await analysisRepository.findRecentForDedup(
+      session.user.id,
+      100
+    );
 
     // Deduplicate findings across recent analyses only
     const seenKeys = new Set<string>();
@@ -102,33 +73,15 @@ export async function GET() {
 
     // Use aggregate totals, fall back to deduplicated counts if aggregate is empty
     const totalVulnerabilities =
-      aggregateStats._sum.vulnerabilitiesFound || uniqueVulnerabilities;
+      aggregateStats.vulnerabilitiesFound || uniqueVulnerabilities;
     const criticalVulnerabilities =
-      aggregateStats._sum.criticalCount || uniqueCriticalVulnerabilities;
+      aggregateStats.criticalCount || uniqueCriticalVulnerabilities;
 
     // Get recent activities
-    const recentAnalyses = await prisma.analysis.findMany({
-      where: {
-        project: {
-          userId: session.user.id,
-          status: { not: "DELETED" },
-        },
-      },
-      orderBy: { startedAt: "desc" },
-      take: 5,
-      include: {
-        project: {
-          select: {
-            name: true,
-            repositories: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { provider: true },
-            },
-          },
-        },
-      },
-    });
+    const recentAnalyses = await analysisRepository.findRecentWithProject(
+      session.user.id,
+      5
+    );
 
     return NextResponse.json({
       success: true,

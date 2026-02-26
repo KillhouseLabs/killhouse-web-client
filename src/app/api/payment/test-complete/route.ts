@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
 import { z } from "zod";
 import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
 
@@ -67,13 +67,10 @@ export async function POST(request: NextRequest) {
     const { orderId } = validationResult.data;
 
     // 결제 레코드 조회
-    const payment = await prisma.payment.findFirst({
-      where: {
-        orderId,
-        userId,
-        status: "PENDING",
-      },
-    });
+    const payment = await paymentRepository.findPendingByOrderIdAndUserId(
+      orderId,
+      userId
+    );
 
     if (!payment) {
       return NextResponse.json(
@@ -83,13 +80,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 결제 완료 처리
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: "COMPLETED",
-        portonePaymentId: `test_${orderId}`,
-        paidAt: new Date(),
-      },
+    await paymentRepository.updateStatus(payment.id, {
+      status: "COMPLETED",
+      portonePaymentId: `test_${orderId}`,
+      paidAt: new Date(),
     });
 
     // 구독 업그레이드

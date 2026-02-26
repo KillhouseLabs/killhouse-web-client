@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/infrastructure/database/prisma";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
 import { webhookPayloadSchema } from "@/domains/payment/dto/payment.dto";
 import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
@@ -53,14 +53,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 내부 결제 레코드 조회
-    const payment = await prisma.payment.findFirst({
-      where: {
-        OR: [
-          { portonePaymentId: paymentId },
-          { orderId: portonePayment.orderId ?? undefined },
-        ],
-      },
-    });
+    const payment = await paymentRepository.findByPortonePaymentIdOrOrderId(
+      paymentId,
+      portonePayment.orderId ?? undefined
+    );
 
     if (!payment) {
       console.error(`[Webhook] Payment not found: ${paymentId}`);
@@ -79,12 +75,9 @@ export async function POST(request: NextRequest) {
     // 결제 상태 확인
     if (portonePayment.status !== "PAID") {
       console.error(`[Webhook] Payment not paid: ${portonePayment.status}`);
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "FAILED",
-          portonePaymentId: paymentId,
-        },
+      await paymentRepository.updateStatus(payment.id, {
+        status: "FAILED",
+        portonePaymentId: paymentId,
       });
       return NextResponse.json(
         { success: false, error: "Payment not completed" },
@@ -97,12 +90,9 @@ export async function POST(request: NextRequest) {
       console.error(
         `[Webhook] Amount mismatch: expected ${payment.amount}, got ${portonePayment.amount}`
       );
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "FAILED",
-          portonePaymentId: paymentId,
-        },
+      await paymentRepository.updateStatus(payment.id, {
+        status: "FAILED",
+        portonePaymentId: paymentId,
       });
       return NextResponse.json(
         { success: false, error: "Amount mismatch" },
@@ -111,14 +101,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 결제 성공 처리
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: "COMPLETED",
-        portonePaymentId: paymentId,
-        portoneTransactionId: data.transactionId,
-        paidAt: new Date(),
-      },
+    await paymentRepository.updateStatus(payment.id, {
+      status: "COMPLETED",
+      portonePaymentId: paymentId,
+      portoneTransactionId: data.transactionId,
+      paidAt: new Date(),
     });
 
     // 구독 업그레이드
