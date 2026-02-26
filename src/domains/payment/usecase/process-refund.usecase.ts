@@ -5,8 +5,9 @@
  * 결제·구독 조회 → 환불 금액 계산 → PG 환불 → 상태 업데이트 → 구독 취소
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
 import type { PaymentGateway } from "@/domains/payment/model/payment-gateway";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 import { calculateRefundAmount } from "./refund.usecase";
 import { cancelSubscription } from "@/domains/subscription/usecase/cancel-subscription.usecase";
 
@@ -36,9 +37,10 @@ export async function processRefund(
   const { userId, paymentId, reason, fullRefund } = input;
 
   // 1. 결제 정보 조회
-  const payment = await prisma.payment.findFirst({
-    where: { id: paymentId, userId, status: "COMPLETED" },
-  });
+  const payment = await paymentRepository.findCompletedByIdAndUserId(
+    paymentId,
+    userId
+  );
 
   if (!payment) {
     throw new RefundError("환불 가능한 결제 내역이 없습니다", 404);
@@ -49,9 +51,7 @@ export async function processRefund(
   }
 
   // 2. 구독 정보 조회
-  const subscription = await prisma.subscription.findUnique({
-    where: { userId },
-  });
+  const subscription = await subscriptionRepository.findByUserId(userId);
 
   if (!subscription) {
     throw new RefundError("구독 정보가 없습니다", 404);
@@ -102,15 +102,12 @@ export async function processRefund(
 
   // 5. 결제 상태 업데이트
   const isFullRefund = refundAmount === payment.amount;
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: isFullRefund ? "REFUNDED" : "COMPLETED",
-      cancelledAt: new Date(),
-      cancelReason:
-        reason ||
-        `${isFullRefund ? "전액" : "부분"} 환불 (₩${refundAmount.toLocaleString()})`,
-    },
+  await paymentRepository.updateStatus(payment.id, {
+    status: isFullRefund ? "REFUNDED" : "COMPLETED",
+    cancelledAt: new Date(),
+    cancelReason:
+      reason ||
+      `${isFullRefund ? "전액" : "부분"} 환불 (₩${refundAmount.toLocaleString()})`,
   });
 
   // 6. 구독 취소 (subscription 도메인에 위임)

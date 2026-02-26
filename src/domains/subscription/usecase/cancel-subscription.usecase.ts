@@ -5,15 +5,12 @@
  * 환불 처리 후 호출되는 cross-domain 분리 지점.
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 
 export async function cancelSubscription(userId: string) {
-  return prisma.subscription.update({
-    where: { userId },
-    data: {
-      planId: "free",
-      status: "CANCELLED",
-      cancelAtPeriodEnd: false,
-    },
+  return subscriptionRepository.update(userId, {
+    planId: "free",
+    status: "CANCELLED",
+    cancelAtPeriodEnd: false,
   });
 }

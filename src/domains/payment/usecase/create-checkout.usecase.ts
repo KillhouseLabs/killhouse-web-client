@@ -6,6 +6,7 @@
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { Order } from "@/domains/payment/model/order";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
 
 export interface CheckoutInput {
   userId: string;
@@ -43,14 +44,12 @@ export async function createCheckout(
 
   const order = new Order(planId);
 
-  const payment = await prisma.payment.create({
-    data: {
-      orderId: order.orderId,
-      userId,
-      planId: order.planId,
-      amount: order.amount,
-      status: "PENDING",
-    },
+  const payment = await paymentRepository.create({
+    orderId: order.orderId,
+    userId,
+    planId: order.planId,
+    amount: order.amount,
+    status: "PENDING",
   });
 
   return {

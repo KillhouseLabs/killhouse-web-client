@@ -4,8 +4,9 @@
  * PG 결제 검증 → 결제 상태 갱신 → 구독 업그레이드
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
 import type { PaymentGateway } from "@/domains/payment/model/payment-gateway";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 import { upgradeSubscription } from "./upgrade-subscription";
 
 export interface VerifyPaymentInput {
@@ -34,9 +35,10 @@ export async function verifyPayment(
   const paymentInfo = await gateway.verifyClientPayment(impUid);
 
   // 내부 결제 레코드 조회
-  const payment = await prisma.payment.findFirst({
-    where: { orderId: merchantUid, userId },
-  });
+  const payment = await paymentRepository.findByOrderIdAndUserId(
+    merchantUid,
+    userId
+  );
 
   if (!payment) {
     throw new VerifyPaymentError("결제 정보를 찾을 수 없습니다", 404);
@@ -44,9 +46,7 @@ export async function verifyPayment(
 
   // 이미 처리된 결제 → 멱등성 보장
   if (payment.status === "COMPLETED") {
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId },
-    });
+    const subscription = await subscriptionRepository.findByUserId(userId);
 
     return {
       payment: { id: payment.id, status: payment.status },
@@ -63,9 +63,9 @@ export async function verifyPayment(
 
   // 결제 상태 확인
   if (paymentInfo.status !== "PAID") {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "FAILED", portonePaymentId: impUid },
+    await paymentRepository.updateStatus(payment.id, {
+      status: "FAILED",
+      portonePaymentId: impUid,
     });
     throw new VerifyPaymentError(
       "결제가 완료되지 않았습니다",
@@ -76,9 +76,9 @@ export async function verifyPayment(
 
   // 금액 검증
   if (paymentInfo.amount !== payment.amount) {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "FAILED", portonePaymentId: impUid },
+    await paymentRepository.updateStatus(payment.id, {
+      status: "FAILED",
+      portonePaymentId: impUid,
     });
     throw new VerifyPaymentError(
       "결제 금액이 일치하지 않습니다",
@@ -88,13 +88,10 @@ export async function verifyPayment(
   }
 
   // 결제 성공 처리
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: "COMPLETED",
-      portonePaymentId: impUid,
-      paidAt: paymentInfo.paidAt,
-    },
+  await paymentRepository.updateStatus(payment.id, {
+    status: "COMPLETED",
+    portonePaymentId: impUid,
+    paidAt: paymentInfo.paidAt,
   });
 
   // 구독 업그레이드

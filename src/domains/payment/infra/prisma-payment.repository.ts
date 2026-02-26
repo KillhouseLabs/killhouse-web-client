@@ -1,0 +1,34 @@
+/**
+ * Prisma Payment Repository
+ *
+ * PaymentRepository 인터페이스의 Prisma 구현체
+ * 모듈 레벨 싱글톤으로 export하여 usecase에서 직접 import
+ */
+
+import { prisma } from "@/infrastructure/database/prisma";
+import type { PaymentRepository } from "../model/payment.repository";
+
+export const paymentRepository: PaymentRepository = {
+  async create(data) {
+    return prisma.payment.create({ data });
+  },
+
+  async findByOrderIdAndUserId(orderId, userId) {
+    return prisma.payment.findFirst({
+      where: { orderId, userId },
+    });
+  },
+
+  async findCompletedByIdAndUserId(id, userId) {
+    return prisma.payment.findFirst({
+      where: { id, userId, status: "COMPLETED" },
+    });
+  },
+
+  async updateStatus(id, data) {
+    return prisma.payment.update({
+      where: { id },
+      data,
+    });
+  },
+};
