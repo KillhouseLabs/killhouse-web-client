@@ -143,4 +143,95 @@ export const analysisRepository: AnalysisRepository = {
       )
     );
   },
+
+  async findByIdWithOwnership(analysisId) {
+    return prisma.analysis.findUnique({
+      where: { id: analysisId },
+      select: {
+        id: true,
+        branch: true,
+        repository: {
+          select: { id: true, owner: true, name: true },
+        },
+        project: {
+          select: { userId: true },
+        },
+      },
+    });
+  },
+
+  async countCompletedByUser(userId) {
+    return prisma.analysis.count({
+      where: {
+        project: {
+          userId,
+          status: { not: "DELETED" },
+        },
+        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
+      },
+    });
+  },
+
+  async aggregateByUser(userId) {
+    const result = await prisma.analysis.aggregate({
+      where: {
+        project: {
+          userId,
+          status: { not: "DELETED" },
+        },
+        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
+      },
+      _sum: {
+        vulnerabilitiesFound: true,
+        criticalCount: true,
+      },
+    });
+    return {
+      vulnerabilitiesFound: result._sum.vulnerabilitiesFound ?? null,
+      criticalCount: result._sum.criticalCount ?? null,
+    };
+  },
+
+  async findRecentForDedup(userId, limit) {
+    return prisma.analysis.findMany({
+      where: {
+        project: {
+          userId,
+          status: { not: "DELETED" },
+        },
+        status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
+      },
+      orderBy: { startedAt: "desc" },
+      take: limit,
+      select: {
+        staticAnalysisReport: true,
+        penetrationTestReport: true,
+      },
+    });
+  },
+
+  async findRecentWithProject(userId, limit) {
+    return prisma.analysis.findMany({
+      where: {
+        project: {
+          userId,
+          status: { not: "DELETED" },
+        },
+      },
+      orderBy: { startedAt: "desc" },
+      take: limit,
+      include: {
+        project: {
+          select: {
+            name: true,
+            repositories: {
+              where: { isPrimary: true },
+              take: 1,
+              select: { provider: true },
+            },
+          },
+        },
+      },
+    });
+  },
 };

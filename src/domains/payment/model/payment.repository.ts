@@ -18,6 +18,19 @@ export interface PaymentRecord {
   cancelReason?: string | null;
 }
 
+export interface PaymentHistoryRecord {
+  id: string;
+  orderId: string;
+  planId: string;
+  amount: number;
+  status: string;
+  portonePaymentId: string | null;
+  paidAt: Date | null;
+  cancelledAt: Date | null;
+  cancelReason: string | null;
+  createdAt: Date;
+}
+
 export interface PaymentRepository {
   create(data: {
     orderId: string;
@@ -42,9 +55,22 @@ export interface PaymentRepository {
     data: {
       status: string;
       portonePaymentId?: string;
+      portoneTransactionId?: string;
       paidAt?: Date | null;
       cancelledAt?: Date;
       cancelReason?: string;
     }
   ): Promise<PaymentRecord>;
+
+  findByPortonePaymentIdOrOrderId(
+    paymentId: string,
+    orderId?: string
+  ): Promise<PaymentRecord | null>;
+
+  findPendingByOrderIdAndUserId(
+    orderId: string,
+    userId: string
+  ): Promise<PaymentRecord | null>;
+
+  findManyByUserId(userId: string): Promise<PaymentHistoryRecord[]>;
 }

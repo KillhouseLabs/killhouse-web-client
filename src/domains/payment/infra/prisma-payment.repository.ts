@@ -31,4 +31,40 @@ export const paymentRepository: PaymentRepository = {
       data,
     });
   },
+
+  async findByPortonePaymentIdOrOrderId(paymentId, orderId) {
+    return prisma.payment.findFirst({
+      where: {
+        OR: [
+          { portonePaymentId: paymentId },
+          ...(orderId ? [{ orderId }] : []),
+        ],
+      },
+    });
+  },
+
+  async findPendingByOrderIdAndUserId(orderId, userId) {
+    return prisma.payment.findFirst({
+      where: { orderId, userId, status: "PENDING" },
+    });
+  },
+
+  async findManyByUserId(userId) {
+    return prisma.payment.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        orderId: true,
+        planId: true,
+        amount: true,
+        status: true,
+        portonePaymentId: true,
+        paidAt: true,
+        cancelledAt: true,
+        cancelReason: true,
+        createdAt: true,
+      },
+    });
+  },
 };

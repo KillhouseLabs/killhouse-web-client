@@ -20,6 +20,41 @@ export interface AnalysisWithRepository {
   [key: string]: unknown;
 }
 
+export interface AnalysisWithOwnership {
+  id: string;
+  branch: string;
+  repository: {
+    id: string;
+    owner: string | null;
+    name: string;
+  } | null;
+  project: {
+    userId: string;
+  };
+}
+
+export interface AnalysisAggregateResult {
+  vulnerabilitiesFound: number | null;
+  criticalCount: number | null;
+}
+
+export interface AnalysisForDedup {
+  staticAnalysisReport: string | null;
+  penetrationTestReport: string | null;
+}
+
+export interface RecentAnalysisWithProject {
+  id: string;
+  status: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  vulnerabilitiesFound: number | null;
+  project: {
+    name: string;
+    repositories: { provider: string }[];
+  };
+}
+
 export type AtomicCreateResult =
   | { created: true; analysis: AnalysisRecord }
   | { created: false; reason: "MONTHLY_LIMIT"; currentCount: number }
@@ -71,4 +106,22 @@ export interface AnalysisRepository {
     ids: string[],
     data: { status: string; completedAt: Date }
   ): Promise<void>;
+
+  findByIdWithOwnership(
+    analysisId: string
+  ): Promise<AnalysisWithOwnership | null>;
+
+  countCompletedByUser(userId: string): Promise<number>;
+
+  aggregateByUser(userId: string): Promise<AnalysisAggregateResult>;
+
+  findRecentForDedup(
+    userId: string,
+    limit: number
+  ): Promise<AnalysisForDedup[]>;
+
+  findRecentWithProject(
+    userId: string,
+    limit: number
+  ): Promise<RecentAnalysisWithProject[]>;
 }
