@@ -1,6 +1,7 @@
 import crypto from "crypto";
-import { prisma } from "@/infrastructure/database/prisma";
 import { sendPasswordResetEmail } from "@/infrastructure/email/send-email";
+import { userRepository } from "../infra/prisma-user.repository";
+import { verificationTokenRepository } from "../infra/prisma-verification-token.repository";
 
 export interface PasswordResetRequestResult {
   success: boolean;
@@ -10,9 +11,7 @@ export interface PasswordResetRequestResult {
 export async function requestPasswordReset(
   email: string
 ): Promise<PasswordResetRequestResult> {
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
+  const user = await userRepository.findByEmail(email);
 
   // 보안: 사용자가 존재하지 않거나 OAuth 전용 사용자인 경우에도 성공 응답
   if (!user || !user.password) {
@@ -20,20 +19,16 @@ export async function requestPasswordReset(
   }
 
   // 기존 토큰 삭제
-  await prisma.verificationToken.deleteMany({
-    where: { identifier: email },
-  });
+  await verificationTokenRepository.deleteByIdentifier(email);
 
   // 새 토큰 생성 (1시간 유효)
   const token = crypto.randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 3600 * 1000);
 
-  await prisma.verificationToken.create({
-    data: {
-      identifier: email,
-      token,
-      expires,
-    },
+  await verificationTokenRepository.create({
+    identifier: email,
+    token,
+    expires,
   });
 
   try {

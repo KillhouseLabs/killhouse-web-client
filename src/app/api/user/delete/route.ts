@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
 import {
   accountDeletionHandler,
   type AuthenticatedContext,
@@ -8,9 +8,7 @@ import {
 export const DELETE = accountDeletionHandler(async (_request, context) => {
   const { userId } = context as AuthenticatedContext;
 
-  await prisma.user.delete({
-    where: { id: userId },
-  });
+  await userRepository.delete(userId);
 
   return NextResponse.json(
     { success: true, message: "계정이 삭제되었습니다" },

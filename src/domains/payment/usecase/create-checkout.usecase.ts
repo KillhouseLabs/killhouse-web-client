@@ -4,9 +4,9 @@
  * 결제 주문 생성 및 결제 준비 정보 반환
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
 import { Order } from "@/domains/payment/model/order";
 import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
 
 export interface CheckoutInput {
   userId: string;
@@ -34,9 +34,7 @@ export async function createCheckout(
 ): Promise<CheckoutResult> {
   const { userId, planId, customerEmail, customerName } = input;
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  const user = await userRepository.findById(userId);
 
   if (!user) {
     throw new CheckoutError("사용자 정보를 찾을 수 없습니다", 404);

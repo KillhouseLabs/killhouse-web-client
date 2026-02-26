@@ -1,8 +1,8 @@
-import { prisma } from "@/infrastructure/database/prisma";
 import { serverEnv } from "@/config/env";
 import { getResourceLimits } from "@/domains/subscription/usecase/subscription-limits";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
 import { resilientFetch } from "@/lib/resilient-fetch";
+import { analysisRepository } from "../infra/prisma-analysis.repository";
 
 const SANDBOX_TIMEOUT_MS = 10 * 60 * 1000; // 10분
 const SANDBOX_RETRY_DELAYS = [5_000, 15_000];
@@ -82,16 +82,14 @@ export async function orchestrateSandboxAndDast(
 ): Promise<void> {
   // Circuit Breaker 체크
   if (!sandboxCircuitBreaker.canExecute()) {
-    await prisma.analysis.update({
-      where: { id: analysisId },
-      data: { sandboxStatus: "SKIPPED" },
+    await analysisRepository.updateStatus(analysisId, {
+      sandboxStatus: "SKIPPED",
     });
     return;
   }
 
-  await prisma.analysis.update({
-    where: { id: analysisId },
-    data: { sandboxStatus: "CREATING" },
+  await analysisRepository.updateStatus(analysisId, {
+    sandboxStatus: "CREATING",
   });
 
   // 리소스 제한 조회
@@ -111,19 +109,15 @@ export async function orchestrateSandboxAndDast(
   });
 
   if (!result.success) {
-    await prisma.analysis.update({
-      where: { id: analysisId },
-      data: { sandboxStatus: "FAILED" },
+    await analysisRepository.updateStatus(analysisId, {
+      sandboxStatus: "FAILED",
     });
     return;
   }
 
-  await prisma.analysis.update({
-    where: { id: analysisId },
-    data: {
-      sandboxContainerId: result.envId,
-      sandboxStatus: "RUNNING",
-    },
+  await analysisRepository.updateStatus(analysisId, {
+    sandboxContainerId: result.envId,
+    sandboxStatus: "RUNNING",
   });
 
   // DAST 스캔 트리거

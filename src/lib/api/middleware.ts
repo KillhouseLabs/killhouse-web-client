@@ -21,7 +21,7 @@ import {
   canCreateProject,
   canRunAnalysis,
 } from "@/domains/subscription/usecase/subscription-limits";
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 import type { Session } from "next-auth";
 
 // ============================================================================
@@ -141,9 +141,7 @@ export const withActiveSubscriptionGuard: MiddlewareFunction = (handler) => {
   return async (request: NextRequest, context: AuthenticatedContext) => {
     const { userId } = context;
 
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId },
-    });
+    const subscription = await subscriptionRepository.findByUserId(userId);
 
     if (subscription && ["ACTIVE", "TRIALING"].includes(subscription.status)) {
       return NextResponse.json(
