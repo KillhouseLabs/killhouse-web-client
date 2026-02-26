@@ -5,17 +5,18 @@
  * verify, webhook, test-complete 3곳에 중복되던 로직을 단일 usecase로 추출
  */
 
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    subscription: {
-      findUnique: jest.fn(),
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
     },
-  },
-}));
+  })
+);
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 import { upgradeSubscription } from "../usecase/upgrade-subscription";
 
 describe("upgradeSubscription UseCase", () => {
@@ -25,8 +26,8 @@ describe("upgradeSubscription UseCase", () => {
 
   it("GIVEN 구독이 없는 사용자 WHEN 업그레이드 THEN 새 구독 생성", async () => {
     // GIVEN
-    (prisma.subscription.findUnique as jest.Mock).mockResolvedValue(null);
-    (prisma.subscription.create as jest.Mock).mockResolvedValue({
+    (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue(null);
+    (subscriptionRepository.create as jest.Mock).mockResolvedValue({
       id: "sub-new",
       userId: "user-123",
       planId: "pro",
@@ -40,29 +41,29 @@ describe("upgradeSubscription UseCase", () => {
     const result = await upgradeSubscription("user-123", "pro");
 
     // THEN
-    expect(prisma.subscription.findUnique).toHaveBeenCalledWith({
-      where: { userId: "user-123" },
-    });
-    expect(prisma.subscription.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(subscriptionRepository.findByUserId).toHaveBeenCalledWith(
+      "user-123"
+    );
+    expect(subscriptionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
         userId: "user-123",
         planId: "pro",
         status: "ACTIVE",
-      }),
-    });
+      })
+    );
     expect(result.planId).toBe("pro");
     expect(result.status).toBe("ACTIVE");
   });
 
   it("GIVEN 기존 구독 WHEN 업그레이드 THEN 플랜 변경 + ACTIVE", async () => {
     // GIVEN
-    (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+    (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
       id: "sub-123",
       userId: "user-123",
       planId: "free",
       status: "ACTIVE",
     });
-    (prisma.subscription.update as jest.Mock).mockResolvedValue({
+    (subscriptionRepository.update as jest.Mock).mockResolvedValue({
       id: "sub-123",
       userId: "user-123",
       planId: "pro",
@@ -76,28 +77,28 @@ describe("upgradeSubscription UseCase", () => {
     const result = await upgradeSubscription("user-123", "pro");
 
     // THEN
-    expect(prisma.subscription.update).toHaveBeenCalledWith({
-      where: { userId: "user-123" },
-      data: expect.objectContaining({
+    expect(subscriptionRepository.update).toHaveBeenCalledWith(
+      "user-123",
+      expect.objectContaining({
         planId: "pro",
         status: "ACTIVE",
         cancelAtPeriodEnd: false,
-      }),
-    });
+      })
+    );
     expect(result.planId).toBe("pro");
     expect(result.status).toBe("ACTIVE");
   });
 
   it("GIVEN 해지 구독 WHEN 재구독 THEN cancelAtPeriodEnd=false", async () => {
     // GIVEN
-    (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+    (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
       id: "sub-123",
       userId: "user-123",
       planId: "pro",
       status: "CANCELLED",
       cancelAtPeriodEnd: true,
     });
-    (prisma.subscription.update as jest.Mock).mockResolvedValue({
+    (subscriptionRepository.update as jest.Mock).mockResolvedValue({
       id: "sub-123",
       userId: "user-123",
       planId: "pro",
@@ -111,13 +112,13 @@ describe("upgradeSubscription UseCase", () => {
     const result = await upgradeSubscription("user-123", "pro");
 
     // THEN
-    expect(prisma.subscription.update).toHaveBeenCalledWith({
-      where: { userId: "user-123" },
-      data: expect.objectContaining({
+    expect(subscriptionRepository.update).toHaveBeenCalledWith(
+      "user-123",
+      expect.objectContaining({
         status: "ACTIVE",
         cancelAtPeriodEnd: false,
-      }),
-    });
+      })
+    );
     expect(result.cancelAtPeriodEnd).toBe(false);
     expect(result.status).toBe("ACTIVE");
   });
