@@ -12,6 +12,10 @@ import type {
   AtomicCreateResult,
 } from "../model/analysis.repository";
 
+const REPOSITORY_SELECT = {
+  select: { id: true, name: true, provider: true },
+} as const;
+
 export const analysisRepository: AnalysisRepository = {
   async updateStatus(id, data) {
     await prisma.analysis.update({ where: { id }, data });
@@ -91,6 +95,52 @@ export const analysisRepository: AnalysisRepository = {
         };
       },
       { isolationLevel: "Serializable" }
+    );
+  },
+
+  async findManyByProject(projectId) {
+    return prisma.analysis.findMany({
+      where: { projectId },
+      orderBy: { startedAt: "desc" },
+      include: {
+        repository: REPOSITORY_SELECT,
+      },
+    });
+  },
+
+  async findByIdAndProject(analysisId, projectId) {
+    return prisma.analysis.findFirst({
+      where: {
+        id: analysisId,
+        projectId,
+      },
+      include: {
+        repository: REPOSITORY_SELECT,
+      },
+    });
+  },
+
+  async findById(analysisId) {
+    return prisma.analysis.findUnique({
+      where: { id: analysisId },
+    });
+  },
+
+  async update(analysisId, data) {
+    return prisma.analysis.update({
+      where: { id: analysisId },
+      data,
+    });
+  },
+
+  async batchUpdateStatus(ids, data) {
+    await Promise.all(
+      ids.map((id) =>
+        prisma.analysis.update({
+          where: { id },
+          data,
+        })
+      )
     );
   },
 };

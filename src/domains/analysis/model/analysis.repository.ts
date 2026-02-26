@@ -7,6 +7,19 @@ export interface AnalysisRecord {
   commitHash: string | null;
 }
 
+export interface AnalysisWithRepository {
+  id: string;
+  status: string;
+  projectId: string;
+  repositoryId: string | null;
+  branch: string;
+  commitHash: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  repository: { id: string; name: string; provider: string } | null;
+  [key: string]: unknown;
+}
+
 export type AtomicCreateResult =
   | { created: true; analysis: AnalysisRecord }
   | { created: false; reason: "MONTHLY_LIMIT"; currentCount: number }
@@ -39,4 +52,23 @@ export interface AnalysisRepository {
     monthStart: Date;
     terminalStatuses: readonly string[];
   }): Promise<AtomicCreateResult>;
+
+  findManyByProject(projectId: string): Promise<AnalysisWithRepository[]>;
+
+  findByIdAndProject(
+    analysisId: string,
+    projectId: string
+  ): Promise<AnalysisWithRepository | null>;
+
+  findById(analysisId: string): Promise<Record<string, unknown> | null>;
+
+  update(
+    analysisId: string,
+    data: Record<string, unknown>
+  ): Promise<{ id: string; status: string }>;
+
+  batchUpdateStatus(
+    ids: string[],
+    data: { status: string; completedAt: Date }
+  ): Promise<void>;
 }
