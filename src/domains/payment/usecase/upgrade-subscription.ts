@@ -6,11 +6,10 @@
  */
 
 import { prisma } from "@/infrastructure/database/prisma";
+import { SubscriptionPeriod } from "@/domains/subscription/model/subscription-period";
 
 export async function upgradeSubscription(userId: string, planId: string) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const period = new SubscriptionPeriod();
 
   const existingSubscription = await prisma.subscription.findUnique({
     where: { userId },
@@ -22,8 +21,8 @@ export async function upgradeSubscription(userId: string, planId: string) {
       data: {
         planId,
         status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
         cancelAtPeriodEnd: false,
       },
     });
@@ -34,8 +33,8 @@ export async function upgradeSubscription(userId: string, planId: string) {
       userId,
       planId,
       status: "ACTIVE",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
     },
   });
 }

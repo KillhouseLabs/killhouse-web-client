@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "@/infrastructure/database/prisma";
-import { PLANS } from "@/domains/subscription/model/plan";
+import { Order } from "@/domains/payment/model/order";
 
 export interface CheckoutInput {
   userId: string;
@@ -28,12 +28,6 @@ export interface CheckoutResult {
   };
 }
 
-export function generateOrderId(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `order_${timestamp}_${random}`;
-}
-
 export async function createCheckout(
   input: CheckoutInput
 ): Promise<CheckoutResult> {
@@ -47,33 +41,26 @@ export async function createCheckout(
     throw new CheckoutError("사용자 정보를 찾을 수 없습니다", 404);
   }
 
-  const planKey = planId.toUpperCase() as keyof typeof PLANS;
-  const plan = PLANS[planKey];
-
-  if (!plan || plan.price <= 0) {
-    throw new CheckoutError("유효하지 않은 플랜입니다", 400);
-  }
-
-  const orderId = generateOrderId();
+  const order = new Order(planId);
 
   const payment = await prisma.payment.create({
     data: {
-      orderId,
+      orderId: order.orderId,
       userId,
-      planId,
-      amount: plan.price,
+      planId: order.planId,
+      amount: order.amount,
       status: "PENDING",
     },
   });
 
   return {
-    orderId: payment.orderId,
+    orderId: order.orderId,
     paymentId: payment.id,
-    planId: payment.planId,
-    planName: plan.name,
-    amount: payment.amount,
-    currency: "KRW",
-    orderName: `Killhouse ${plan.name} 플랜`,
+    planId: order.planId,
+    planName: order.planName,
+    amount: order.amount,
+    currency: order.currency,
+    orderName: order.orderName,
     customer: {
       email: customerEmail,
       name: customerName || "고객",

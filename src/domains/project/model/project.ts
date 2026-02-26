@@ -5,6 +5,7 @@
  */
 
 import { type RepoProviderType, RepoProvider } from "../dto/repository.dto";
+import { Repository, type RepositoryInput } from "./repository";
 
 // --- Legacy Fields ---
 
@@ -48,25 +49,6 @@ export function addLegacyFields<T extends HasRepositories>(
 }
 
 // --- Repository Processing ---
-
-interface RepositoryInput {
-  provider: string;
-  url?: string | null;
-  name: string;
-  defaultBranch: string;
-  isPrimary?: boolean;
-  role?: string;
-}
-
-interface ProcessedRepository {
-  provider: string;
-  url: string | null;
-  owner: string | null;
-  name: string;
-  defaultBranch: string;
-  isPrimary: boolean;
-  role: string | undefined;
-}
 
 /**
  * Repository URL에서 provider, owner, name을 파싱한다.
@@ -124,31 +106,15 @@ export function parseRepoUrl(url: string): {
  */
 export function processRepositories(
   repositories: RepositoryInput[]
-): ProcessedRepository[] {
-  const processed = repositories.map((repo, index) => {
-    let owner: string | null = null;
-    if (repo.url) {
-      const parsed = parseRepoUrl(repo.url);
-      if (parsed) {
-        owner = parsed.owner;
-      }
-    }
-
-    return {
-      provider: repo.provider,
-      url: repo.url || null,
-      owner,
-      name: repo.name,
-      defaultBranch: repo.defaultBranch,
-      isPrimary: index === 0 ? (repo.isPrimary ?? true) : !!repo.isPrimary,
-      role: repo.role,
-    };
+): Repository[] {
+  const repos = repositories.map((repo, index) => {
+    const isPrimary = index === 0 ? (repo.isPrimary ?? true) : !!repo.isPrimary;
+    return new Repository(repo, isPrimary);
   });
 
-  const hasPrimary = processed.some((r) => r.isPrimary);
-  if (processed.length > 0 && !hasPrimary) {
-    processed[0].isPrimary = true;
+  if (repos.length > 0 && !repos.some((r) => r.isPrimary)) {
+    return [new Repository(repositories[0], true), ...repos.slice(1)];
   }
 
-  return processed;
+  return repos;
 }
