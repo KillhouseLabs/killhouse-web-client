@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 
 export async function GET() {
   try {
@@ -13,18 +13,10 @@ export async function GET() {
       );
     }
 
-    const accounts = await prisma.account.findMany({
-      where: {
-        userId: session.user.id,
-        provider: {
-          in: ["github", "gitlab"],
-        },
-      },
-      select: {
-        provider: true,
-        scope: true,
-      },
-    });
+    const accounts = await accountRepository.findProviderStatuses(
+      session.user.id,
+      ["github", "gitlab"]
+    );
 
     const github = accounts.find(
       (a: { provider: string; scope: string | null }) => a.provider === "github"

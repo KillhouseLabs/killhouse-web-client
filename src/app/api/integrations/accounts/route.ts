@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 
 const PROVIDER_USER_API: Record<string, string> = {
   github: "https://api.github.com/user",
@@ -41,21 +41,7 @@ export async function GET() {
       );
     }
 
-    const accounts = await prisma.account.findMany({
-      where: {
-        userId: session.user.id,
-        type: "oauth",
-      },
-      select: {
-        id: true,
-        provider: true,
-        providerAccountId: true,
-        access_token: true,
-      },
-      orderBy: {
-        provider: "asc",
-      },
-    });
+    const accounts = await accountRepository.findOAuthAccounts(session.user.id);
 
     const accountsWithUsername = await Promise.all(
       accounts.map(async (account) => {
