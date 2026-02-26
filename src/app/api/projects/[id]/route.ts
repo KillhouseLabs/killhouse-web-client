@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
 import { updateProjectSchema } from "@/domains/project/dto/project.dto";
+import { addLegacyFields } from "@/domains/project/model/project";
 import {
   deleteS3Prefix,
   getProjectPrefix,
@@ -51,20 +52,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Add backward compatibility fields
-    const primaryRepo = project.repositories.find((r) => r.isPrimary);
-    const projectWithLegacyFields = {
-      ...project,
-      repoProvider: primaryRepo?.provider || null,
-      repoUrl: primaryRepo?.url || null,
-      repoOwner: primaryRepo?.owner || null,
-      repoName: primaryRepo?.name || null,
-      defaultBranch: primaryRepo?.defaultBranch || "main",
-    };
-
     return NextResponse.json({
       success: true,
-      data: projectWithLegacyFields,
+      data: addLegacyFields(project),
     });
   } catch (error) {
     console.error("Get project error:", error);
@@ -127,20 +117,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    // Add backward compatibility fields
-    const primaryRepo = project.repositories.find((r) => r.isPrimary);
-    const projectWithLegacyFields = {
-      ...project,
-      repoProvider: primaryRepo?.provider || null,
-      repoUrl: primaryRepo?.url || null,
-      repoOwner: primaryRepo?.owner || null,
-      repoName: primaryRepo?.name || null,
-      defaultBranch: primaryRepo?.defaultBranch || "main",
-    };
-
     return NextResponse.json({
       success: true,
-      data: projectWithLegacyFields,
+      data: addLegacyFields(project),
     });
   } catch (error) {
     console.error("Update project error:", error);

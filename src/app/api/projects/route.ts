@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/database/prisma";
+import { createProjectSchema } from "@/domains/project/dto/project.dto";
 import {
-  createProjectSchema,
-  parseRepoUrl,
-} from "@/domains/project/dto/project.dto";
+  addLegacyFields,
+  processRepositories,
+} from "@/domains/project/model/project";
 import {
   authenticatedHandler,
   projectCreationHandler,
@@ -51,19 +52,7 @@ export const GET = authenticatedHandler(
       }),
     ]);
 
-    // Add backward compatibility fields computed from primary repository
-    const projectsWithLegacyFields = projects.map((project) => {
-      const primaryRepo = project.repositories.find((r) => r.isPrimary);
-      return {
-        ...project,
-        // Legacy fields for backward compatibility
-        repoProvider: primaryRepo?.provider || null,
-        repoUrl: primaryRepo?.url || null,
-        repoOwner: primaryRepo?.owner || null,
-        repoName: primaryRepo?.name || null,
-        defaultBranch: primaryRepo?.defaultBranch || "main",
-      };
-    });
+    const projectsWithLegacyFields = projects.map(addLegacyFields);
 
     const totalPages = Math.ceil(totalCount / limit);
     const hasMore = page * limit < totalCount;
@@ -102,41 +91,13 @@ export const POST = projectCreationHandler(
 
     const { name, description, repositories } = validationResult.data;
 
-    // Process repositories: parse URLs and ensure first one is primary
-    const processedRepositories = repositories.map((repo, index) => {
-      let owner: string | null = null;
-      if (repo.url) {
-        const parsed = parseRepoUrl(repo.url);
-        if (parsed) {
-          owner = parsed.owner;
-        }
-      }
-
-      return {
-        provider: repo.provider,
-        url: repo.url || null,
-        owner,
-        name: repo.name,
-        defaultBranch: repo.defaultBranch,
-        // First repository is primary by default, or use provided value
-        isPrimary: index === 0 ? (repo.isPrimary ?? true) : repo.isPrimary,
-        role: repo.role,
-      };
-    });
-
-    // Ensure only one repository is marked as primary
-    const hasPrimary = processedRepositories.some((r) => r.isPrimary);
-    if (processedRepositories.length > 0 && !hasPrimary) {
-      processedRepositories[0].isPrimary = true;
-    }
-
     const project = await prisma.project.create({
       data: {
         name,
         description,
         userId,
         repositories: {
-          create: processedRepositories,
+          create: processRepositories(repositories),
         },
       },
       include: {
@@ -146,21 +107,10 @@ export const POST = projectCreationHandler(
       },
     });
 
-    // Add backward compatibility fields
-    const primaryRepo = project.repositories.find((r) => r.isPrimary);
-    const projectWithLegacyFields = {
-      ...project,
-      repoProvider: primaryRepo?.provider || null,
-      repoUrl: primaryRepo?.url || null,
-      repoOwner: primaryRepo?.owner || null,
-      repoName: primaryRepo?.name || null,
-      defaultBranch: primaryRepo?.defaultBranch || "main",
-    };
-
     return NextResponse.json(
       {
         success: true,
-        data: projectWithLegacyFields,
+        data: addLegacyFields(project),
       },
       { status: 201 }
     );
