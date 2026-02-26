@@ -5,7 +5,9 @@
  * 정책은 Supabase 중앙 정책에서 조회
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
 import { fetchPolicy } from "@/domains/policy/infra/policy-repository";
 import {
   getPlanLimits as getPolicyPlanLimits,
@@ -64,9 +66,7 @@ export async function getPlanLimits(planId: string): Promise<PlanLimits> {
 
 async function getUserSubscription(userId: string) {
   const policy = await fetchPolicy();
-  const subscription = await prisma.subscription.findUnique({
-    where: { userId },
-  });
+  const subscription = await subscriptionRepository.findByUserId(userId);
 
   if (!subscription || !isActiveStatus(policy, subscription.status)) {
     return {
@@ -94,12 +94,7 @@ export async function canCreateProject(
   const subscription = await getUserSubscription(userId);
   const limits = await getPlanLimits(subscription.planId);
 
-  const currentCount = await prisma.project.count({
-    where: {
-      userId,
-      status: { not: "DELETED" },
-    },
-  });
+  const currentCount = await projectRepository.countActiveByUser(userId);
 
   const allowed = canPerformAction(currentCount, limits.projects);
 
@@ -119,12 +114,10 @@ export async function canRunAnalysis(
   const subscription = await getUserSubscription(userId);
   const limits = await getPlanLimits(subscription.planId);
 
-  const currentCount = await prisma.analysis.count({
-    where: {
-      project: { userId },
-      startedAt: { gte: getMonthStart() },
-    },
-  });
+  const currentCount = await analysisRepository.countMonthlyByUser(
+    userId,
+    getMonthStart()
+  );
 
   const allowed = canPerformAction(currentCount, limits.analysisPerMonth);
 
@@ -145,12 +138,10 @@ export async function canStartConcurrentScan(
   const policy = await fetchPolicy();
   const policyLimits = getPolicyPlanLimits(policy, subscription.planId);
 
-  const currentCount = await prisma.analysis.count({
-    where: {
-      project: { userId },
-      status: { notIn: [...TERMINAL_STATUSES] },
-    },
-  });
+  const currentCount = await analysisRepository.countConcurrentByUser(
+    userId,
+    TERMINAL_STATUSES
+  );
 
   const allowed = canPerformAction(
     currentCount,
@@ -186,19 +177,12 @@ export async function getUsageStats(userId: string): Promise<UsageStats> {
   const subscription = await getUserSubscription(userId);
   const limits = await getPlanLimits(subscription.planId);
 
-  const projectCount = await prisma.project.count({
-    where: {
-      userId,
-      status: { not: "DELETED" },
-    },
-  });
+  const projectCount = await projectRepository.countActiveByUser(userId);
 
-  const analysisCount = await prisma.analysis.count({
-    where: {
-      project: { userId },
-      startedAt: { gte: getMonthStart() },
-    },
-  });
+  const analysisCount = await analysisRepository.countMonthlyByUser(
+    userId,
+    getMonthStart()
+  );
 
   return {
     planId: subscription.planId,
@@ -239,75 +223,53 @@ export interface CreateAnalysisResult {
 export async function createAnalysisWithLimitCheck(
   input: CreateAnalysisInput
 ): Promise<CreateAnalysisResult> {
-  // Fetch policy limits OUTSIDE the transaction (can be cached)
   const subscription = await getUserSubscription(input.userId);
   const limits = await getPlanLimits(subscription.planId);
   const policy = await fetchPolicy();
   const policyLimits = getPolicyPlanLimits(policy, subscription.planId);
 
-  // Run count + create atomically inside a serializable transaction
-  return prisma.$transaction(
-    async (tx) => {
-      // Monthly limit check
-      const monthlyCount = await tx.analysis.count({
-        where: {
-          project: { userId: input.userId },
-          startedAt: { gte: getMonthStart() },
-        },
-      });
+  const result = await analysisRepository.createWithLimitCheck({
+    userId: input.userId,
+    projectId: input.projectId,
+    repositoryId: input.repositoryId,
+    branch: input.branch,
+    commitHash: input.commitHash,
+    monthlyLimit: limits.analysisPerMonth,
+    concurrentLimit: policyLimits.maxConcurrentScans,
+    monthStart: getMonthStart(),
+    terminalStatuses: TERMINAL_STATUSES,
+  });
 
-      if (!canPerformAction(monthlyCount, limits.analysisPerMonth)) {
-        return {
-          success: false,
-          code: "LIMIT_EXCEEDED" as const,
-          message: `이번 달 분석 한도(${limits.analysisPerMonth}회)에 도달했습니다. 플랜을 업그레이드하세요.`,
-          usage: { current: monthlyCount, limit: limits.analysisPerMonth },
-        };
-      }
-
-      // Concurrent scan limit check
-      const concurrentCount = await tx.analysis.count({
-        where: {
-          project: { userId: input.userId },
-          status: { notIn: [...TERMINAL_STATUSES] },
-        },
-      });
-
-      if (!canPerformAction(concurrentCount, policyLimits.maxConcurrentScans)) {
-        return {
-          success: false,
-          code: "CONCURRENT_LIMIT_EXCEEDED" as const,
-          message: `동시 스캔 한도(${policyLimits.maxConcurrentScans}개)에 도달했습니다. 진행 중인 분석이 완료될 때까지 기다려주세요.`,
-          usage: {
-            current: concurrentCount,
-            limit: policyLimits.maxConcurrentScans,
-          },
-        };
-      }
-
-      // Create analysis atomically within the same transaction
-      const analysis = await tx.analysis.create({
-        data: {
-          projectId: input.projectId,
-          repositoryId: input.repositoryId,
-          branch: input.branch,
-          commitHash: input.commitHash,
-          status: "PENDING",
-        },
-      });
-
+  if (!result.created) {
+    if (result.reason === "MONTHLY_LIMIT") {
       return {
-        success: true,
-        analysis: {
-          id: analysis.id,
-          status: analysis.status,
-          branch: analysis.branch,
-          commitHash: analysis.commitHash,
+        success: false,
+        code: "LIMIT_EXCEEDED",
+        message: `이번 달 분석 한도(${limits.analysisPerMonth}회)에 도달했습니다. 플랜을 업그레이드하세요.`,
+        usage: {
+          current: result.currentCount,
+          limit: limits.analysisPerMonth,
         },
       };
-    },
-    {
-      isolationLevel: "Serializable",
     }
-  );
+    return {
+      success: false,
+      code: "CONCURRENT_LIMIT_EXCEEDED",
+      message: `동시 스캔 한도(${policyLimits.maxConcurrentScans}개)에 도달했습니다. 진행 중인 분석이 완료될 때까지 기다려주세요.`,
+      usage: {
+        current: result.currentCount,
+        limit: policyLimits.maxConcurrentScans,
+      },
+    };
+  }
+
+  return {
+    success: true,
+    analysis: {
+      id: result.analysis.id,
+      status: result.analysis.status,
+      branch: result.analysis.branch,
+      commitHash: result.analysis.commitHash,
+    },
+  };
 }

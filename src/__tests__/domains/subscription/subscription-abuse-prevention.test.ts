@@ -5,20 +5,31 @@
  */
 
 import { createAnalysisWithLimitCheck } from "@/domains/subscription/usecase/subscription-limits";
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-// Mock Prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    subscription: {
-      findUnique: jest.fn(),
+// Mock repositories
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
     },
-    analysis: {
-      count: jest.fn(),
-      create: jest.fn(),
-    },
-    $transaction: jest.fn(),
+  })
+);
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    countMonthlyByUser: jest.fn(),
+    countConcurrentByUser: jest.fn(),
+    createWithLimitCheck: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    countActiveByUser: jest.fn(),
   },
 }));
 
@@ -86,28 +97,8 @@ jest.mock("@/domains/policy/infra/policy-repository", () => ({
 }));
 
 describe("Subscription Abuse Prevention", () => {
-  let mockTx: {
-    analysis: {
-      count: jest.Mock;
-      create: jest.Mock;
-    };
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Set up mock transaction object
-    mockTx = {
-      analysis: {
-        count: jest.fn(),
-        create: jest.fn(),
-      },
-    };
-
-    // Mock $transaction to call the callback with mockTx
-    (prisma.$transaction as jest.Mock).mockImplementation(async (cb) =>
-      cb(mockTx)
-    );
   });
 
   describe("createAnalysisWithLimitCheck - Atomic Analysis Creation", () => {
@@ -122,13 +113,16 @@ describe("Subscription Abuse Prevention", () => {
         commitHash: "abc123",
       };
 
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
 
-      // Monthly limit reached (10/10)
-      mockTx.analysis.count.mockResolvedValueOnce(10);
+      (analysisRepository.createWithLimitCheck as jest.Mock).mockResolvedValue({
+        created: false,
+        reason: "MONTHLY_LIMIT",
+        currentCount: 10,
+      });
 
       // WHEN
       const result = await createAnalysisWithLimitCheck(input);
@@ -141,7 +135,6 @@ describe("Subscription Abuse Prevention", () => {
         current: 10,
         limit: 10,
       });
-      expect(mockTx.analysis.create).not.toHaveBeenCalled();
     });
 
     it("GIVEN concurrent limit reached WHEN createAnalysisWithLimitCheck called THEN returns CONCURRENT_LIMIT_EXCEEDED", async () => {
@@ -155,15 +148,16 @@ describe("Subscription Abuse Prevention", () => {
         commitHash: "abc123",
       };
 
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
 
-      // Monthly limit OK (5/10)
-      mockTx.analysis.count.mockResolvedValueOnce(5);
-      // Concurrent limit reached (2/2)
-      mockTx.analysis.count.mockResolvedValueOnce(2);
+      (analysisRepository.createWithLimitCheck as jest.Mock).mockResolvedValue({
+        created: false,
+        reason: "CONCURRENT_LIMIT",
+        currentCount: 2,
+      });
 
       // WHEN
       const result = await createAnalysisWithLimitCheck(input);
@@ -176,7 +170,6 @@ describe("Subscription Abuse Prevention", () => {
         current: 2,
         limit: 2,
       });
-      expect(mockTx.analysis.create).not.toHaveBeenCalled();
     });
 
     it("GIVEN limits not exceeded WHEN createAnalysisWithLimitCheck called THEN creates analysis and returns success", async () => {
@@ -190,23 +183,21 @@ describe("Subscription Abuse Prevention", () => {
         commitHash: "abc123",
       };
 
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
 
-      // Monthly limit OK (5/10)
-      mockTx.analysis.count.mockResolvedValueOnce(5);
-      // Concurrent limit OK (1/2)
-      mockTx.analysis.count.mockResolvedValueOnce(1);
-      // Mock analysis creation
-      mockTx.analysis.create.mockResolvedValue({
-        id: "analysis-1",
-        status: "PENDING",
-        branch: "main",
-        commitHash: "abc123",
-        projectId: "project-1",
-        repositoryId: "repo-1",
+      (analysisRepository.createWithLimitCheck as jest.Mock).mockResolvedValue({
+        created: true,
+        analysis: {
+          id: "analysis-1",
+          status: "PENDING",
+          projectId: "project-1",
+          repositoryId: "repo-1",
+          branch: "main",
+          commitHash: "abc123",
+        },
       });
 
       // WHEN
@@ -220,15 +211,17 @@ describe("Subscription Abuse Prevention", () => {
         branch: "main",
         commitHash: "abc123",
       });
-      expect(mockTx.analysis.create).toHaveBeenCalledWith({
-        data: {
+      expect(analysisRepository.createWithLimitCheck).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-1",
           projectId: "project-1",
           repositoryId: "repo-1",
           branch: "main",
           commitHash: "abc123",
-          status: "PENDING",
-        },
-      });
+          monthlyLimit: 10,
+          concurrentLimit: 2,
+        })
+      );
     });
 
     it("GIVEN unlimited plan (-1 limit) WHEN createAnalysisWithLimitCheck called THEN always succeeds", async () => {
@@ -242,21 +235,21 @@ describe("Subscription Abuse Prevention", () => {
         commitHash: null,
       };
 
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "enterprise",
         status: "ACTIVE",
       });
 
-      // High usage but unlimited
-      mockTx.analysis.count.mockResolvedValueOnce(1000);
-      mockTx.analysis.count.mockResolvedValueOnce(5);
-      mockTx.analysis.create.mockResolvedValue({
-        id: "analysis-2",
-        status: "PENDING",
-        branch: "develop",
-        commitHash: null,
-        projectId: "project-1",
-        repositoryId: null,
+      (analysisRepository.createWithLimitCheck as jest.Mock).mockResolvedValue({
+        created: true,
+        analysis: {
+          id: "analysis-2",
+          status: "PENDING",
+          projectId: "project-1",
+          repositoryId: null,
+          branch: "develop",
+          commitHash: null,
+        },
       });
 
       // WHEN
@@ -265,7 +258,12 @@ describe("Subscription Abuse Prevention", () => {
       // THEN
       expect(result.success).toBe(true);
       expect(result.analysis?.id).toBe("analysis-2");
-      expect(mockTx.analysis.create).toHaveBeenCalled();
+      expect(analysisRepository.createWithLimitCheck).toHaveBeenCalledWith(
+        expect.objectContaining({
+          monthlyLimit: -1,
+          concurrentLimit: 10,
+        })
+      );
     });
 
     it("GIVEN transaction fails WHEN createAnalysisWithLimitCheck called THEN error propagates", async () => {
@@ -279,13 +277,12 @@ describe("Subscription Abuse Prevention", () => {
         commitHash: "abc123",
       };
 
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
 
-      // Simulate transaction failure
-      (prisma.$transaction as jest.Mock).mockRejectedValue(
+      (analysisRepository.createWithLimitCheck as jest.Mock).mockRejectedValue(
         new Error("Database connection failed")
       );
 
@@ -298,7 +295,6 @@ describe("Subscription Abuse Prevention", () => {
 
   describe("Rate Limiting - Analysis Creation", () => {
     beforeEach(() => {
-      // Clear rate limit stores between tests
       jest.clearAllMocks();
     });
 
