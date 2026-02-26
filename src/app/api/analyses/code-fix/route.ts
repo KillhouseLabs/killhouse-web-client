@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createPatch } from "diff";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 import { serverEnv } from "@/config/env";
 import {
   createGitHubClient,
@@ -102,13 +103,10 @@ export async function POST(request: Request) {
     }
 
     // 2. Get OAuth access token
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: session.user.id,
-        provider: "github",
-      },
-      select: { access_token: true },
-    });
+    const account = await accountRepository.findAccessToken(
+      session.user.id,
+      "github"
+    );
 
     if (!account?.access_token) {
       return NextResponse.json(

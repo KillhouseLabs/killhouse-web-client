@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 
 const PROVIDER_CONFIG: Record<
   string,
@@ -125,14 +125,10 @@ export async function handleOAuthLinkCallback(
     const providerAccountId = config.extractAccountId(profile);
 
     // 3. Account upsert (현재 사용자에게 링크)
-    const existingAccount = await prisma.account.findUnique({
-      where: {
-        provider_providerAccountId: {
-          provider,
-          providerAccountId,
-        },
-      },
-    });
+    const existingAccount = await accountRepository.findByProviderAccount(
+      provider,
+      providerAccountId
+    );
 
     if (existingAccount) {
       if (existingAccount.userId !== userId) {
@@ -145,34 +141,29 @@ export async function handleOAuthLinkCallback(
       }
 
       // 같은 사용자 → 토큰만 갱신
-      await prisma.account.update({
-        where: { id: existingAccount.id },
-        data: {
-          access_token: tokenResponse.access_token,
-          refresh_token: tokenResponse.refresh_token || null,
-          expires_at: tokenResponse.expires_in
-            ? Math.floor(Date.now() / 1000) + tokenResponse.expires_in
-            : null,
-          scope: tokenResponse.scope || null,
-          token_type: tokenResponse.token_type || "bearer",
-        },
+      await accountRepository.updateById(existingAccount.id, {
+        access_token: tokenResponse.access_token,
+        refresh_token: tokenResponse.refresh_token || null,
+        expires_at: tokenResponse.expires_in
+          ? Math.floor(Date.now() / 1000) + tokenResponse.expires_in
+          : null,
+        scope: tokenResponse.scope || null,
+        token_type: tokenResponse.token_type || "bearer",
       });
     } else {
       // 새 계정 링크
-      await prisma.account.create({
-        data: {
-          userId,
-          type: "oauth",
-          provider,
-          providerAccountId,
-          access_token: tokenResponse.access_token,
-          refresh_token: tokenResponse.refresh_token || null,
-          expires_at: tokenResponse.expires_in
-            ? Math.floor(Date.now() / 1000) + tokenResponse.expires_in
-            : null,
-          scope: tokenResponse.scope || null,
-          token_type: tokenResponse.token_type || "bearer",
-        },
+      await accountRepository.create({
+        userId,
+        type: "oauth",
+        provider,
+        providerAccountId,
+        access_token: tokenResponse.access_token,
+        refresh_token: tokenResponse.refresh_token || null,
+        expires_at: tokenResponse.expires_in
+          ? Math.floor(Date.now() / 1000) + tokenResponse.expires_in
+          : null,
+        scope: tokenResponse.scope || null,
+        token_type: tokenResponse.token_type || "bearer",
       });
     }
 

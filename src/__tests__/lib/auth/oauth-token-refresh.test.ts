@@ -5,21 +5,14 @@
  * - GitHub/GitLab 재로그인 시 기존 토큰이 새 토큰으로 갱신되는지 검증
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
-
-// Mock Prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    account: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn(),
-    },
-    user: {
-      findUnique: jest.fn(),
-    },
+// Mock accountRepository
+jest.mock("@/domains/auth/infra/prisma-account.repository", () => ({
+  accountRepository: {
+    refreshTokens: jest.fn(),
   },
 }));
+
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 
 // signIn callback 로직을 테스트하기 위한 헬퍼 함수
 // auth.ts의 signIn callback 로직을 추출
@@ -34,25 +27,21 @@ async function handleOAuthSignIn(
     scope?: string;
   }
 ): Promise<boolean> {
-  if (account.provider === "github" || account.provider === "gitlab") {
-    const existingAccount = await prisma.account.findFirst({
-      where: {
-        provider: account.provider,
-        providerAccountId: account.providerAccountId,
-      },
-    });
-
-    if (existingAccount) {
-      await prisma.account.update({
-        where: { id: (existingAccount as { id: string }).id },
-        data: {
-          access_token: account.access_token,
-          refresh_token: account.refresh_token,
-          expires_at: account.expires_at,
-          scope: account.scope,
-        },
-      });
-    }
+  if (
+    account.provider === "github" ||
+    account.provider === "gitlab" ||
+    account.provider === "gitlab-self"
+  ) {
+    await accountRepository.refreshTokens(
+      account.provider,
+      account.providerAccountId,
+      {
+        access_token: account.access_token,
+        refresh_token: account.refresh_token,
+        expires_at: account.expires_at,
+        scope: account.scope,
+      }
+    );
     return true;
   }
 
@@ -75,14 +64,6 @@ describe("OAuth Token Refresh", () => {
   describe("GitHub OAuth 재로그인", () => {
     it("GIVEN 기존 GitHub 계정 존재 WHEN 재로그인 THEN 토큰이 갱신되어야 한다", async () => {
       // GIVEN
-      const existingAccount = {
-        id: "account-123",
-        provider: "github",
-        providerAccountId: "gh-user-456",
-        access_token: "old_token_expired",
-        scope: "read:user,repo",
-      };
-
       const newAccount = {
         provider: "github",
         providerAccountId: "gh-user-456",
@@ -92,38 +73,28 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user,repo,user:email",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
-        existingAccount
+      (accountRepository.refreshTokens as jest.Mock).mockResolvedValue(
+        undefined
       );
-      (prisma.account.update as jest.Mock).mockResolvedValue({
-        ...existingAccount,
-        access_token: newAccount.access_token,
-        scope: newAccount.scope,
-      });
 
       // WHEN
       const result = await handleOAuthSignIn({ id: "user-123" }, newAccount);
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.findFirst).toHaveBeenCalledWith({
-        where: {
-          provider: "github",
-          providerAccountId: "gh-user-456",
-        },
-      });
-      expect(prisma.account.update).toHaveBeenCalledWith({
-        where: { id: "account-123" },
-        data: {
+      expect(accountRepository.refreshTokens).toHaveBeenCalledWith(
+        "github",
+        "gh-user-456",
+        {
           access_token: "new_fresh_token_gho_xxx",
           refresh_token: null,
           expires_at: undefined,
           scope: "read:user,repo,user:email",
-        },
-      });
+        }
+      );
     });
 
-    it("GIVEN 기존 GitHub 계정 없음 WHEN 첫 로그인 THEN 토큰 갱신 시도 안 함", async () => {
+    it("GIVEN 기존 GitHub 계정 없음 WHEN 첫 로그인 THEN refreshTokens가 호출되어야 한다", async () => {
       // GIVEN
       const newAccount = {
         provider: "github",
@@ -134,27 +105,20 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user,repo",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(null);
+      (accountRepository.refreshTokens as jest.Mock).mockResolvedValue(
+        undefined
+      );
 
       // WHEN
       const result = await handleOAuthSignIn({ id: "user-456" }, newAccount);
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.findFirst).toHaveBeenCalled();
-      expect(prisma.account.update).not.toHaveBeenCalled();
+      expect(accountRepository.refreshTokens).toHaveBeenCalled();
     });
 
     it("GIVEN 만료된 토큰 WHEN 재로그인 THEN 새 토큰으로 교체되어야 한다", async () => {
       // GIVEN
-      const existingAccount = {
-        id: "account-expired",
-        provider: "github",
-        providerAccountId: "gh-user-expired",
-        access_token: "gho_expired_token_bad_credentials",
-        scope: "read:user",
-      };
-
       const refreshedAccount = {
         provider: "github",
         providerAccountId: "gh-user-expired",
@@ -164,13 +128,9 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user,repo,user:email",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
-        existingAccount
+      (accountRepository.refreshTokens as jest.Mock).mockResolvedValue(
+        undefined
       );
-      (prisma.account.update as jest.Mock).mockResolvedValue({
-        ...existingAccount,
-        access_token: refreshedAccount.access_token,
-      });
 
       // WHEN
       const result = await handleOAuthSignIn(
@@ -180,28 +140,19 @@ describe("OAuth Token Refresh", () => {
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.update).toHaveBeenCalledWith({
-        where: { id: "account-expired" },
-        data: expect.objectContaining({
+      expect(accountRepository.refreshTokens).toHaveBeenCalledWith(
+        "github",
+        "gh-user-expired",
+        expect.objectContaining({
           access_token: "gho_new_valid_token_12345",
-        }),
-      });
+        })
+      );
     });
   });
 
   describe("GitLab OAuth 재로그인", () => {
     it("GIVEN 기존 GitLab 계정 존재 WHEN 재로그인 THEN 토큰이 갱신되어야 한다", async () => {
       // GIVEN
-      const existingAccount = {
-        id: "gitlab-account-123",
-        provider: "gitlab",
-        providerAccountId: "gl-user-456",
-        access_token: "old_gitlab_token",
-        refresh_token: "old_refresh_token",
-        expires_at: 1700000000,
-        scope: "read_api",
-      };
-
       const newAccount = {
         provider: "gitlab",
         providerAccountId: "gl-user-456",
@@ -211,28 +162,25 @@ describe("OAuth Token Refresh", () => {
         scope: "read_api read_user read_repository",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockResolvedValue(
-        existingAccount
+      (accountRepository.refreshTokens as jest.Mock).mockResolvedValue(
+        undefined
       );
-      (prisma.account.update as jest.Mock).mockResolvedValue({
-        ...existingAccount,
-        ...newAccount,
-      });
 
       // WHEN
       const result = await handleOAuthSignIn({ id: "user-789" }, newAccount);
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.update).toHaveBeenCalledWith({
-        where: { id: "gitlab-account-123" },
-        data: {
+      expect(accountRepository.refreshTokens).toHaveBeenCalledWith(
+        "gitlab",
+        "gl-user-456",
+        {
           access_token: "new_gitlab_token",
           refresh_token: "new_refresh_token",
           expires_at: 1800000000,
           scope: "read_api read_user read_repository",
-        },
-      });
+        }
+      );
     });
   });
 
@@ -256,8 +204,7 @@ describe("OAuth Token Refresh", () => {
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.findFirst).not.toHaveBeenCalled();
-      expect(prisma.account.update).not.toHaveBeenCalled();
+      expect(accountRepository.refreshTokens).not.toHaveBeenCalled();
     });
   });
 
@@ -281,8 +228,7 @@ describe("OAuth Token Refresh", () => {
 
       // THEN
       expect(result).toBe(true);
-      expect(prisma.account.findFirst).not.toHaveBeenCalled();
-      expect(prisma.account.update).not.toHaveBeenCalled();
+      expect(accountRepository.refreshTokens).not.toHaveBeenCalled();
     });
   });
 
@@ -298,7 +244,7 @@ describe("OAuth Token Refresh", () => {
         scope: "read:user",
       };
 
-      (prisma.account.findFirst as jest.Mock).mockRejectedValue(
+      (accountRepository.refreshTokens as jest.Mock).mockRejectedValue(
         new Error("Database connection failed")
       );
 

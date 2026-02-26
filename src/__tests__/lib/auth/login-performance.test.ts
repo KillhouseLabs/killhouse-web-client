@@ -3,20 +3,19 @@
  *
  * 로그인 성능 최적화 검증
  * - bcrypt 비동기 비교 사용
- * - Prisma 쿼리 필드 최적화
+ * - Repository 쿼리 최적화
  */
 
 import bcrypt from "bcryptjs";
-import { prisma } from "@/infrastructure/database/prisma";
 
-// Mock Prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-    },
+// Mock userRepository
+jest.mock("@/domains/auth/infra/prisma-user.repository", () => ({
+  userRepository: {
+    findByEmail: jest.fn(),
   },
 }));
+
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
 
 describe("Login Performance", () => {
   beforeEach(() => {
@@ -50,8 +49,8 @@ describe("Login Performance", () => {
     });
   });
 
-  describe("Prisma query optimization", () => {
-    it("GIVEN 로그인 요청 WHEN 사용자 조회 THEN 필수 필드만 select", () => {
+  describe("Repository query optimization", () => {
+    it("GIVEN 로그인 요청 WHEN 사용자 조회 THEN 필수 필드만 반환", () => {
       // GIVEN - authorize 함수에서 사용되는 필드
       const expectedFields = ["id", "email", "name", "image", "password"];
 
@@ -64,7 +63,7 @@ describe("Login Performance", () => {
       expect(expectedFields).toHaveLength(5);
     });
 
-    it("GIVEN Prisma 쿼리 WHEN select 사용 THEN 전체 레코드 조회 방지", async () => {
+    it("GIVEN userRepository WHEN findByEmail 사용 THEN 사용자 레코드 반환", async () => {
       // GIVEN
       const mockUser = {
         id: "user-123",
@@ -74,41 +73,25 @@ describe("Login Performance", () => {
         password: "$2a$10$hashedpassword",
       };
 
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(mockUser);
 
       // WHEN
-      const user = await prisma.user.findUnique({
-        where: { email: "test@example.com" },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          password: true,
-        },
-      });
+      const user = await userRepository.findByEmail("test@example.com");
 
       // THEN
       expect(user).toEqual(mockUser);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: "test@example.com" },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          password: true,
-        },
-      });
+      expect(userRepository.findByEmail).toHaveBeenCalledWith(
+        "test@example.com"
+      );
     });
   });
 
   describe("OAuth token refresh optimization", () => {
-    it("GIVEN OAuth 재로그인 WHEN updateMany 사용 THEN 단일 쿼리로 처리", () => {
-      // GIVEN - updateMany는 findFirst + update를 단일 쿼리로 대체
+    it("GIVEN OAuth 재로그인 WHEN refreshTokens 사용 THEN 단일 쿼리로 처리", () => {
+      // GIVEN - refreshTokens는 updateMany를 사용하여 단일 쿼리로 처리
       const optimizationBenefit = {
         before: 2, // findFirst + update
-        after: 1, // updateMany
+        after: 1, // updateMany (via refreshTokens)
       };
 
       // THEN

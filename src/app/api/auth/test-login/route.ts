@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
 import { cookies } from "next/headers";
 import { encode } from "next-auth/jwt";
 
@@ -35,9 +35,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // 사용자 조회
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await userRepository.findByEmail(email);
 
     if (!user) {
       // 테스트 사용자가 없으면 로그인 페이지로 리다이렉트
