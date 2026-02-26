@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { updateRepositorySchema } from "@/domains/project/dto/repository.dto";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { repoRepository } from "@/domains/project/infra/prisma-repo.repository";
 
 interface RouteParams {
   params: Promise<{ id: string; repoId: string }>;
@@ -21,13 +22,10 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -36,17 +34,10 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const repository = await prisma.repository.findFirst({
-      where: {
-        id: repoId,
-        projectId,
-      },
-      include: {
-        _count: {
-          select: { analyses: true },
-        },
-      },
-    });
+    const repository = await repoRepository.findByIdAndProject(
+      repoId,
+      projectId
+    );
 
     if (!repository) {
       return NextResponse.json(
@@ -82,13 +73,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -98,12 +86,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Check repository exists
-    const existingRepo = await prisma.repository.findFirst({
-      where: {
-        id: repoId,
-        projectId,
-      },
-    });
+    const existingRepo = await repoRepository.findByIdAndProject(
+      repoId,
+      projectId
+    );
 
     if (!existingRepo) {
       return NextResponse.json(
@@ -129,22 +115,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // If setting as primary, unset other primary repositories first
     if (isPrimary === true) {
-      await prisma.repository.updateMany({
-        where: {
-          projectId,
-          isPrimary: true,
-          id: { not: repoId },
-        },
-        data: { isPrimary: false },
-      });
+      await repoRepository.unsetPrimary(projectId, repoId);
     }
 
-    const repository = await prisma.repository.update({
-      where: { id: repoId },
-      data: {
-        ...updateData,
-        ...(isPrimary !== undefined && { isPrimary }),
-      },
+    const repository = await repoRepository.update(repoId, {
+      ...updateData,
+      ...(isPrimary !== undefined && { isPrimary }),
     });
 
     return NextResponse.json({
@@ -174,13 +150,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -190,12 +163,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Check repository exists
-    const existingRepo = await prisma.repository.findFirst({
-      where: {
-        id: repoId,
-        projectId,
-      },
-    });
+    const existingRepo = await repoRepository.findByIdAndProject(
+      repoId,
+      projectId
+    );
 
     if (!existingRepo) {
       return NextResponse.json(
@@ -207,22 +178,14 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     const wasPrimary = existingRepo.isPrimary;
 
     // Delete the repository
-    await prisma.repository.delete({
-      where: { id: repoId },
-    });
+    await repoRepository.delete(repoId);
 
     // If the deleted repo was primary, set the next oldest repo as primary
     if (wasPrimary) {
-      const nextRepo = await prisma.repository.findFirst({
-        where: { projectId },
-        orderBy: { createdAt: "asc" },
-      });
+      const nextRepo = await repoRepository.findOldestByProject(projectId);
 
       if (nextRepo) {
-        await prisma.repository.update({
-          where: { id: nextRepo.id },
-          data: { isPrimary: true },
-        });
+        await repoRepository.update(nextRepo.id, { isPrimary: true });
       }
     }
 

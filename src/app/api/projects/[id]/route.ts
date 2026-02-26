@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { updateProjectSchema } from "@/domains/project/dto/project.dto";
 import { addLegacyFields } from "@/domains/project/model/project";
 import {
   deleteS3Prefix,
   getProjectPrefix,
 } from "@/infrastructure/storage/s3-client";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -25,25 +25,10 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        },
-        analyses: {
-          orderBy: { startedAt: "desc" },
-          take: 10,
-        },
-        _count: {
-          select: { analyses: true },
-        },
-      },
-    });
+    const project = await projectRepository.findDetailByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -79,13 +64,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Check ownership
-    const existingProject = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const existingProject = await projectRepository.findByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!existingProject) {
       return NextResponse.json(
@@ -107,15 +89,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: validationResult.data,
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        },
-      },
-    });
+    const project = await projectRepository.update(id, validationResult.data);
 
     return NextResponse.json({
       success: true,
@@ -144,13 +118,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Check ownership
-    const existingProject = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const existingProject = await projectRepository.findByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!existingProject) {
       return NextResponse.json(
@@ -169,10 +140,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Soft delete
-    await prisma.project.update({
-      where: { id },
-      data: { status: "DELETED" },
-    });
+    await projectRepository.softDelete(id);
 
     return NextResponse.json({
       success: true,

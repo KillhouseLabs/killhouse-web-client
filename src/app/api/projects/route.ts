@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/infrastructure/database/prisma";
 import { createProjectSchema } from "@/domains/project/dto/project.dto";
 import {
   addLegacyFields,
@@ -10,6 +9,7 @@ import {
   projectCreationHandler,
   type AuthenticatedContext,
 } from "@/lib/api/middleware";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
 
 // GET /api/projects - List user's projects
 export const GET = authenticatedHandler(
@@ -26,31 +26,10 @@ export const GET = authenticatedHandler(
     const skip = (page - 1) * limit;
 
     // Fetch projects and total count in parallel
-    const [projects, totalCount] = await Promise.all([
-      prisma.project.findMany({
-        where: {
-          userId,
-          status: { not: "DELETED" },
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: {
-          repositories: {
-            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-          },
-          _count: {
-            select: { analyses: true },
-          },
-        },
-      }),
-      prisma.project.count({
-        where: {
-          userId,
-          status: { not: "DELETED" },
-        },
-      }),
-    ]);
+    const { projects, totalCount } = await projectRepository.findActiveByUser(
+      userId,
+      { skip, take: limit }
+    );
 
     const projectsWithLegacyFields = projects.map(addLegacyFields);
 
@@ -91,20 +70,11 @@ export const POST = projectCreationHandler(
 
     const { name, description, repositories } = validationResult.data;
 
-    const project = await prisma.project.create({
-      data: {
-        name,
-        description,
-        userId,
-        repositories: {
-          create: processRepositories(repositories),
-        },
-      },
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        },
-      },
+    const project = await projectRepository.createWithRepositories({
+      name,
+      description,
+      userId,
+      repositories: processRepositories(repositories),
     });
 
     return NextResponse.json(
