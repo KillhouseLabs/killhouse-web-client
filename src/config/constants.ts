@@ -1,5 +1,11 @@
 /**
- * Application constants
+ * Application-level constants
+ *
+ * 앱 메타데이터, 라우팅, 법적 표시사항 등 도메인에 속하지 않는 앱 설정.
+ * 도메인 지식(플랜, 심각도, 환불정책)은 각 도메인 모델로 이동함:
+ *   - PLANS, formatLimit, formatStorage, formatPrice → @/domains/subscription/model/plan
+ *   - SEVERITY, Severity → @/domains/analysis/model/severity
+ *   - REFUND_POLICY → @/domains/payment/model/refund-policy
  */
 
 export const APP_NAME = "Killhouse";
@@ -54,73 +60,6 @@ export const API_ROUTES = {
   },
 } as const;
 
-// Subscription prices (in KRW)
-export const SUBSCRIPTION_PRICES = {
-  PRO: Number(process.env.NEXT_PUBLIC_PRO_PRICE) || 29000,
-  ENTERPRISE: -1, // contact sales
-} as const;
-
-// Subscription plans
-export const PLANS = {
-  FREE: {
-    id: "free",
-    name: "Free",
-    price: 0,
-    limits: {
-      projects: 3,
-      analysisPerMonth: 10,
-      storageMB: 100,
-    },
-  },
-  PRO: {
-    id: "pro",
-    name: "Pro",
-    price: SUBSCRIPTION_PRICES.PRO,
-    limits: {
-      projects: -1, // unlimited
-      analysisPerMonth: 100,
-      storageMB: 10240, // 10GB
-    },
-  },
-  ENTERPRISE: {
-    id: "enterprise",
-    name: "Enterprise",
-    price: SUBSCRIPTION_PRICES.ENTERPRISE, // contact
-    limits: {
-      projects: -1,
-      analysisPerMonth: -1,
-      storageMB: -1,
-    },
-  },
-} as const;
-
-// Helper functions for plan limits
-export function formatLimit(value: number): string {
-  return value === -1 ? "무제한" : value.toString();
-}
-
-export function formatStorage(mb: number): string {
-  if (mb === -1) return "무제한";
-  if (mb >= 1024) return `${mb / 1024}GB`;
-  return `${mb}MB`;
-}
-
-export function formatPrice(price: number): string {
-  if (price === -1) return "문의";
-  return `₩${price.toLocaleString()}`;
-}
-
-// Vulnerability severity levels
-export const SEVERITY = {
-  CRITICAL: "critical",
-  HIGH: "high",
-  MEDIUM: "medium",
-  LOW: "low",
-  INFO: "info",
-} as const;
-
-export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
-
 // Business information (통신판매업 필수 표시사항)
 export const BUSINESS_INFO = {
   companyName: "킬하우스",
@@ -130,12 +69,6 @@ export const BUSINESS_INFO = {
   address: "서울특별시 강남구 테헤란로 123, 4층",
   email: "support@killhouse.com",
   phone: "02-1234-5678",
-} as const;
-
-// Refund policy
-export const REFUND_POLICY = {
-  withdrawalPeriodDays: 7,
-  roundingUnit: 100,
 } as const;
 
 // Legal page routes

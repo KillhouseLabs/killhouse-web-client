@@ -1,18 +1,7 @@
-// Severity weight map (same as in implementation)
-const SEVERITY_WEIGHT: Record<string, number> = {
-  CRITICAL: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-  INFO: 4,
-};
-
-function normalizeSeverity(severity: string): string {
-  return severity
-    .toUpperCase()
-    .replace("WARNING", "MEDIUM")
-    .replace("ERROR", "HIGH");
-}
+import {
+  SEVERITY_WEIGHT,
+  normalizeSeverity,
+} from "@/domains/analysis/model/severity";
 
 interface Finding {
   id?: string;

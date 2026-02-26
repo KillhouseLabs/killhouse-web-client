@@ -5,7 +5,7 @@ import {
   buildDedupKey,
   parseReportFindings,
   isCriticalSeverity,
-} from "@/lib/vulnerability-dedup";
+} from "@/domains/analysis/model/vulnerability-dedup";
 
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET() {

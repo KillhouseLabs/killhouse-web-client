@@ -1,37 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/infrastructure/database/prisma";
 import { serverEnv } from "@/config/env";
-import {
-  canTransition,
-  mapStatusToStep,
-  type AnalysisStatus,
-} from "@/domains/analysis/model/analysis-state-machine";
-import { appendLog } from "@/domains/analysis/model/analysis-log";
+import { processWebhook } from "@/domains/analysis/usecase/process-webhook.usecase";
 
-// Helper: determine if incoming report should update the stored report
-function shouldUpdateReport(
-  incoming: unknown,
-  existingReport: string | null
-): boolean {
-  const parsed = typeof incoming === "string" ? JSON.parse(incoming) : incoming;
-
-  // If there's no existing report, always save the incoming report
-  if (!existingReport) return true;
-
-  // Don't overwrite if the step was skipped
-  if (parsed?.step_result?.status === "skipped") return false;
-
-  // Don't overwrite existing report with empty findings
-  if (parsed?.findings?.length === 0) {
-    try {
-      const existing = JSON.parse(existingReport);
-      if (existing?.findings?.length > 0) return false;
-    } catch {
-      // If existing report is not valid JSON, allow overwrite
-    }
-  }
-  return true;
-}
+const KNOWN_DB_FIELDS = [
+  "status",
+  "logs",
+  "staticAnalysisReport",
+  "penetrationTestReport",
+  "vulnerabilitiesFound",
+  "criticalCount",
+  "highCount",
+  "mediumCount",
+  "lowCount",
+  "infoCount",
+  "executiveSummary",
+  "stepResults",
+  "exploitSessionId",
+  "completedAt",
+  "sandboxStatus",
+];
 
 export async function POST(request: Request) {
   try {
@@ -47,25 +35,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const {
-      analysis_id,
-      status,
-      static_analysis_report,
-      penetration_test_report,
-      executive_summary,
-      step_results,
-      exploit_session_id,
-      vulnerabilities_found,
-      critical_count,
-      high_count,
-      medium_count,
-      low_count,
-      info_count,
-      error: webhookError,
-      log_message,
-      log_level,
-      raw_output,
-    } = body;
+    const { analysis_id } = body;
 
     if (!analysis_id) {
       return NextResponse.json(
@@ -86,154 +56,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build update data
-    const currentStatus = analysis.status as AnalysisStatus;
-    let resolvedStatus = currentStatus;
-    let updatedLogs = analysis.logs;
-
-    // Determine the resolved status using the state machine
-    if (status) {
-      const newStatus = status as AnalysisStatus;
-      if (canTransition(currentStatus, newStatus)) {
-        resolvedStatus = newStatus;
-
-        // Auto-generate status transition log
-        const timestamp = new Date().toISOString();
-        const step = mapStatusToStep(resolvedStatus);
-        updatedLogs = appendLog(updatedLogs, {
-          timestamp,
-          step,
-          level: "info",
-          message: `상태 변경: ${currentStatus} → ${resolvedStatus}`,
-        });
-      } else {
-        console.error(
-          `Webhook: REJECTED state transition for analysis ${analysis_id}: ` +
-            `${currentStatus} → ${newStatus}. ` +
-            `This may indicate a state machine configuration issue.` +
-            (webhookError ? ` Error: ${webhookError}` : "")
-        );
-
-        updatedLogs = appendLog(updatedLogs, {
-          timestamp: new Date().toISOString(),
-          step: mapStatusToStep(newStatus),
-          level: "warn",
-          message: `상태 전이 거부됨: ${currentStatus} → ${newStatus}`,
-        });
-      }
-    }
-
-    const statusTransitionAccepted = resolvedStatus !== currentStatus;
-
-    // Append custom log message if provided
-    if (log_message) {
-      const timestamp = new Date().toISOString();
-      const step = mapStatusToStep(resolvedStatus);
-      const level = log_level || "info";
-      updatedLogs = appendLog(updatedLogs, {
-        timestamp,
-        step,
-        level: level as "info" | "warn" | "error" | "success",
-        message: log_message,
-        ...(raw_output ? { rawOutput: raw_output } : {}),
-      });
-    }
-
-    // Append error log if error is provided
-    if (webhookError) {
-      const timestamp = new Date().toISOString();
-      const step = mapStatusToStep(resolvedStatus);
-      updatedLogs = appendLog(updatedLogs, {
-        timestamp,
-        step,
-        level: "error",
-        message: webhookError,
-      });
-    }
-
-    const updateData: Record<string, unknown> = {
-      status: resolvedStatus,
-      logs: updatedLogs,
-    };
-
-    if (
-      static_analysis_report &&
-      shouldUpdateReport(static_analysis_report, analysis.staticAnalysisReport)
-    ) {
-      updateData.staticAnalysisReport =
-        typeof static_analysis_report === "string"
-          ? static_analysis_report
-          : JSON.stringify(static_analysis_report);
-    }
-
-    if (
-      penetration_test_report &&
-      shouldUpdateReport(
-        penetration_test_report,
-        analysis.penetrationTestReport
-      )
-    ) {
-      updateData.penetrationTestReport =
-        typeof penetration_test_report === "string"
-          ? penetration_test_report
-          : JSON.stringify(penetration_test_report);
-    }
-
-    // Accumulate counts (SAST and DAST callbacks may arrive separately)
-    if (vulnerabilities_found !== undefined) {
-      updateData.vulnerabilitiesFound =
-        (analysis.vulnerabilitiesFound || 0) + vulnerabilities_found;
-    }
-    if (critical_count !== undefined) {
-      updateData.criticalCount = (analysis.criticalCount || 0) + critical_count;
-    }
-    if (high_count !== undefined) {
-      updateData.highCount = (analysis.highCount || 0) + high_count;
-    }
-    if (medium_count !== undefined) {
-      updateData.mediumCount = (analysis.mediumCount || 0) + medium_count;
-    }
-    if (low_count !== undefined) {
-      updateData.lowCount = (analysis.lowCount || 0) + low_count;
-    }
-    if (info_count !== undefined) {
-      const currentInfoCount =
-        ((analysis as Record<string, unknown>).infoCount as number) || 0;
-      updateData.infoCount = currentInfoCount + info_count;
-    }
-
-    if (executive_summary) {
-      updateData.executiveSummary = executive_summary;
-    }
-
-    if (step_results) {
-      updateData.stepResults =
-        typeof step_results === "string"
-          ? step_results
-          : JSON.stringify(step_results);
-    }
-
-    if (exploit_session_id) {
-      updateData.exploitSessionId = exploit_session_id;
-    }
-
-    // Only set terminal fields when the state transition was actually accepted
-    if (statusTransitionAccepted) {
-      if (resolvedStatus === "COMPLETED") {
-        updateData.completedAt = new Date();
-        updateData.sandboxStatus = "COMPLETED";
-      }
-
-      if (resolvedStatus === "COMPLETED_WITH_ERRORS") {
-        updateData.completedAt = new Date();
-        updateData.sandboxStatus = "COMPLETED";
-      }
-
-      if (resolvedStatus === "FAILED") {
-        updateData.completedAt = new Date();
-        updateData.sandboxStatus = "FAILED";
-      }
-    }
+    // Delegate business logic to usecase
+    const updateData = processWebhook(analysis, body);
 
     // Update the analysis record
     let updated;
@@ -248,25 +72,8 @@ export async function POST(request: Request) {
         `Webhook: DB update failed, retrying without unknown fields: ${dbError}`
       );
       const safeData = { ...updateData };
-      const knownFields = [
-        "status",
-        "logs",
-        "staticAnalysisReport",
-        "penetrationTestReport",
-        "vulnerabilitiesFound",
-        "criticalCount",
-        "highCount",
-        "mediumCount",
-        "lowCount",
-        "infoCount",
-        "executiveSummary",
-        "stepResults",
-        "exploitSessionId",
-        "completedAt",
-        "sandboxStatus",
-      ];
       for (const key of Object.keys(safeData)) {
-        if (!knownFields.includes(key)) {
+        if (!KNOWN_DB_FIELDS.includes(key)) {
           delete safeData[key];
         }
       }
@@ -276,7 +83,7 @@ export async function POST(request: Request) {
       });
     }
 
-    console.log(`Webhook: Analysis ${analysis_id} updated to ${status}`);
+    console.log(`Webhook: Analysis ${analysis_id} updated to ${body.status}`);
 
     return NextResponse.json({
       success: true,

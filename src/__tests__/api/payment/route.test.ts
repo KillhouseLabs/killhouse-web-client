@@ -57,7 +57,7 @@ jest.mock("@/domains/payment/infra/payment-gateway-factory", () => ({
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { auth } from "@/lib/auth";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 import { upgradeSubscription } from "@/domains/payment/usecase/upgrade-subscription";
 

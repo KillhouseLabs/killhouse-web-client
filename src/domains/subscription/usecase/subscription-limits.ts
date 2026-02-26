@@ -14,6 +14,7 @@ import {
   canPerformAction,
   type PlanLimits as PolicyPlanLimits,
 } from "@/domains/policy/model/policy";
+import { TERMINAL_STATUSES } from "@/domains/analysis/model/analysis-state-machine";
 
 interface PlanLimits {
   projects: number;
@@ -26,13 +27,6 @@ export interface ResourceLimits {
   containerCpuLimit: number;
   containerPidsLimit: number;
 }
-
-const TERMINAL_STATUSES = [
-  "COMPLETED",
-  "COMPLETED_WITH_ERRORS",
-  "FAILED",
-  "CANCELLED",
-];
 
 interface LimitCheckResult {
   allowed: boolean;
@@ -154,7 +148,7 @@ export async function canStartConcurrentScan(
   const currentCount = await prisma.analysis.count({
     where: {
       project: { userId },
-      status: { notIn: TERMINAL_STATUSES },
+      status: { notIn: [...TERMINAL_STATUSES] },
     },
   });
 
@@ -275,7 +269,7 @@ export async function createAnalysisWithLimitCheck(
       const concurrentCount = await tx.analysis.count({
         where: {
           project: { userId: input.userId },
-          status: { notIn: TERMINAL_STATUSES },
+          status: { notIn: [...TERMINAL_STATUSES] },
         },
       });
 

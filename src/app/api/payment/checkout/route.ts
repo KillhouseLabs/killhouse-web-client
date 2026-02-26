@@ -11,7 +11,7 @@ import {
   createPaymentSchema,
   type CreatePaymentRequest,
 } from "@/domains/payment/dto/payment.dto";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 
 /**
  * 주문 ID 생성

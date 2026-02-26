@@ -59,15 +59,19 @@ const VALID_TRANSITIONS: Record<AnalysisStatus, AnalysisStatus[]> = {
   CANCELLED: [],
 };
 
-const TERMINAL_STATUSES: ReadonlySet<AnalysisStatus> = new Set([
+export const TERMINAL_STATUSES: readonly AnalysisStatus[] = [
   "COMPLETED",
   "COMPLETED_WITH_ERRORS",
   "FAILED",
   "CANCELLED",
-]);
+];
+
+const TERMINAL_STATUS_SET: ReadonlySet<AnalysisStatus> = new Set(
+  TERMINAL_STATUSES
+);
 
 export function isTerminalStatus(status: AnalysisStatus): boolean {
-  return TERMINAL_STATUSES.has(status);
+  return TERMINAL_STATUS_SET.has(status);
 }
 
 export function canTransition(

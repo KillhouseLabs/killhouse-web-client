@@ -7,7 +7,7 @@
 import {
   orchestrateSandboxAndDast,
   resetCircuitBreaker,
-} from "@/lib/sandbox-orchestrator";
+} from "@/domains/analysis/usecase/sandbox-orchestrator";
 import { prisma } from "@/infrastructure/database/prisma";
 import { getResourceLimits } from "@/domains/subscription/usecase/subscription-limits";
 

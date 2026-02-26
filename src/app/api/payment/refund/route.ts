@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 import { calculateRefundAmount } from "@/domains/payment/usecase/refund.usecase";
 import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 

@@ -8,7 +8,7 @@ import {
   formatLimit,
   formatStorage,
   formatPrice,
-} from "@/config/constants";
+} from "@/domains/subscription/model/plan";
 
 interface UsageStats {
   planId: string;

@@ -11,7 +11,7 @@ import {
   getUsageStats,
 } from "@/domains/subscription/usecase/subscription-limits";
 import { prisma } from "@/infrastructure/database/prisma";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 
 // Mock Prisma
 jest.mock("@/infrastructure/database/prisma", () => ({
