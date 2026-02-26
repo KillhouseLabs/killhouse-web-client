@@ -23,7 +23,7 @@ export interface SubscriptionRepository {
     planId: string;
     status: string;
     currentPeriodStart: Date;
-    currentPeriodEnd: Date;
+    currentPeriodEnd?: Date;
   }): Promise<SubscriptionRecord>;
 
   update(
