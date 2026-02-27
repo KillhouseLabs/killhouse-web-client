@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 import { useLocale } from "@/lib/i18n/locale-context";
 
 interface UsageInfo {

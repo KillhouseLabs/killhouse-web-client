@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { updateProjectSchema } from "@/domains/project/dto/project.dto";
+import { addLegacyFields } from "@/domains/project/model/project";
 import {
   deleteS3Prefix,
   getProjectPrefix,
 } from "@/infrastructure/storage/s3-client";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,25 +25,10 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        },
-        analyses: {
-          orderBy: { startedAt: "desc" },
-          take: 10,
-        },
-        _count: {
-          select: { analyses: true },
-        },
-      },
-    });
+    const project = await projectRepository.findDetailByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -51,20 +37,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Add backward compatibility fields
-    const primaryRepo = project.repositories.find((r) => r.isPrimary);
-    const projectWithLegacyFields = {
-      ...project,
-      repoProvider: primaryRepo?.provider || null,
-      repoUrl: primaryRepo?.url || null,
-      repoOwner: primaryRepo?.owner || null,
-      repoName: primaryRepo?.name || null,
-      defaultBranch: primaryRepo?.defaultBranch || "main",
-    };
-
     return NextResponse.json({
       success: true,
-      data: projectWithLegacyFields,
+      data: addLegacyFields(project),
     });
   } catch (error) {
     console.error("Get project error:", error);
@@ -89,13 +64,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Check ownership
-    const existingProject = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const existingProject = await projectRepository.findByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!existingProject) {
       return NextResponse.json(
@@ -117,30 +89,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: validationResult.data,
-      include: {
-        repositories: {
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-        },
-      },
-    });
-
-    // Add backward compatibility fields
-    const primaryRepo = project.repositories.find((r) => r.isPrimary);
-    const projectWithLegacyFields = {
-      ...project,
-      repoProvider: primaryRepo?.provider || null,
-      repoUrl: primaryRepo?.url || null,
-      repoOwner: primaryRepo?.owner || null,
-      repoName: primaryRepo?.name || null,
-      defaultBranch: primaryRepo?.defaultBranch || "main",
-    };
+    const project = await projectRepository.update(id, validationResult.data);
 
     return NextResponse.json({
       success: true,
-      data: projectWithLegacyFields,
+      data: addLegacyFields(project),
     });
   } catch (error) {
     console.error("Update project error:", error);
@@ -165,13 +118,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Check ownership
-    const existingProject = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const existingProject = await projectRepository.findByIdAndUser(
+      session.user.id,
+      id
+    );
 
     if (!existingProject) {
       return NextResponse.json(
@@ -190,10 +140,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Soft delete
-    await prisma.project.update({
-      where: { id },
-      data: { status: "DELETED" },
-    });
+    await projectRepository.softDelete(id);
 
     return NextResponse.json({
       success: true,

@@ -11,28 +11,30 @@ jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
 
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    project: {
-      findFirst: jest.fn(),
-    },
-    analysis: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      count: jest.fn(),
-    },
-    subscription: {
-      findUnique: jest.fn(),
-    },
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    findByIdAndUser: jest.fn(),
+    findDetailByIdAndUser: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    findManyByProject: jest.fn(),
+    findByIdAndProject: jest.fn(),
+    update: jest.fn(),
+    batchUpdateStatus: jest.fn(),
   },
 }));
 
 jest.mock("@/domains/subscription/usecase/subscription-limits", () => ({
   canRunAnalysis: jest.fn(),
+  createAnalysisWithLimitCheck: jest.fn(),
 }));
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import { canRunAnalysis } from "@/domains/subscription/usecase/subscription-limits";
 
 describe("Analyses API", () => {
@@ -62,29 +64,33 @@ describe("Analyses API", () => {
         });
 
         const mockProject = { id: "project-1", userId: "user-1" };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
 
         const mockAnalyses = [
           {
             id: "analysis-1",
             status: "COMPLETED",
             projectId: "project-1",
-            repository: { id: "repo-1", name: "frontend", provider: "GITHUB" },
+            repository: {
+              id: "repo-1",
+              name: "frontend",
+              provider: "GITHUB",
+            },
           },
         ];
-        (prisma.analysis.findMany as jest.Mock).mockResolvedValue(mockAnalyses);
+        (analysisRepository.findManyByProject as jest.Mock).mockResolvedValue(
+          mockAnalyses
+        );
 
         // WHEN
-        const project = await prisma.project.findFirst({
-          where: {
-            id: "project-1",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
-        const analyses = await prisma.analysis.findMany({
-          where: { projectId: "project-1" },
-        });
+        const project = await projectRepository.findByIdAndUser(
+          "user-1",
+          "project-1"
+        );
+        const analyses =
+          await analysisRepository.findManyByProject("project-1");
 
         // THEN
         expect(project).not.toBeNull();
@@ -98,16 +104,15 @@ describe("Analyses API", () => {
           user: { id: "user-1" },
         });
 
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const project = await prisma.project.findFirst({
-          where: {
-            id: "project-other",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
+        const project = await projectRepository.findByIdAndUser(
+          "user-1",
+          "project-other"
+        );
 
         // THEN
         expect(project).toBeNull();
@@ -171,7 +176,9 @@ describe("Analyses API", () => {
           userId: "user-1",
           repositories: [{ id: "repo-1", name: "frontend" }],
         };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         const mockAnalysis = {
           id: "analysis-new",
@@ -180,23 +187,21 @@ describe("Analyses API", () => {
           repositoryId: "repo-1",
           branch: "main",
         };
-        (prisma.analysis.create as jest.Mock).mockResolvedValue(mockAnalysis);
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
+          mockAnalysis
+        );
 
         // WHEN
         const limitCheck = await canRunAnalysis("user-1");
-        const analysis = await prisma.analysis.create({
-          data: {
-            projectId: "project-1",
-            repositoryId: "repo-1",
-            branch: "main",
-            status: "PENDING",
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "analysis-new",
+          "project-1"
+        );
 
         // THEN
         expect(limitCheck.allowed).toBe(true);
-        expect(analysis.status).toBe("PENDING");
-        expect(analysis.repositoryId).toBe("repo-1");
+        expect(analysis!.status).toBe("PENDING");
+        expect(analysis!.repositoryId).toBe("repo-1");
       });
 
       it("GIVEN Pro 플랜 (무제한) WHEN 분석 시작 THEN 분석이 생성되어야 한다", async () => {
@@ -216,14 +221,9 @@ describe("Analyses API", () => {
           userId: "user-pro",
           repositories: [],
         };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-
-        const mockAnalysis = {
-          id: "analysis-pro",
-          status: "PENDING",
-          projectId: "project-1",
-        };
-        (prisma.analysis.create as jest.Mock).mockResolvedValue(mockAnalysis);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         // WHEN
         const limitCheck = await canRunAnalysis("user-pro");
@@ -255,7 +255,9 @@ describe("Analyses API", () => {
             { id: "repo-2", name: "backend" },
           ],
         };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         const mockAnalysis = {
           id: "analysis-1",
@@ -265,21 +267,19 @@ describe("Analyses API", () => {
           branch: "develop",
           repository: { id: "repo-2", name: "backend", provider: "GITHUB" },
         };
-        (prisma.analysis.create as jest.Mock).mockResolvedValue(mockAnalysis);
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
+          mockAnalysis
+        );
 
         // WHEN
-        const analysis = await prisma.analysis.create({
-          data: {
-            projectId: "project-1",
-            repositoryId: "repo-2",
-            branch: "develop",
-            status: "PENDING",
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "analysis-1",
+          "project-1"
+        );
 
         // THEN
-        expect(analysis.repositoryId).toBe("repo-2");
-        expect(analysis.branch).toBe("develop");
+        expect(analysis!.repositoryId).toBe("repo-2");
+        expect(analysis!.branch).toBe("develop");
       });
 
       it("GIVEN 유효하지 않은 저장소 ID WHEN 분석 시작 THEN 저장소를 찾을 수 없음", async () => {
@@ -289,7 +289,9 @@ describe("Analyses API", () => {
           userId: "user-1",
           repositories: [{ id: "repo-1", name: "frontend" }],
         };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         // WHEN
         const invalidRepoId = "invalid-repo";
@@ -318,7 +320,9 @@ describe("Analyses API", () => {
           userId: "user-1",
           repositories: [],
         };
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         const mockAnalysis = {
           id: "analysis-1",
@@ -327,20 +331,18 @@ describe("Analyses API", () => {
           repositoryId: null,
           branch: "main",
         };
-        (prisma.analysis.create as jest.Mock).mockResolvedValue(mockAnalysis);
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
+          mockAnalysis
+        );
 
         // WHEN
-        const analysis = await prisma.analysis.create({
-          data: {
-            projectId: "project-1",
-            repositoryId: null,
-            branch: "main",
-            status: "PENDING",
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "analysis-1",
+          "project-1"
+        );
 
         // THEN
-        expect(analysis.repositoryId).toBeNull();
+        expect(analysis!.repositoryId).toBeNull();
       });
     });
   });

@@ -10,21 +10,32 @@ import {
   canRunAnalysis,
   getUsageStats,
 } from "@/domains/subscription/usecase/subscription-limits";
-import { prisma } from "@/infrastructure/database/prisma";
-import { PLANS } from "@/config/constants";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { PLANS } from "@/domains/subscription/model/plan";
 
-// Mock Prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    subscription: {
-      findUnique: jest.fn(),
+// Mock repositories
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
     },
-    project: {
-      count: jest.fn(),
-    },
-    analysis: {
-      count: jest.fn(),
-    },
+  })
+);
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    countMonthlyByUser: jest.fn(),
+    countConcurrentByUser: jest.fn(),
+    createWithLimitCheck: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    countActiveByUser: jest.fn(),
   },
 }));
 
@@ -152,11 +163,11 @@ describe("Subscription Limits", () => {
     it("GIVEN free 플랜 + 프로젝트 0개 WHEN 생성 가능 여부 확인 THEN true 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(0);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(0);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -170,11 +181,11 @@ describe("Subscription Limits", () => {
     it("GIVEN free 플랜 + 프로젝트 2개 WHEN 생성 가능 여부 확인 THEN true 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(2);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(2);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -188,11 +199,11 @@ describe("Subscription Limits", () => {
     it("GIVEN free 플랜 + 프로젝트 3개 WHEN 생성 가능 여부 확인 THEN false 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(3);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(3);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -207,11 +218,11 @@ describe("Subscription Limits", () => {
     it("GIVEN pro 플랜 + 프로젝트 100개 WHEN 생성 가능 여부 확인 THEN true 반환 (무제한)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "ACTIVE",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(100);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(100);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -224,8 +235,10 @@ describe("Subscription Limits", () => {
     it("GIVEN 구독 없음 WHEN 생성 가능 여부 확인 THEN free 플랜 제한 적용", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.project.count as jest.Mock).mockResolvedValue(3);
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue(
+        null
+      );
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(3);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -238,11 +251,11 @@ describe("Subscription Limits", () => {
     it("GIVEN 구독 상태가 CANCELLED WHEN 생성 가능 여부 확인 THEN free 플랜 제한 적용", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "CANCELLED",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(3);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(3);
 
       // WHEN
       const result = await canCreateProject(userId);
@@ -257,11 +270,11 @@ describe("Subscription Limits", () => {
     it("GIVEN free 플랜 + 이번 달 분석 0회 WHEN 분석 가능 여부 확인 THEN true 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(0);
+      (analysisRepository.countMonthlyByUser as jest.Mock).mockResolvedValue(0);
 
       // WHEN
       const result = await canRunAnalysis(userId);
@@ -275,11 +288,13 @@ describe("Subscription Limits", () => {
     it("GIVEN free 플랜 + 이번 달 분석 10회 WHEN 분석 가능 여부 확인 THEN false 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(10);
+      (analysisRepository.countMonthlyByUser as jest.Mock).mockResolvedValue(
+        10
+      );
 
       // WHEN
       const result = await canRunAnalysis(userId);
@@ -294,11 +309,13 @@ describe("Subscription Limits", () => {
     it("GIVEN pro 플랜 + 이번 달 분석 50회 WHEN 분석 가능 여부 확인 THEN true 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(50);
+      (analysisRepository.countMonthlyByUser as jest.Mock).mockResolvedValue(
+        50
+      );
 
       // WHEN
       const result = await canRunAnalysis(userId);
@@ -312,11 +329,13 @@ describe("Subscription Limits", () => {
     it("GIVEN enterprise 플랜 + 이번 달 분석 1000회 WHEN 분석 가능 여부 확인 THEN true 반환 (무제한)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "enterprise",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(1000);
+      (analysisRepository.countMonthlyByUser as jest.Mock).mockResolvedValue(
+        1000
+      );
 
       // WHEN
       const result = await canRunAnalysis(userId);
@@ -331,12 +350,12 @@ describe("Subscription Limits", () => {
     it("GIVEN 사용자 WHEN 사용량 조회 THEN 프로젝트/분석 사용량 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.project.count as jest.Mock).mockResolvedValue(2);
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(5);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(2);
+      (analysisRepository.countMonthlyByUser as jest.Mock).mockResolvedValue(5);
 
       // WHEN
       const stats = await getUsageStats(userId);

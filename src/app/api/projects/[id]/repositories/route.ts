@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { createRepositorySchema } from "@/domains/project/dto/repository.dto";
 import { parseRepoUrl } from "@/domains/project/dto/project.dto";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { repoRepository } from "@/domains/project/infra/prisma-repo.repository";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -22,13 +23,10 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -37,15 +35,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const repositories = await prisma.repository.findMany({
-      where: { projectId },
-      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-      include: {
-        _count: {
-          select: { analyses: true },
-        },
-      },
-    });
+    const repositories = await repoRepository.findManyByProject(projectId);
 
     return NextResponse.json({
       success: true,
@@ -74,13 +64,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -128,12 +115,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Check for duplicate URL in project
     if (url) {
-      const existingRepo = await prisma.repository.findFirst({
-        where: {
-          projectId,
-          url,
-        },
-      });
+      const existingRepo = await repoRepository.findDuplicateUrl(
+        projectId,
+        url
+      );
 
       if (existingRepo) {
         return NextResponse.json(
@@ -145,32 +130,25 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // If isPrimary is true, unset other primary repositories
     if (isPrimary) {
-      await prisma.repository.updateMany({
-        where: {
-          projectId,
-          isPrimary: true,
-        },
-        data: { isPrimary: false },
-      });
+      await repoRepository.unsetPrimary(projectId);
     }
 
-    const repository = await prisma.repository.create({
-      data: {
-        provider,
-        url: url || null,
-        owner,
-        name,
-        defaultBranch,
-        isPrimary,
-        role,
-        dockerfileContent: dockerfileContent || null,
-        composeContent: composeContent || null,
-        dockerfilePath: dockerfilePath || null,
-        buildContext: buildContext || null,
-        targetService: targetService || null,
-        accountId: accountId || null,
-        projectId,
-      },
+    const repository = await repoRepository.create({
+      provider,
+      url: url || null,
+      owner,
+      name,
+      defaultBranch,
+      isPrimary,
+      role: role || null,
+      dockerfileContent: dockerfileContent || null,
+      composeContent: composeContent || null,
+      dockerfilePath: dockerfilePath || null,
+      buildContext: buildContext || null,
+      targetService: targetService || null,
+      accountId: accountId || null,
+      uploadKey: null,
+      projectId,
     });
 
     return NextResponse.json(

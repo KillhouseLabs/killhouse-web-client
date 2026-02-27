@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 import { getUserProjects } from "@/infrastructure/gitlab/gitlab-client";
 
 export async function GET(request: NextRequest) {
@@ -23,21 +23,11 @@ export async function GET(request: NextRequest) {
     );
     const search = searchParams.get("search") || undefined;
 
-    const account = await prisma.account.findFirst({
-      where: accountId
-        ? {
-            id: accountId,
-            userId: session.user.id,
-            provider: "gitlab",
-          }
-        : {
-            userId: session.user.id,
-            provider: "gitlab",
-          },
-      select: {
-        access_token: true,
-      },
-    });
+    const account = await accountRepository.findAccessToken(
+      session.user.id,
+      "gitlab",
+      accountId ?? undefined
+    );
 
     if (!account?.access_token) {
       return NextResponse.json(

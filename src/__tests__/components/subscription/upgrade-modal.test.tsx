@@ -6,7 +6,7 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 
 // Mock next/link
 jest.mock("next/link", () => {

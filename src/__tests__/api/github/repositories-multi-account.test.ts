@@ -5,12 +5,10 @@
  * - accountId 파라미터 지원
  */
 
-// Mock prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    account: {
-      findFirst: jest.fn(),
-    },
+// Mock accountRepository
+jest.mock("@/domains/auth/infra/prisma-account.repository", () => ({
+  accountRepository: {
+    findAccessToken: jest.fn(),
   },
 }));
 
@@ -25,7 +23,7 @@ jest.mock("@/infrastructure/github/github-client", () => ({
   getUserRepositories: jest.fn(),
 }));
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 import { auth } from "@/lib/auth";
 import {
   createGitHubClient,
@@ -44,7 +42,7 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.account.findFirst as jest.Mock).mockResolvedValue({
+        (accountRepository.findAccessToken as jest.Mock).mockResolvedValue({
           access_token: "github-token-1",
         });
         (createGitHubClient as jest.Mock).mockReturnValue({});
@@ -54,26 +52,13 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         });
 
         // WHEN
-        await prisma.account.findFirst({
-          where: {
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        await accountRepository.findAccessToken("user-1", "github");
 
         // THEN
-        expect(prisma.account.findFirst).toHaveBeenCalledWith({
-          where: {
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        expect(accountRepository.findAccessToken).toHaveBeenCalledWith(
+          "user-1",
+          "github"
+        );
       });
     });
 
@@ -84,7 +69,7 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.account.findFirst as jest.Mock).mockResolvedValue({
+        (accountRepository.findAccessToken as jest.Mock).mockResolvedValue({
           access_token: "github-token-2",
         });
         (createGitHubClient as jest.Mock).mockReturnValue({});
@@ -100,28 +85,14 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         });
 
         // WHEN
-        await prisma.account.findFirst({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        await accountRepository.findAccessToken("user-1", "github", accountId);
 
         // THEN
-        expect(prisma.account.findFirst).toHaveBeenCalledWith({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        expect(accountRepository.findAccessToken).toHaveBeenCalledWith(
+          "user-1",
+          "github",
+          accountId
+        );
       });
 
       it("GIVEN 다른 사용자의 accountId WHEN 저장소 목록 요청 THEN 계정을 찾을 수 없어야 한다", async () => {
@@ -130,30 +101,23 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.account.findFirst as jest.Mock).mockResolvedValue(null);
+        (accountRepository.findAccessToken as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const result = await prisma.account.findFirst({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        const result = await accountRepository.findAccessToken(
+          "user-1",
+          "github",
+          accountId
+        );
 
         // THEN
         expect(result).toBeNull();
-        expect(prisma.account.findFirst).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: {
-              id: accountId,
-              userId: "user-1",
-              provider: "github",
-            },
-          })
+        expect(accountRepository.findAccessToken).toHaveBeenCalledWith(
+          "user-1",
+          "github",
+          accountId
         );
       });
 
@@ -163,19 +127,16 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.account.findFirst as jest.Mock).mockResolvedValue(null);
+        (accountRepository.findAccessToken as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const result = await prisma.account.findFirst({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        const result = await accountRepository.findAccessToken(
+          "user-1",
+          "github",
+          accountId
+        );
 
         // THEN
         expect(result).toBeNull();
@@ -189,34 +150,24 @@ describe("GitHub Repositories API (Multi-Account)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.account.findFirst as jest.Mock).mockResolvedValue({
+        (accountRepository.findAccessToken as jest.Mock).mockResolvedValue({
           access_token: "specific-github-token",
         });
 
         // WHEN
-        const result = await prisma.account.findFirst({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        const result = await accountRepository.findAccessToken(
+          "user-1",
+          "github",
+          accountId
+        );
 
         // THEN
         expect(result?.access_token).toBe("specific-github-token");
-        expect(prisma.account.findFirst).toHaveBeenCalledWith({
-          where: {
-            id: accountId,
-            userId: "user-1",
-            provider: "github",
-          },
-          select: {
-            access_token: true,
-          },
-        });
+        expect(accountRepository.findAccessToken).toHaveBeenCalledWith(
+          "user-1",
+          "github",
+          accountId
+        );
       });
     });
   });

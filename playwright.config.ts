@@ -60,6 +60,24 @@ export default defineConfig({
       },
       dependencies: ["setup"],
     },
+    // Core scenario (demo user, no auth dependency)
+    {
+      name: "core-scenario",
+      testDir: "e2e",
+      testMatch: "core-scenario.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    // User journey scenario (demo user, no auth dependency)
+    {
+      name: "user-journey",
+      testDir: "e2e",
+      testMatch: "user-journey.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
     // Auth tests run without stored authentication
     {
       name: "chromium-no-auth",

@@ -6,6 +6,8 @@ import GitHub from "next-auth/providers/github";
 import GitLab from "next-auth/providers/gitlab";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 import type { User } from "next-auth";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -75,16 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const email = credentials.email as string;
         const password = credentials.password as string;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            image: true,
-            password: true,
-          },
-        });
+        const user = await userRepository.findByEmail(email);
 
         if (!user || !user.password) {
           return null;
@@ -113,18 +106,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         account?.provider === "gitlab" ||
         account?.provider === "gitlab-self"
       ) {
-        await prisma.account.updateMany({
-          where: {
-            provider: account.provider,
-            providerAccountId: account.providerAccountId,
-          },
-          data: {
+        await accountRepository.refreshTokens(
+          account.provider,
+          account.providerAccountId,
+          {
             access_token: account.access_token,
             refresh_token: account.refresh_token,
             expires_at: account.expires_at,
             scope: account.scope,
-          },
-        });
+          }
+        );
         return true;
       }
       // Allow Google OAuth sign in

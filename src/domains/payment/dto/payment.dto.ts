@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 
 // 유료 플랜만 결제 가능
 const paidPlanIds: string[] = Object.values(PLANS)

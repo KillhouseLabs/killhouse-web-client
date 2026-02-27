@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import {
   validateZipFileMetadata,
   validateZipMagicBytes,
@@ -10,6 +9,8 @@ import {
   uploadStreamToS3,
   generateUploadKey,
 } from "@/infrastructure/storage/s3-client";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { repoRepository } from "@/domains/project/infra/prisma-repo.repository";
 
 interface RouteParams {
   params: Promise<{ id: string; repoId: string }>;
@@ -29,13 +30,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Check project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -45,15 +43,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Check repository exists and is MANUAL
-    const repository = await prisma.repository.findFirst({
-      where: {
-        id: repoId,
-        projectId,
-        provider: "MANUAL",
-      },
+    const repository = await repoRepository.findFirstByProject(projectId, {
+      provider: "MANUAL",
     });
 
-    if (!repository) {
+    if (!repository || repository.id !== repoId) {
       return NextResponse.json(
         { success: false, error: "수동 저장소를 찾을 수 없습니다" },
         { status: 404 }
@@ -128,9 +122,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     await uploadStreamToS3(s3Key, nodeStream, "application/zip");
 
     // Update repository with upload key
-    const updatedRepo = await prisma.repository.update({
-      where: { id: repoId },
-      data: { uploadKey: s3Key },
+    const updatedRepo = await repoRepository.update(repoId, {
+      uploadKey: s3Key,
     });
 
     return NextResponse.json(

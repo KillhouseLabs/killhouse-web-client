@@ -7,22 +7,35 @@
 import { signUpSchema } from "@/domains/auth/dto/auth.dto";
 import bcrypt from "bcryptjs";
 
-// Mock prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
+jest.mock("@/domains/auth/infra/prisma-user.repository", () => ({
+  userRepository: {
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    updatePassword: jest.fn(),
+    delete: jest.fn(),
   },
 }));
+
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+  })
+);
 
 // Mock bcrypt
 jest.mock("bcryptjs", () => ({
   hash: jest.fn(),
 }));
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { signUpUser } from "@/domains/auth/usecase/signup.usecase";
 
 describe("Signup API", () => {
   beforeEach(() => {
@@ -91,32 +104,64 @@ describe("Signup API", () => {
     });
   });
 
-  describe("이메일 중복 확인", () => {
-    it("GIVEN 새 이메일 WHEN 중복 확인 THEN null이 반환되어야 한다", async () => {
+  describe("signUpUser usecase", () => {
+    it("GIVEN 새 이메일 WHEN 회원가입 THEN 사용자와 구독이 생성되어야 한다", async () => {
       // GIVEN
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue("$2a$12$hashedpassword");
+      (userRepository.create as jest.Mock).mockResolvedValue({
+        id: "new-user-id",
+        name: "Test User",
+        email: "test@example.com",
+        password: "$2a$12$hashedpassword",
+      });
+      (subscriptionRepository.create as jest.Mock).mockResolvedValue({});
 
       // WHEN
-      const existingUser = await prisma.user.findUnique({
-        where: { email: "new@example.com" },
+      const result = await signUpUser({
+        name: "Test User",
+        email: "test@example.com",
+        password: "Password123",
       });
 
       // THEN
-      expect(existingUser).toBeNull();
+      expect(result.success).toBe(true);
+      expect(result.userId).toBe("new-user-id");
+      expect(userRepository.findByEmail).toHaveBeenCalledWith(
+        "test@example.com"
+      );
+      expect(userRepository.create).toHaveBeenCalledWith({
+        name: "Test User",
+        email: "test@example.com",
+        password: "$2a$12$hashedpassword",
+      });
+      expect(subscriptionRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "new-user-id",
+          planId: "free",
+          status: "ACTIVE",
+        })
+      );
     });
 
-    it("GIVEN 기존 이메일 WHEN 중복 확인 THEN 사용자가 반환되어야 한다", async () => {
+    it("GIVEN 기존 이메일 WHEN 회원가입 THEN 에러를 반환해야 한다", async () => {
       // GIVEN
-      const existingUser = { id: "user-1", email: "existing@example.com" };
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(existingUser);
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue({
+        id: "existing-id",
+        email: "existing@example.com",
+      });
 
       // WHEN
-      const result = await prisma.user.findUnique({
-        where: { email: "existing@example.com" },
+      const result = await signUpUser({
+        name: "Test User",
+        email: "existing@example.com",
+        password: "Password123",
       });
 
       // THEN
-      expect(result).toEqual(existingUser);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("이미 등록된 이메일입니다");
+      expect(userRepository.create).not.toHaveBeenCalled();
     });
   });
 
@@ -133,48 +178,6 @@ describe("Signup API", () => {
       // THEN
       expect(result).toBe(hashedPassword);
       expect(bcrypt.hash).toHaveBeenCalledWith(plainPassword, 12);
-    });
-  });
-
-  describe("사용자 생성", () => {
-    it("GIVEN 유효한 데이터 WHEN 사용자 생성 THEN 새 사용자가 생성되어야 한다", async () => {
-      // GIVEN
-      const userData = {
-        email: "new@example.com",
-        password: "$2a$12$hashedpassword",
-        name: "New User",
-      };
-      const createdUser = {
-        id: "new-user-id",
-        email: userData.email,
-        name: userData.name,
-      };
-      (prisma.user.create as jest.Mock).mockResolvedValue(createdUser);
-
-      // WHEN
-      const result = await prisma.user.create({
-        data: userData,
-        select: { id: true, email: true, name: true },
-      });
-
-      // THEN
-      expect(result.id).toBe("new-user-id");
-      expect(result.email).toBe("new@example.com");
-    });
-  });
-
-  describe("에러 처리", () => {
-    it("GIVEN 데이터베이스 에러 WHEN 사용자 생성 실패 THEN 에러가 발생해야 한다", async () => {
-      // GIVEN
-      const dbError = new Error("Database connection failed");
-      (prisma.user.create as jest.Mock).mockRejectedValue(dbError);
-
-      // WHEN & THEN
-      await expect(
-        prisma.user.create({
-          data: { email: "test@example.com", password: "hashed" },
-        })
-      ).rejects.toThrow("Database connection failed");
     });
   });
 });

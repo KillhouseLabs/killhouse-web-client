@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 import { CheckoutButton } from "./checkout-button";
 import { useLocale } from "@/lib/i18n/locale-context";
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PLANS } from "@/config/constants";
+import { PLANS } from "@/domains/subscription/model/plan";
 
 interface Payment {
   id: string;

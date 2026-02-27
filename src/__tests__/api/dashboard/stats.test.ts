@@ -4,31 +4,35 @@
  * 대시보드 통계 API 엔드포인트 테스트
  */
 
-// Mock prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    project: {
-      count: jest.fn(),
-    },
-    analysis: {
-      findMany: jest.fn(),
-    },
-  },
-}));
-
-// Mock auth
+// Mock dependencies
 jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
 
-import { prisma } from "@/infrastructure/database/prisma";
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    countActiveByUser: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    countCompletedByUser: jest.fn(),
+    aggregateByUser: jest.fn(),
+    findRecentForDedup: jest.fn(),
+    findRecentWithProject: jest.fn(),
+  },
+}));
+
 import { auth } from "@/lib/auth";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import {
   buildDedupKey,
   parseReportFindings,
   isCriticalSeverity,
-} from "@/lib/vulnerability-dedup";
-import type { Finding } from "@/lib/vulnerability-dedup";
+} from "@/domains/analysis/model/vulnerability-dedup";
+import type { Finding } from "@/domains/analysis/model/vulnerability-dedup";
 
 describe("Dashboard Stats API", () => {
   beforeEach(() => {
@@ -64,15 +68,10 @@ describe("Dashboard Stats API", () => {
   describe("프로젝트 수 조회", () => {
     it("GIVEN 사용자의 프로젝트가 있음 WHEN 프로젝트 수 조회 THEN 정확한 수가 반환되어야 한다", async () => {
       // GIVEN
-      (prisma.project.count as jest.Mock).mockResolvedValue(5);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(5);
 
       // WHEN
-      const count = await prisma.project.count({
-        where: {
-          userId: "user-1",
-          status: { not: "DELETED" },
-        },
-      });
+      const count = await projectRepository.countActiveByUser("user-1");
 
       // THEN
       expect(count).toBe(5);
@@ -80,15 +79,10 @@ describe("Dashboard Stats API", () => {
 
     it("GIVEN 프로젝트가 없음 WHEN 프로젝트 수 조회 THEN 0이 반환되어야 한다", async () => {
       // GIVEN
-      (prisma.project.count as jest.Mock).mockResolvedValue(0);
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(0);
 
       // WHEN
-      const count = await prisma.project.count({
-        where: {
-          userId: "user-1",
-          status: { not: "DELETED" },
-        },
-      });
+      const count = await projectRepository.countActiveByUser("user-1");
 
       // THEN
       expect(count).toBe(0);
@@ -100,36 +94,23 @@ describe("Dashboard Stats API", () => {
       // GIVEN
       const mockAnalyses = [
         {
-          status: "COMPLETED",
-          vulnerabilitiesFound: 5,
-          criticalCount: 1,
           staticAnalysisReport: null,
           penetrationTestReport: null,
         },
         {
-          status: "COMPLETED",
-          vulnerabilitiesFound: 3,
-          criticalCount: 0,
           staticAnalysisReport: null,
           penetrationTestReport: null,
         },
       ];
-      (prisma.analysis.findMany as jest.Mock).mockResolvedValue(mockAnalyses);
+      (analysisRepository.findRecentForDedup as jest.Mock).mockResolvedValue(
+        mockAnalyses
+      );
 
       // WHEN
-      const analyses = await prisma.analysis.findMany({
-        where: {
-          project: { userId: "user-1", status: { not: "DELETED" } },
-          status: { in: ["COMPLETED", "COMPLETED_WITH_ERRORS"] },
-        },
-        select: {
-          status: true,
-          vulnerabilitiesFound: true,
-          criticalCount: true,
-          staticAnalysisReport: true,
-          penetrationTestReport: true,
-        },
-      });
+      const analyses = await analysisRepository.findRecentForDedup(
+        "user-1",
+        100
+      );
 
       // THEN
       expect(analyses).toHaveLength(2);
@@ -163,30 +144,15 @@ describe("Dashboard Stats API", () => {
           },
         },
       ];
-      (prisma.analysis.findMany as jest.Mock).mockResolvedValue(
+      (analysisRepository.findRecentWithProject as jest.Mock).mockResolvedValue(
         mockRecentAnalyses
       );
 
       // WHEN
-      const recentAnalyses = await prisma.analysis.findMany({
-        where: {
-          project: { userId: "user-1", status: { not: "DELETED" } },
-        },
-        orderBy: { startedAt: "desc" },
-        take: 5,
-        include: {
-          project: {
-            select: {
-              name: true,
-              repositories: {
-                where: { isPrimary: true },
-                take: 1,
-                select: { provider: true },
-              },
-            },
-          },
-        },
-      });
+      const recentAnalyses = await analysisRepository.findRecentWithProject(
+        "user-1",
+        5
+      );
 
       // THEN
       expect(recentAnalyses).toHaveLength(2);
@@ -195,16 +161,15 @@ describe("Dashboard Stats API", () => {
 
     it("GIVEN 활동이 없음 WHEN 최근 활동 조회 THEN 빈 배열이 반환되어야 한다", async () => {
       // GIVEN
-      (prisma.analysis.findMany as jest.Mock).mockResolvedValue([]);
+      (analysisRepository.findRecentWithProject as jest.Mock).mockResolvedValue(
+        []
+      );
 
       // WHEN
-      const recentAnalyses = await prisma.analysis.findMany({
-        where: {
-          project: { userId: "user-1", status: { not: "DELETED" } },
-        },
-        orderBy: { startedAt: "desc" },
-        take: 5,
-      });
+      const recentAnalyses = await analysisRepository.findRecentWithProject(
+        "user-1",
+        5
+      );
 
       // THEN
       expect(recentAnalyses).toHaveLength(0);
@@ -554,27 +519,24 @@ describe("Dashboard Stats API", () => {
         },
       ]);
 
-      (prisma.project.count as jest.Mock).mockResolvedValue(3);
-      (prisma.analysis.findMany as jest.Mock).mockResolvedValue([
+      (projectRepository.countActiveByUser as jest.Mock).mockResolvedValue(3);
+      (analysisRepository.findRecentForDedup as jest.Mock).mockResolvedValue([
         {
-          status: "COMPLETED",
-          vulnerabilitiesFound: 2,
-          criticalCount: 1,
           staticAnalysisReport: sastReport,
           penetrationTestReport: null,
         },
         {
-          status: "COMPLETED",
-          vulnerabilitiesFound: 2,
-          criticalCount: 1,
           staticAnalysisReport: sastReport, // same report = duplicates
           penetrationTestReport: null,
         },
       ]);
 
       // WHEN
-      const totalProjects = await prisma.project.count({});
-      const analyses = await prisma.analysis.findMany({});
+      const totalProjects = await projectRepository.countActiveByUser("user-1");
+      const analyses = await analysisRepository.findRecentForDedup(
+        "user-1",
+        100
+      );
       const completedAnalyses = analyses.length;
 
       const seenKeys = new Set<string>();
@@ -590,20 +552,15 @@ describe("Dashboard Stats API", () => {
         ).map((f: Finding) => ({ ...f, type: f.type || "dast" }));
         const allFindings = [...sastFindings, ...dastFindings];
 
-        if (allFindings.length > 0) {
-          for (const finding of allFindings) {
-            const key = buildDedupKey(finding);
-            if (!seenKeys.has(key)) {
-              seenKeys.add(key);
-              totalVulnerabilities++;
-              if (isCriticalSeverity(finding.severity)) {
-                criticalVulnerabilities++;
-              }
+        for (const finding of allFindings) {
+          const key = buildDedupKey(finding);
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            totalVulnerabilities++;
+            if (isCriticalSeverity(finding.severity)) {
+              criticalVulnerabilities++;
             }
           }
-        } else if (analysis.vulnerabilitiesFound || analysis.criticalCount) {
-          totalVulnerabilities += analysis.vulnerabilitiesFound || 0;
-          criticalVulnerabilities += analysis.criticalCount || 0;
         }
       }
 

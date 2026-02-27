@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
 import { createAnalysisWithLimitCheck } from "@/domains/subscription/usecase/subscription-limits";
+import { findStuckAnalysisIds } from "@/domains/analysis/usecase/watchdog";
 import { serverEnv } from "@/config/env";
-import { orchestrateSandboxAndDast } from "@/lib/sandbox-orchestrator";
+import { orchestrateSandboxAndDast } from "@/domains/analysis/usecase/sandbox-orchestrator";
 import { resilientFetch } from "@/lib/resilient-fetch";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 const sastCircuitBreaker = new CircuitBreaker(3, 5 * 60 * 1000);
 
-// Request validation schema
 const startAnalysisSchema = z.object({
   repositoryId: z.string().optional(),
   branch: z.string().default("main"),
@@ -35,14 +36,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-    });
+    const project = await projectRepository.findByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -51,61 +48,28 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    const analyses = await prisma.analysis.findMany({
-      where: { projectId },
-      orderBy: { startedAt: "desc" },
-      include: {
-        repository: {
-          select: {
-            id: true,
-            name: true,
-            provider: true,
-          },
-        },
-      },
-    });
+    const analyses = await analysisRepository.findManyByProject(projectId);
 
-    // Watchdog: auto-fail analyses stuck for more than 30 minutes
-    const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
-    const TERMINAL_STATUSES = [
-      "COMPLETED",
-      "COMPLETED_WITH_ERRORS",
-      "FAILED",
-      "CANCELLED",
-    ];
-    const now = Date.now();
+    // Watchdog: auto-fail stuck analyses
+    const stuckIds = findStuckAnalysisIds(analyses);
 
-    const stuckAnalyses = analyses.filter(
-      (a) =>
-        !TERMINAL_STATUSES.includes(a.status) &&
-        now - new Date(a.startedAt).getTime() > STUCK_THRESHOLD_MS
-    );
+    if (stuckIds.length > 0) {
+      analysisRepository
+        .batchUpdateStatus(stuckIds, {
+          status: "FAILED",
+          completedAt: new Date(),
+        })
+        .catch((err) => console.error("Watchdog auto-fail error:", err));
 
-    if (stuckAnalyses.length > 0) {
-      Promise.all(
-        stuckAnalyses.map((a) =>
-          prisma.analysis.update({
-            where: { id: a.id },
-            data: {
-              status: "FAILED",
-              completedAt: new Date(),
-            },
-          })
-        )
-      ).catch((err) => console.error("Watchdog auto-fail error:", err));
-
-      for (const stuck of stuckAnalyses) {
-        const target = analyses.find((a) => a.id === stuck.id);
+      for (const id of stuckIds) {
+        const target = analyses.find((a) => a.id === id);
         if (target) {
           (target as Record<string, unknown>).status = "FAILED";
         }
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: analyses,
-    });
+    return NextResponse.json({ success: true, data: analyses });
   } catch (error) {
     console.error("List analyses error:", error);
     return NextResponse.json(
@@ -128,7 +92,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Add per-user rate limit check for analysis creation
+    // Rate limit check
     const userRateLimit = checkRateLimit(
       session.user.id,
       "analysis-create-user",
@@ -146,17 +110,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId: session.user.id,
-        status: { not: "DELETED" },
-      },
-      include: {
-        repositories: true,
-      },
-    });
+    // Verify project ownership with repositories
+    const project = await projectRepository.findDetailByIdAndUser(
+      session.user.id,
+      projectId
+    );
 
     if (!project) {
       return NextResponse.json(
@@ -165,24 +123,20 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Parse request body
+    // Validate request
     const body = await request.json();
     const validationResult = startAnalysisSchema.safeParse(body);
 
     if (!validationResult.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: validationResult.error.errors[0].message,
-        },
+        { success: false, error: validationResult.error.errors[0].message },
         { status: 400 }
       );
     }
 
     const { repositoryId, branch, commitHash } = validationResult.data;
 
-    // If repositoryId is provided, verify it belongs to this project
-    // Otherwise, auto-select a repository with build config (Dockerfile/Compose)
+    // Select target repository
     let targetRepository: (typeof project.repositories)[number] | null = null;
     if (repositoryId) {
       targetRepository =
@@ -194,7 +148,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         );
       }
     } else {
-      // Prefer repository with build config, fallback to primary or first repo
       targetRepository =
         project.repositories.find(
           (r) => r.dockerfileContent || r.composeContent
@@ -204,7 +157,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         null;
     }
 
-    // Use repository's default branch if user didn't specify one
     const effectiveBranch =
       branch !== "main" ? branch : targetRepository?.defaultBranch || branch;
 
@@ -232,21 +184,12 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const analysis = result.analysis!;
 
-    // Fetch repository info for response
-    const analysisWithRepository = await prisma.analysis.findUnique({
-      where: { id: analysis.id },
-      include: {
-        repository: {
-          select: {
-            id: true,
-            name: true,
-            provider: true,
-          },
-        },
-      },
-    });
+    const analysisWithRepository = await analysisRepository.findByIdAndProject(
+      analysis.id,
+      projectId
+    );
 
-    // --- Step 1: SAST 스캔 즉시 호출 (sandbox 무관) ---
+    // SAST scan trigger
     try {
       const scannerUrl = serverEnv.SCANNER_API_URL();
       const scanPayload: Record<string, string | undefined> = {
@@ -275,20 +218,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
 
       if (scanResponse.ok) {
-        await prisma.analysis.update({
-          where: { id: analysis.id },
-          data: { status: "SCANNING" },
-        });
+        await analysisRepository.update(analysis.id, { status: "SCANNING" });
       }
     } catch (scanError) {
       console.error("Scanner API call failed after retries:", scanError);
-      await prisma.analysis.update({
-        where: { id: analysis.id },
-        data: { status: "FAILED", completedAt: new Date() },
+      await analysisRepository.update(analysis.id, {
+        status: "FAILED",
+        completedAt: new Date(),
       });
     }
 
-    // --- Step 2: Sandbox + DAST 백그라운드 실행 ---
+    // Sandbox + DAST background execution
     const hasBuildConfig =
       targetRepository?.dockerfileContent ||
       targetRepository?.composeContent ||
@@ -303,12 +243,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       ).catch((err) => console.error("Sandbox orchestration failed:", err));
     }
 
-    // --- 201 즉시 반환 ---
     return NextResponse.json(
-      {
-        success: true,
-        data: analysisWithRepository,
-      },
+      { success: true, data: analysisWithRepository },
       { status: 201 }
     );
   } catch (error) {

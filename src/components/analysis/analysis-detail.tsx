@@ -12,6 +12,10 @@ import { ExploitLiveStream } from "@/components/analysis/exploit-live-stream";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useAnalysisPolling } from "@/hooks/use-analysis-polling";
 import { useLocale } from "@/lib/i18n/locale-context";
+import {
+  SEVERITY_WEIGHT,
+  normalizeSeverity,
+} from "@/domains/analysis/model/severity";
 
 const TERMINAL_STATUSES = [
   "COMPLETED",
@@ -91,14 +95,6 @@ const severityColors: Record<string, string> = {
   INFO: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 };
 
-const SEVERITY_WEIGHT: Record<string, number> = {
-  CRITICAL: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-  INFO: 4,
-};
-
 function parseReport(raw: string | null): Report | null {
   if (!raw) return null;
   try {
@@ -118,13 +114,6 @@ function hasAnySuccessfulScan(
   const sastRan = !sastReport?.step_result || sastSuccess;
   const dastRan = !dastReport?.step_result || dastSuccess;
   return (sastReport !== null && sastRan) || (dastReport !== null && dastRan);
-}
-
-function normalizeSeverity(severity: string): string {
-  return severity
-    .toUpperCase()
-    .replace("WARNING", "MEDIUM")
-    .replace("ERROR", "HIGH");
 }
 
 function shortRuleName(fullRule: string): string {

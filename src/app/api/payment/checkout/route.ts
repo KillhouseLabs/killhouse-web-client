@@ -6,21 +6,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { createPaymentSchema } from "@/domains/payment/dto/payment.dto";
 import {
-  createPaymentSchema,
-  type CreatePaymentRequest,
-} from "@/domains/payment/dto/payment.dto";
-import { PLANS } from "@/config/constants";
-
-/**
- * 주문 ID 생성
- */
-function generateOrderId(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `order_${timestamp}_${random}`;
-}
+  createCheckout,
+  CheckoutError,
+} from "@/domains/payment/usecase/create-checkout.usecase";
 
 /**
  * POST /api/payment/checkout
@@ -28,7 +18,6 @@ function generateOrderId(): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    // 인증 확인
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -37,23 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = session.user.id;
-
-    // 사용자 존재 확인
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      console.error("[Payment Checkout] User not found:", userId);
-      return NextResponse.json(
-        { success: false, error: "사용자 정보를 찾을 수 없습니다" },
-        { status: 404 }
-      );
-    }
-
-    // 요청 파싱 및 검증
-    const body = (await request.json()) as CreatePaymentRequest;
+    const body = await request.json();
     const validationResult = createPaymentSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -67,52 +40,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planId } = validationResult.data;
+    const result = await createCheckout({
+      userId: session.user.id,
+      planId: validationResult.data.planId,
+      customerEmail: session.user.email,
+      customerName: session.user.name,
+    });
 
-    // 플랜 정보 조회
-    const planKey = planId.toUpperCase() as keyof typeof PLANS;
-    const plan = PLANS[planKey];
-
-    if (!plan || plan.price <= 0) {
+    return NextResponse.json({ success: true, data: result });
+  } catch (error) {
+    if (error instanceof CheckoutError) {
       return NextResponse.json(
-        { success: false, error: "유효하지 않은 플랜입니다" },
-        { status: 400 }
+        { success: false, error: error.message },
+        { status: error.statusCode }
       );
     }
-
-    // 주문 ID 생성
-    const orderId = generateOrderId();
-
-    // 결제 레코드 생성
-    const payment = await prisma.payment.create({
-      data: {
-        orderId,
-        userId,
-        planId,
-        amount: plan.price,
-        status: "PENDING",
-      },
-    });
-
-    // 결제 준비 정보 반환
-    return NextResponse.json({
-      success: true,
-      data: {
-        orderId: payment.orderId,
-        paymentId: payment.id,
-        planId: payment.planId,
-        planName: plan.name,
-        amount: payment.amount,
-        currency: "KRW",
-        // PortOne 결제창 호출에 필요한 정보
-        orderName: `Killhouse ${plan.name} 플랜`,
-        customer: {
-          email: session.user.email,
-          name: session.user.name || "고객",
-        },
-      },
-    });
-  } catch (error) {
     console.error("[Payment Checkout Error]", error);
     return NextResponse.json(
       { success: false, error: "결제 준비 중 오류가 발생했습니다" },

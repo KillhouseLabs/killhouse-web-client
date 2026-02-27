@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createPatch } from "diff";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import { serverEnv } from "@/config/env";
 import {
   createGitHubClient,
@@ -71,13 +72,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Fetch analysis with repository
-    const analysis = await prisma.analysis.findUnique({
-      where: { id: analysisId },
-      include: {
-        repository: true,
-        project: { select: { userId: true } },
-      },
-    });
+    const analysis = await analysisRepository.findByIdWithOwnership(analysisId);
 
     if (!analysis) {
       return NextResponse.json(
@@ -102,13 +97,10 @@ export async function POST(request: Request) {
     }
 
     // 2. Get OAuth access token
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: session.user.id,
-        provider: "github",
-      },
-      select: { access_token: true },
-    });
+    const account = await accountRepository.findAccessToken(
+      session.user.id,
+      "github"
+    );
 
     if (!account?.access_token) {
       return NextResponse.json(

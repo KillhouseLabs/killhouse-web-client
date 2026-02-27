@@ -4,15 +4,22 @@
  * 비밀번호 재설정 유즈케이스 테스트
  */
 
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    verificationToken: {
-      findFirst: jest.fn(),
-      delete: jest.fn(),
-    },
-    user: {
-      update: jest.fn(),
-    },
+jest.mock("@/domains/auth/infra/prisma-user.repository", () => ({
+  userRepository: {
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    updatePassword: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/auth/infra/prisma-verification-token.repository", () => ({
+  verificationTokenRepository: {
+    findByToken: jest.fn(),
+    create: jest.fn(),
+    deleteByIdentifier: jest.fn(),
+    deleteByIdentifierAndToken: jest.fn(),
   },
 }));
 
@@ -20,7 +27,8 @@ jest.mock("bcryptjs", () => ({
   hash: jest.fn(),
 }));
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
+import { verificationTokenRepository } from "@/domains/auth/infra/prisma-verification-token.repository";
 import bcrypt from "bcryptjs";
 import { resetPassword } from "@/domains/auth/usecase/reset-password.usecase";
 
@@ -40,17 +48,17 @@ describe("Reset Password UseCase", () => {
         token,
         expires: futureDate,
       };
-      (prisma.verificationToken.findFirst as jest.Mock).mockResolvedValue(
+      (verificationTokenRepository.findByToken as jest.Mock).mockResolvedValue(
         mockToken
       );
       (bcrypt.hash as jest.Mock).mockResolvedValue("$2a$12$hashedNewPassword");
-      (prisma.user.update as jest.Mock).mockResolvedValue({
+      (userRepository.updatePassword as jest.Mock).mockResolvedValue({
         id: "user-1",
         email: "test@example.com",
       });
-      (prisma.verificationToken.delete as jest.Mock).mockResolvedValue(
-        mockToken
-      );
+      (
+        verificationTokenRepository.deleteByIdentifierAndToken as jest.Mock
+      ).mockResolvedValue(undefined);
 
       // WHEN
       const result = await resetPassword(token, newPassword);
@@ -58,23 +66,20 @@ describe("Reset Password UseCase", () => {
       // THEN
       expect(result.success).toBe(true);
       expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 12);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { email: "test@example.com" },
-        data: { password: "$2a$12$hashedNewPassword" },
-      });
-      expect(prisma.verificationToken.delete).toHaveBeenCalledWith({
-        where: {
-          identifier_token: {
-            identifier: "test@example.com",
-            token,
-          },
-        },
-      });
+      expect(userRepository.updatePassword).toHaveBeenCalledWith(
+        "test@example.com",
+        "$2a$12$hashedNewPassword"
+      );
+      expect(
+        verificationTokenRepository.deleteByIdentifierAndToken
+      ).toHaveBeenCalledWith("test@example.com", token);
     });
 
     it("GIVEN 존재하지 않는 토큰 WHEN 비밀번호 재설정 THEN 에러를 반환해야 한다", async () => {
       // GIVEN
-      (prisma.verificationToken.findFirst as jest.Mock).mockResolvedValue(null);
+      (verificationTokenRepository.findByToken as jest.Mock).mockResolvedValue(
+        null
+      );
 
       // WHEN
       const result = await resetPassword("invalid-token", "NewPassword123");
@@ -82,7 +87,7 @@ describe("Reset Password UseCase", () => {
       // THEN
       expect(result.success).toBe(false);
       expect(result.error).toBe("토큰이 만료되었거나 유효하지 않습니다");
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(userRepository.updatePassword).not.toHaveBeenCalled();
     });
 
     it("GIVEN 만료된 토큰 WHEN 비밀번호 재설정 THEN 에러를 반환해야 한다", async () => {
@@ -93,7 +98,7 @@ describe("Reset Password UseCase", () => {
         token: "expired-token",
         expires: pastDate,
       };
-      (prisma.verificationToken.findFirst as jest.Mock).mockResolvedValue(
+      (verificationTokenRepository.findByToken as jest.Mock).mockResolvedValue(
         mockToken
       );
 
@@ -103,7 +108,7 @@ describe("Reset Password UseCase", () => {
       // THEN
       expect(result.success).toBe(false);
       expect(result.error).toBe("토큰이 만료되었거나 유효하지 않습니다");
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(userRepository.updatePassword).not.toHaveBeenCalled();
     });
 
     it("GIVEN DB 에러 WHEN 비밀번호 재설정 THEN 에러를 반환해야 한다", async () => {
@@ -114,11 +119,11 @@ describe("Reset Password UseCase", () => {
         token: "valid-token",
         expires: futureDate,
       };
-      (prisma.verificationToken.findFirst as jest.Mock).mockResolvedValue(
+      (verificationTokenRepository.findByToken as jest.Mock).mockResolvedValue(
         mockToken
       );
       (bcrypt.hash as jest.Mock).mockResolvedValue("$2a$12$hashed");
-      (prisma.user.update as jest.Mock).mockRejectedValue(
+      (userRepository.updatePassword as jest.Mock).mockRejectedValue(
         new Error("DB error")
       );
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
+import { TERMINAL_STATUSES } from "@/domains/analysis/model/analysis-state-machine";
 import { fetchPolicy } from "@/domains/policy/infra/policy-repository";
 import {
   getPlanLimits,
@@ -24,9 +27,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const userId = session.user.id;
 
     // Verify project belongs to user
-    const project = await prisma.project.findFirst({
-      where: { id, userId, status: { not: "DELETED" } },
-    });
+    const project = await projectRepository.findByIdAndUser(userId, id);
 
     if (!project) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -34,9 +35,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const policy = await fetchPolicy();
 
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId },
-    });
+    const subscription = await subscriptionRepository.findByUserId(userId);
 
     const planId = subscription?.planId ?? "free";
     const status = subscription?.status ?? "ACTIVE";
@@ -48,30 +47,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     // Gather usage counts
     const [analysisCount, activeScans, activeSandboxes] = await Promise.all([
-      prisma.analysis.count({
-        where: { project: { userId }, startedAt: { gte: monthStart } },
-      }),
-      prisma.analysis.count({
-        where: {
-          project: { userId },
-          status: {
-            in: [
-              "PENDING",
-              "CLONING",
-              "STATIC_ANALYSIS",
-              "BUILDING",
-              "PENETRATION_TEST",
-            ],
-          },
-        },
-      }),
-      // Sandbox count - approximate via active sandbox statuses
-      prisma.analysis.count({
-        where: {
-          project: { userId },
-          sandboxStatus: { in: ["CREATING", "RUNNING"] },
-        },
-      }),
+      analysisRepository.countMonthlyByUser(userId, monthStart),
+      analysisRepository.countConcurrentByUser(userId, TERMINAL_STATUSES),
+      analysisRepository.countActiveSandboxesByUser(userId),
     ]);
 
     return NextResponse.json({

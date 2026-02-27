@@ -5,37 +5,30 @@
  * verify, webhook, test-complete 3곳에서 중복되던 로직을 통합
  */
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { SubscriptionPeriod } from "@/domains/subscription/model/subscription-period";
 
 export async function upgradeSubscription(userId: string, planId: string) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const period = new SubscriptionPeriod();
 
-  const existingSubscription = await prisma.subscription.findUnique({
-    where: { userId },
-  });
+  const existingSubscription =
+    await subscriptionRepository.findByUserId(userId);
 
   if (existingSubscription) {
-    return prisma.subscription.update({
-      where: { userId },
-      data: {
-        planId,
-        status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false,
-      },
+    return subscriptionRepository.update(userId, {
+      planId,
+      status: "ACTIVE",
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+      cancelAtPeriodEnd: false,
     });
   }
 
-  return prisma.subscription.create({
-    data: {
-      userId,
-      planId,
-      status: "ACTIVE",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-    },
+  return subscriptionRepository.create({
+    userId,
+    planId,
+    status: "ACTIVE",
+    currentPeriodStart: period.start,
+    currentPeriodEnd: period.end,
   });
 }

@@ -8,17 +8,30 @@ import {
   canStartConcurrentScan,
   getResourceLimits,
 } from "@/domains/subscription/usecase/subscription-limits";
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
-// Mock Prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    analysis: {
-      count: jest.fn(),
+// Mock repositories
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
     },
-    subscription: {
-      findUnique: jest.fn(),
-    },
+  })
+);
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    countMonthlyByUser: jest.fn(),
+    countConcurrentByUser: jest.fn(),
+    createWithLimitCheck: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    countActiveByUser: jest.fn(),
   },
 }));
 
@@ -91,11 +104,13 @@ describe("Concurrent Limits", () => {
     it("GIVEN free 플랜, 0개 동시 스캔 WHEN 스캔 시작 THEN 허용", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(0);
+      (analysisRepository.countConcurrentByUser as jest.Mock).mockResolvedValue(
+        0
+      );
 
       // WHEN
       const result = await canStartConcurrentScan(userId);
@@ -104,29 +119,22 @@ describe("Concurrent Limits", () => {
       expect(result.allowed).toBe(true);
       expect(result.currentCount).toBe(0);
       expect(result.limit).toBe(2);
-      expect(prisma.analysis.count).toHaveBeenCalledWith({
-        where: {
-          project: { userId },
-          status: {
-            notIn: [
-              "COMPLETED",
-              "COMPLETED_WITH_ERRORS",
-              "FAILED",
-              "CANCELLED",
-            ],
-          },
-        },
-      });
+      expect(analysisRepository.countConcurrentByUser).toHaveBeenCalledWith(
+        userId,
+        ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"]
+      );
     });
 
     it("GIVEN free 플랜, 2개 동시 스캔(한도) WHEN 스캔 시작 THEN 거부 (maxConcurrentScans=2)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(2);
+      (analysisRepository.countConcurrentByUser as jest.Mock).mockResolvedValue(
+        2
+      );
 
       // WHEN
       const result = await canStartConcurrentScan(userId);
@@ -141,11 +149,13 @@ describe("Concurrent Limits", () => {
     it("GIVEN pro 플랜, 4개 동시 스캔 WHEN 스캔 시작 THEN 허용 (maxConcurrentScans=5)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(4);
+      (analysisRepository.countConcurrentByUser as jest.Mock).mockResolvedValue(
+        4
+      );
 
       // WHEN
       const result = await canStartConcurrentScan(userId);
@@ -159,11 +169,13 @@ describe("Concurrent Limits", () => {
     it("GIVEN pro 플랜, 5개 동시 스캔 WHEN 스캔 시작 THEN 거부", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(5);
+      (analysisRepository.countConcurrentByUser as jest.Mock).mockResolvedValue(
+        5
+      );
 
       // WHEN
       const result = await canStartConcurrentScan(userId);
@@ -178,11 +190,13 @@ describe("Concurrent Limits", () => {
     it("GIVEN enterprise 플랜, 9개 동시 스캔 WHEN 스캔 시작 THEN 허용 (maxConcurrentScans=10)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "enterprise",
         status: "ACTIVE",
       });
-      (prisma.analysis.count as jest.Mock).mockResolvedValue(9);
+      (analysisRepository.countConcurrentByUser as jest.Mock).mockResolvedValue(
+        9
+      );
 
       // WHEN
       const result = await canStartConcurrentScan(userId);
@@ -198,7 +212,7 @@ describe("Concurrent Limits", () => {
     it("GIVEN free 플랜 WHEN 리소스 제한 조회 THEN free 제한 반환 (512m, 0.5, 50)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "free",
         status: "ACTIVE",
       });
@@ -215,7 +229,7 @@ describe("Concurrent Limits", () => {
     it("GIVEN pro 플랜 WHEN 리소스 제한 조회 THEN pro 제한 반환 (1g, 1.0, 100)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "pro",
         status: "ACTIVE",
       });
@@ -232,7 +246,7 @@ describe("Concurrent Limits", () => {
     it("GIVEN enterprise 플랜 WHEN 리소스 제한 조회 THEN enterprise 제한 반환 (2g, 2.0, 200)", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         planId: "enterprise",
         status: "ACTIVE",
       });
@@ -249,7 +263,9 @@ describe("Concurrent Limits", () => {
     it("GIVEN 구독 없음 WHEN 리소스 제한 조회 THEN free 기본값 반환", async () => {
       // GIVEN
       const userId = "user-1";
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue(null);
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue(
+        null
+      );
 
       // WHEN
       const limits = await getResourceLimits(userId);

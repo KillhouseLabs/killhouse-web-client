@@ -8,19 +8,30 @@ jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
 
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    subscription: {
-      findUnique: jest.fn(),
+jest.mock(
+  "@/domains/subscription/infra/prisma-subscription.repository",
+  () => ({
+    subscriptionRepository: {
+      findByUserId: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
     },
-    user: {
-      delete: jest.fn(),
-    },
+  })
+);
+
+jest.mock("@/domains/auth/infra/prisma-user.repository", () => ({
+  userRepository: {
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    updatePassword: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
 import { DELETE } from "@/app/api/user/delete/route";
 
 describe("DELETE /api/user/delete", () => {
@@ -34,7 +45,7 @@ describe("DELETE /api/user/delete", () => {
       (auth as jest.Mock).mockResolvedValue({
         user: { id: "user-123" },
       });
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         status: "ACTIVE",
         planId: "pro",
       });
@@ -54,7 +65,7 @@ describe("DELETE /api/user/delete", () => {
       (auth as jest.Mock).mockResolvedValue({
         user: { id: "user-123" },
       });
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         status: "TRIALING",
         planId: "pro",
       });
@@ -74,11 +85,11 @@ describe("DELETE /api/user/delete", () => {
       (auth as jest.Mock).mockResolvedValue({
         user: { id: "user-123" },
       });
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue({
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue({
         status: "CANCELLED",
         planId: "free",
       });
-      (prisma.user.delete as jest.Mock).mockResolvedValue({});
+      (userRepository.delete as jest.Mock).mockResolvedValue(undefined);
 
       // WHEN
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,8 +106,10 @@ describe("DELETE /api/user/delete", () => {
       (auth as jest.Mock).mockResolvedValue({
         user: { id: "user-123" },
       });
-      (prisma.subscription.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.user.delete as jest.Mock).mockResolvedValue({});
+      (subscriptionRepository.findByUserId as jest.Mock).mockResolvedValue(
+        null
+      );
+      (userRepository.delete as jest.Mock).mockResolvedValue(undefined);
 
       // WHEN
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

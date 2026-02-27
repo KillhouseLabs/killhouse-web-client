@@ -9,12 +9,10 @@
  */
 
 // Mock dependencies
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    analysis: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    findById: jest.fn(),
+    update: jest.fn(),
   },
 }));
 
@@ -25,7 +23,7 @@ jest.mock("@/config/env", () => ({
 }));
 
 import { POST } from "@/app/api/analyses/webhook/route";
-import { prisma } from "@/infrastructure/database/prisma";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 describe("Analyses Webhook API - Report Overwrite Protection", () => {
   beforeEach(() => {
@@ -57,13 +55,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-1",
@@ -124,13 +122,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-2",
@@ -193,13 +191,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: existingDastReport,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-3",
@@ -249,13 +247,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-4",
@@ -312,13 +310,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-5",
@@ -384,13 +382,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-6",
@@ -460,13 +458,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-7",
@@ -539,13 +537,13 @@ describe("Analyses Webhook API - Report Overwrite Protection", () => {
           penetrationTestReport: null,
         };
 
-        (prisma.analysis.findUnique as jest.Mock).mockResolvedValue(
+        (analysisRepository.findById as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         let capturedUpdateData: any = null;
-        (prisma.analysis.update as jest.Mock).mockImplementation(
-          ({ data }: any) => {
+        (analysisRepository.update as jest.Mock).mockImplementation(
+          (_id: string, data: any) => {
             capturedUpdateData = data;
             return Promise.resolve({
               id: "analysis-8",

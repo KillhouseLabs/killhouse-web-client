@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
-import { prisma } from "@/infrastructure/database/prisma";
 import { SignUpInput } from "../dto/auth.dto";
+import { userRepository } from "../infra/prisma-user.repository";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
 
 export interface SignUpResult {
   success: boolean;
@@ -11,10 +12,7 @@ export interface SignUpResult {
 export async function signUpUser(input: SignUpInput): Promise<SignUpResult> {
   const { name, email, password } = input;
 
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
+  const existingUser = await userRepository.findByEmail(email);
 
   if (existingUser) {
     return {
@@ -23,26 +21,19 @@ export async function signUpUser(input: SignUpInput): Promise<SignUpResult> {
     };
   }
 
-  // Hash password
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashedPassword,
-    },
+  const user = await userRepository.create({
+    name,
+    email,
+    password: hashedPassword,
   });
 
-  // Create free subscription for new user
-  await prisma.subscription.create({
-    data: {
-      userId: user.id,
-      planId: "free",
-      status: "ACTIVE",
-      currentPeriodStart: new Date(),
-    },
+  await subscriptionRepository.create({
+    userId: user.id,
+    planId: "free",
+    status: "ACTIVE",
+    currentPeriodStart: new Date(),
   });
 
   return {

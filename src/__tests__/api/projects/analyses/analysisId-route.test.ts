@@ -11,21 +11,23 @@ jest.mock("@/lib/auth", () => ({
   auth: jest.fn(),
 }));
 
-// Mock prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    project: {
-      findFirst: jest.fn(),
-    },
-    analysis: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
+// Mock repositories
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    findByIdAndUser: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    findByIdAndProject: jest.fn(),
+    update: jest.fn(),
   },
 }));
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 describe("Analysis API Route", () => {
   beforeEach(() => {
@@ -69,34 +71,22 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         // WHEN
-        const project = await prisma.project.findFirst({
-          where: {
-            id: "project-1",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
-        const analysis = await prisma.analysis.findFirst({
-          where: {
-            id: "analysis-1",
-            projectId: "project-1",
-          },
-          include: {
-            repository: {
-              select: {
-                id: true,
-                name: true,
-                provider: true,
-              },
-            },
-          },
-        });
+        const project = await projectRepository.findByIdAndUser(
+          "user-1",
+          "project-1"
+        );
+        const analysis = await analysisRepository.findByIdAndProject(
+          "analysis-1",
+          "project-1"
+        );
 
         // THEN
         expect(project).not.toBeNull();
@@ -116,16 +106,18 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(null);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const analysis = await prisma.analysis.findFirst({
-          where: {
-            id: "non-existent",
-            projectId: "project-1",
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "non-existent",
+          "project-1"
+        );
 
         // THEN
         expect(analysis).toBeNull();
@@ -136,16 +128,15 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const project = await prisma.project.findFirst({
-          where: {
-            id: "project-2",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
+        const project = await projectRepository.findByIdAndUser(
+          "user-1",
+          "project-2"
+        );
 
         // THEN
         expect(project).toBeNull();
@@ -195,27 +186,18 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
         // WHEN
-        const analysis = await prisma.analysis.findFirst({
-          where: {
-            id: "analysis-1",
-            projectId: "project-1",
-          },
-          include: {
-            repository: {
-              select: {
-                id: true,
-                name: true,
-                provider: true,
-              },
-            },
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "analysis-1",
+          "project-1"
+        );
 
         // THEN
         expect(analysis).not.toBeNull();
@@ -262,11 +244,13 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
-        (prisma.analysis.update as jest.Mock).mockResolvedValue(
+        (analysisRepository.update as jest.Mock).mockResolvedValue(
           mockUpdatedAnalysis
         );
 
@@ -276,18 +260,18 @@ describe("Analysis API Route", () => {
 
         let result = null;
         if (canCancel) {
-          result = await prisma.analysis.update({
-            where: { id: "analysis-1" },
-            data: { status: "CANCELLED", completedAt: expect.any(Date) },
+          result = await analysisRepository.update("analysis-1", {
+            status: "CANCELLED",
+            completedAt: expect.any(Date),
           });
         }
 
         // THEN
         expect(canCancel).toBe(true);
         expect(result?.status).toBe("CANCELLED");
-        expect(prisma.analysis.update).toHaveBeenCalledWith({
-          where: { id: "analysis-1" },
-          data: { status: "CANCELLED", completedAt: expect.any(Date) },
+        expect(analysisRepository.update).toHaveBeenCalledWith("analysis-1", {
+          status: "CANCELLED",
+          completedAt: expect.any(Date),
         });
       });
 
@@ -307,8 +291,10 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -336,8 +322,10 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -365,8 +353,10 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
           mockAnalysis
         );
 
@@ -389,16 +379,18 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
-        (prisma.analysis.findFirst as jest.Mock).mockResolvedValue(null);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          mockProject
+        );
+        (analysisRepository.findByIdAndProject as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const analysis = await prisma.analysis.findFirst({
-          where: {
-            id: "non-existent",
-            projectId: "project-1",
-          },
-        });
+        const analysis = await analysisRepository.findByIdAndProject(
+          "non-existent",
+          "project-1"
+        );
 
         // THEN
         expect(analysis).toBeNull();
@@ -409,16 +401,15 @@ describe("Analysis API Route", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue(
+          null
+        );
 
         // WHEN
-        const project = await prisma.project.findFirst({
-          where: {
-            id: "project-2",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
+        const project = await projectRepository.findByIdAndUser(
+          "user-1",
+          "project-2"
+        );
 
         // THEN
         expect(project).toBeNull();

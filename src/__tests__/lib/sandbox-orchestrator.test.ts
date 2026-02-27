@@ -7,14 +7,13 @@
 import {
   orchestrateSandboxAndDast,
   resetCircuitBreaker,
-} from "@/lib/sandbox-orchestrator";
-import { prisma } from "@/infrastructure/database/prisma";
+} from "@/domains/analysis/usecase/sandbox-orchestrator";
 import { getResourceLimits } from "@/domains/subscription/usecase/subscription-limits";
 
 // Mocks
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    analysis: { update: jest.fn() },
+jest.mock("@/domains/analysis/infra/prisma-analysis.repository", () => ({
+  analysisRepository: {
+    updateStatus: jest.fn(),
   },
 }));
 
@@ -29,6 +28,8 @@ jest.mock("@/config/env", () => ({
 jest.mock("@/domains/subscription/usecase/subscription-limits", () => ({
   getResourceLimits: jest.fn(),
 }));
+
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -91,19 +92,19 @@ describe("SandboxOrchestrator", () => {
       );
 
       // THEN: sandboxStatus CREATING 업데이트
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: { sandboxStatus: "CREATING" },
-      });
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        { sandboxStatus: "CREATING" }
+      );
 
       // THEN: sandboxStatus RUNNING + sandboxContainerId 업데이트
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: {
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        {
           sandboxContainerId: "env-123",
           sandboxStatus: "RUNNING",
-        },
-      });
+        }
+      );
 
       // THEN: sandbox API 호출
       expect(mockFetch).toHaveBeenCalledWith(
@@ -153,10 +154,10 @@ describe("SandboxOrchestrator", () => {
 
       // THEN: sandbox API 호출 없이 sandboxStatus SKIPPED
       expect(mockFetch).not.toHaveBeenCalled();
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: { sandboxStatus: "SKIPPED" },
-      });
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        { sandboxStatus: "SKIPPED" }
+      );
     });
   });
 
@@ -189,13 +190,13 @@ describe("SandboxOrchestrator", () => {
       await promise;
 
       // THEN: 최종 성공
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: {
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        {
           sandboxContainerId: "env-123",
           sandboxStatus: "RUNNING",
-        },
-      });
+        }
+      );
 
       // THEN: sandbox API가 2번 호출됨
       const sandboxCalls = mockFetch.mock.calls.filter(
@@ -219,10 +220,10 @@ describe("SandboxOrchestrator", () => {
       await promise;
 
       // THEN: sandboxStatus FAILED
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: { sandboxStatus: "FAILED" },
-      });
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        { sandboxStatus: "FAILED" }
+      );
 
       // THEN: 3회 호출 (1 + 2 retries)
       const sandboxCalls = mockFetch.mock.calls.filter(
@@ -250,10 +251,10 @@ describe("SandboxOrchestrator", () => {
       );
 
       // THEN: sandboxStatus FAILED
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: { sandboxStatus: "FAILED" },
-      });
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        { sandboxStatus: "FAILED" }
+      );
 
       // THEN: 1번만 호출
       const sandboxCalls = mockFetch.mock.calls.filter(
@@ -397,13 +398,13 @@ describe("SandboxOrchestrator", () => {
       await promise;
 
       // THEN: sandboxStatus는 RUNNING 유지
-      expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: { id: mockAnalysisId },
-        data: {
+      expect(analysisRepository.updateStatus).toHaveBeenCalledWith(
+        mockAnalysisId,
+        {
           sandboxContainerId: "env-123",
           sandboxStatus: "RUNNING",
-        },
-      });
+        }
+      );
     });
   });
 });

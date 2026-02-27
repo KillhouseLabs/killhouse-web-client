@@ -1,4 +1,4 @@
-import { REFUND_POLICY } from "@/config/constants";
+import { REFUND_POLICY } from "@/domains/payment/model/refund-policy";
 
 export type RefundType = "FULL" | "PRO_RATA";
 

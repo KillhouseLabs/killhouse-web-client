@@ -4,15 +4,22 @@
  * 비밀번호 찾기 유즈케이스 테스트
  */
 
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-    },
-    verificationToken: {
-      create: jest.fn(),
-      deleteMany: jest.fn(),
-    },
+jest.mock("@/domains/auth/infra/prisma-user.repository", () => ({
+  userRepository: {
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    updatePassword: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock("@/domains/auth/infra/prisma-verification-token.repository", () => ({
+  verificationTokenRepository: {
+    findByToken: jest.fn(),
+    create: jest.fn(),
+    deleteByIdentifier: jest.fn(),
+    deleteByIdentifierAndToken: jest.fn(),
   },
 }));
 
@@ -26,7 +33,8 @@ jest.mock("crypto", () => ({
   })),
 }));
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { userRepository } from "@/domains/auth/infra/prisma-user.repository";
+import { verificationTokenRepository } from "@/domains/auth/infra/prisma-verification-token.repository";
 import { sendPasswordResetEmail } from "@/infrastructure/email/send-email";
 import { requestPasswordReset } from "@/domains/auth/usecase/forgot-password.usecase";
 
@@ -45,11 +53,11 @@ describe("Forgot Password UseCase", () => {
         name: "Test User",
         password: "$2a$12$hashedpassword",
       };
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prisma.verificationToken.deleteMany as jest.Mock).mockResolvedValue({
-        count: 0,
-      });
-      (prisma.verificationToken.create as jest.Mock).mockResolvedValue({
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(mockUser);
+      (
+        verificationTokenRepository.deleteByIdentifier as jest.Mock
+      ).mockResolvedValue(undefined);
+      (verificationTokenRepository.create as jest.Mock).mockResolvedValue({
         identifier: email,
         token: "mocked-random-token-string",
         expires: new Date(),
@@ -61,13 +69,11 @@ describe("Forgot Password UseCase", () => {
 
       // THEN
       expect(result.success).toBe(true);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email },
-      });
-      expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
-        where: { identifier: email },
-      });
-      expect(prisma.verificationToken.create).toHaveBeenCalled();
+      expect(userRepository.findByEmail).toHaveBeenCalledWith(email);
+      expect(
+        verificationTokenRepository.deleteByIdentifier
+      ).toHaveBeenCalledWith(email);
+      expect(verificationTokenRepository.create).toHaveBeenCalled();
       expect(sendPasswordResetEmail).toHaveBeenCalledWith(
         email,
         "mocked-random-token-string"
@@ -77,7 +83,7 @@ describe("Forgot Password UseCase", () => {
     it("GIVEN 등록되지 않은 이메일 WHEN 비밀번호 재설정 요청 THEN 성공 응답을 반환해야 한다 (보안)", async () => {
       // GIVEN - 존재하지 않는 사용자
       const email = "nonexistent@example.com";
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(null);
 
       // WHEN
       const result = await requestPasswordReset(email);
@@ -96,11 +102,11 @@ describe("Forgot Password UseCase", () => {
         name: "Test User",
         password: "$2a$12$hashedpassword",
       };
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prisma.verificationToken.deleteMany as jest.Mock).mockResolvedValue({
-        count: 0,
-      });
-      (prisma.verificationToken.create as jest.Mock).mockResolvedValue({
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(mockUser);
+      (
+        verificationTokenRepository.deleteByIdentifier as jest.Mock
+      ).mockResolvedValue(undefined);
+      (verificationTokenRepository.create as jest.Mock).mockResolvedValue({
         identifier: email,
         token: "mocked-random-token-string",
         expires: new Date(),
@@ -126,7 +132,7 @@ describe("Forgot Password UseCase", () => {
         name: "OAuth User",
         password: null,
       };
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (userRepository.findByEmail as jest.Mock).mockResolvedValue(mockUser);
 
       // WHEN
       const result = await requestPasswordReset(email);

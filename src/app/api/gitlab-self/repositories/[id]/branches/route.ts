@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { accountRepository } from "@/domains/auth/infra/prisma-account.repository";
 import { getProjectBranches } from "@/infrastructure/gitlab/gitlab-client";
 
 interface RouteParams {
@@ -30,15 +30,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: session.user.id,
-        provider: "gitlab-self",
-      },
-      select: {
-        access_token: true,
-      },
-    });
+    const account = await accountRepository.findAccessToken(
+      session.user.id,
+      "gitlab-self"
+    );
 
     if (!account?.access_token) {
       return NextResponse.json(

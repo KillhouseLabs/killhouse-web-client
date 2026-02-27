@@ -10,34 +10,16 @@ import {
   updateProjectSchema,
 } from "@/domains/project/dto/project.dto";
 
-// Mock prisma
-jest.mock("@/infrastructure/database/prisma", () => ({
-  prisma: {
-    project: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    repository: {
-      createMany: jest.fn(),
-      findMany: jest.fn(),
-    },
-    subscription: {
-      findUnique: jest.fn(),
-    },
-    $transaction: jest.fn((fn) =>
-      fn({
-        project: {
-          create: jest.fn(),
-        },
-        repository: {
-          createMany: jest.fn(),
-          updateMany: jest.fn(),
-        },
-      })
-    ),
+// Mock projectRepository
+jest.mock("@/domains/project/infra/prisma-project.repository", () => ({
+  projectRepository: {
+    findActiveByUser: jest.fn(),
+    findByIdAndUser: jest.fn(),
+    findDetailByIdAndUser: jest.fn(),
+    createWithRepositories: jest.fn(),
+    update: jest.fn(),
+    softDelete: jest.fn(),
+    countActiveByUser: jest.fn(),
   },
 }));
 
@@ -53,7 +35,7 @@ jest.mock("@/domains/subscription/usecase/subscription-limits", () => ({
 
 import { canCreateProject } from "@/domains/subscription/usecase/subscription-limits";
 
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
 import { auth } from "@/lib/auth";
 
 describe("Projects API (Multi-Repo)", () => {
@@ -100,43 +82,36 @@ describe("Projects API (Multi-Repo)", () => {
               { id: "repo-1", name: "frontend", isPrimary: true },
               { id: "repo-2", name: "backend", isPrimary: false },
             ],
+            _count: { analyses: 0 },
           },
           {
             id: "project-2",
             name: "Project 2",
             userId: "user-1",
             repositories: [],
+            _count: { analyses: 0 },
           },
         ];
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findMany as jest.Mock).mockResolvedValue(mockProjects);
+        (projectRepository.findActiveByUser as jest.Mock).mockResolvedValue({
+          projects: mockProjects,
+          totalCount: 2,
+        });
 
         // WHEN
-        await prisma.project.findMany({
-          where: {
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-          orderBy: { createdAt: "desc" },
-          include: {
-            repositories: {
-              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-            },
-            _count: { select: { analyses: true } },
-          },
+        const result = await projectRepository.findActiveByUser("user-1", {
+          skip: 0,
+          take: 20,
         });
 
         // THEN
-        expect(prisma.project.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: { userId: "user-1", status: { not: "DELETED" } },
-            include: expect.objectContaining({
-              repositories: expect.any(Object),
-            }),
-          })
+        expect(projectRepository.findActiveByUser).toHaveBeenCalledWith(
+          "user-1",
+          { skip: 0, take: 20 }
         );
+        expect(result.projects).toHaveLength(2);
       });
 
       it("GIVEN 프로젝트 목록 조회 WHEN 결과 반환 THEN repositories 배열이 포함되어야 한다", async () => {
@@ -162,22 +137,26 @@ describe("Projects API (Multi-Repo)", () => {
                 role: "backend",
               },
             ],
+            _count: { analyses: 0 },
           },
         ];
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findMany as jest.Mock).mockResolvedValue(mockProjects);
+        (projectRepository.findActiveByUser as jest.Mock).mockResolvedValue({
+          projects: mockProjects,
+          totalCount: 1,
+        });
 
         // WHEN
-        const projects = await prisma.project.findMany({
-          where: { userId: "user-1", status: { not: "DELETED" } },
-          include: { repositories: true },
+        const result = await projectRepository.findActiveByUser("user-1", {
+          skip: 0,
+          take: 20,
         });
 
         // THEN
-        expect(projects[0].repositories).toHaveLength(2);
-        expect(projects[0].repositories[0].isPrimary).toBe(true);
+        expect(result.projects[0].repositories).toHaveLength(2);
+        expect(result.projects[0].repositories[0].isPrimary).toBe(true);
       });
     });
   });
@@ -256,11 +235,6 @@ describe("Projects API (Multi-Repo)", () => {
     describe("프로젝트 생성 (Multi-Repo)", () => {
       it("GIVEN repositories 배열 WHEN 프로젝트 생성 THEN 프로젝트와 저장소가 함께 생성되어야 한다", async () => {
         // GIVEN
-        const projectData = {
-          name: "Multi-Repo Project",
-          description: "Description",
-          userId: "user-1",
-        };
         const repositoriesData = [
           {
             provider: "GITHUB",
@@ -284,42 +258,39 @@ describe("Projects API (Multi-Repo)", () => {
 
         const mockCreatedProject = {
           id: "new-project-id",
-          ...projectData,
+          name: "Multi-Repo Project",
+          description: "Description",
+          userId: "user-1",
           repositories: repositoriesData.map((r, i) => ({
             id: `repo-${i + 1}`,
             ...r,
             projectId: "new-project-id",
           })),
+          _count: { analyses: 0 },
         };
 
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.create as jest.Mock).mockResolvedValue(
-          mockCreatedProject
-        );
+        (
+          projectRepository.createWithRepositories as jest.Mock
+        ).mockResolvedValue(mockCreatedProject);
 
         // WHEN
-        const result = await prisma.project.create({
-          data: {
-            ...projectData,
-            repositories: {
-              create: repositoriesData,
-            },
-          },
-          include: { repositories: true },
+        const result = await projectRepository.createWithRepositories({
+          name: "Multi-Repo Project",
+          description: "Description",
+          userId: "user-1",
+          repositories: repositoriesData as never,
         });
 
         // THEN
         expect(result.id).toBe("new-project-id");
         expect(result.repositories).toHaveLength(2);
-        expect(prisma.project.create).toHaveBeenCalledWith(
+        expect(projectRepository.createWithRepositories).toHaveBeenCalledWith(
           expect.objectContaining({
-            data: expect.objectContaining({
-              repositories: expect.objectContaining({
-                create: repositoriesData,
-              }),
-            }),
+            name: "Multi-Repo Project",
+            userId: "user-1",
           })
         );
       });
@@ -347,22 +318,18 @@ describe("Projects API (Multi-Repo)", () => {
             ...r,
             projectId: "new-project-id",
           })),
+          _count: { analyses: 0 },
         };
 
-        (prisma.project.create as jest.Mock).mockResolvedValue(
-          mockCreatedProject
-        );
+        (
+          projectRepository.createWithRepositories as jest.Mock
+        ).mockResolvedValue(mockCreatedProject);
 
         // WHEN
-        const result = await prisma.project.create({
-          data: {
-            name: "Project",
-            userId: "user-1",
-            repositories: {
-              create: repositoriesData,
-            },
-          },
-          include: { repositories: true },
+        const result = await projectRepository.createWithRepositories({
+          name: "Project",
+          userId: "user-1",
+          repositories: repositoriesData as never,
         });
 
         // THEN
@@ -375,29 +342,28 @@ describe("Projects API (Multi-Repo)", () => {
 
       it("GIVEN repositories 없음 WHEN 생성 THEN 저장소 없는 프로젝트가 생성되어야 한다", async () => {
         // GIVEN
-        const projectData = {
+        const mockCreatedProject = {
+          id: "new-project-id",
           name: "Project Without Repos",
           description: "No repositories",
           userId: "user-1",
-        };
-
-        const mockCreatedProject = {
-          id: "new-project-id",
-          ...projectData,
           repositories: [],
+          _count: { analyses: 0 },
         };
 
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.create as jest.Mock).mockResolvedValue(
-          mockCreatedProject
-        );
+        (
+          projectRepository.createWithRepositories as jest.Mock
+        ).mockResolvedValue(mockCreatedProject);
 
         // WHEN
-        const result = await prisma.project.create({
-          data: projectData,
-          include: { repositories: true },
+        const result = await projectRepository.createWithRepositories({
+          name: "Project Without Repos",
+          description: "No repositories",
+          userId: "user-1",
+          repositories: [],
         });
 
         // THEN
@@ -434,29 +400,20 @@ describe("Projects API (Multi-Repo)", () => {
             },
           ],
           analyses: [],
+          _count: { analyses: 0 },
         };
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         // WHEN
-        const result = await prisma.project.findFirst({
-          where: {
-            id: "project-1",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-          include: {
-            repositories: {
-              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-            },
-            analyses: {
-              orderBy: { startedAt: "desc" },
-              take: 10,
-            },
-          },
-        });
+        const result = await projectRepository.findDetailByIdAndUser(
+          "user-1",
+          "project-1"
+        );
 
         // THEN
         expect(result).toEqual(mockProject);
@@ -469,16 +426,15 @@ describe("Projects API (Multi-Repo)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(null);
 
         // WHEN
-        const result = await prisma.project.findFirst({
-          where: {
-            id: "non-existent",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
+        const result = await projectRepository.findDetailByIdAndUser(
+          "user-1",
+          "non-existent"
+        );
 
         // THEN
         expect(result).toBeNull();
@@ -489,16 +445,15 @@ describe("Projects API (Multi-Repo)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(null);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(null);
 
         // WHEN
-        const result = await prisma.project.findFirst({
-          where: {
-            id: "project-1",
-            userId: "user-1",
-            status: { not: "DELETED" },
-          },
-        });
+        const result = await projectRepository.findDetailByIdAndUser(
+          "user-1",
+          "project-1"
+        );
 
         // THEN
         expect(result).toBeNull();
@@ -523,15 +478,19 @@ describe("Projects API (Multi-Repo)", () => {
               isPrimary: true,
             },
           ],
+          analyses: [],
+          _count: { analyses: 0 },
         };
 
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue(mockProject);
+        (
+          projectRepository.findDetailByIdAndUser as jest.Mock
+        ).mockResolvedValue(mockProject);
 
         // WHEN
-        const result = await prisma.project.findFirst({
-          where: { id: "project-1" },
-          include: { repositories: true },
-        });
+        const result = await projectRepository.findDetailByIdAndUser(
+          "user-1",
+          "project-1"
+        );
 
         // THEN - Legacy fields should be computed from primary repository
         const primaryRepo = result?.repositories.find(
@@ -594,22 +553,19 @@ describe("Projects API (Multi-Repo)", () => {
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue({
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue({
           id: "project-1",
           userId: "user-1",
         });
-        (prisma.project.update as jest.Mock).mockResolvedValue({
+        (projectRepository.update as jest.Mock).mockResolvedValue({
           id: "project-1",
           name: "Updated Name",
           repositories: [],
+          _count: { analyses: 0 },
         });
 
         // WHEN
-        const result = await prisma.project.update({
-          where: { id: "project-1" },
-          data: updateData,
-          include: { repositories: true },
-        });
+        const result = await projectRepository.update("project-1", updateData);
 
         // THEN
         expect(result.name).toBe("Updated Name");
@@ -619,32 +575,24 @@ describe("Projects API (Multi-Repo)", () => {
 
   describe("DELETE /api/projects/[id]", () => {
     describe("프로젝트 삭제", () => {
-      it("GIVEN 존재하는 프로젝트 WHEN 삭제 THEN 상태가 DELETED로 변경되어야 한다 (soft delete)", async () => {
+      it("GIVEN 존재하는 프로젝트 WHEN 삭제 THEN softDelete가 호출되어야 한다", async () => {
         // GIVEN
         (auth as jest.Mock).mockResolvedValue({
           user: { id: "user-1" },
         });
-        (prisma.project.findFirst as jest.Mock).mockResolvedValue({
+        (projectRepository.findByIdAndUser as jest.Mock).mockResolvedValue({
           id: "project-1",
           userId: "user-1",
         });
-        (prisma.project.update as jest.Mock).mockResolvedValue({
-          id: "project-1",
-          status: "DELETED",
-        });
+        (projectRepository.softDelete as jest.Mock).mockResolvedValue(
+          undefined
+        );
 
         // WHEN
-        const result = await prisma.project.update({
-          where: { id: "project-1" },
-          data: { status: "DELETED" },
-        });
+        await projectRepository.softDelete("project-1");
 
         // THEN
-        expect(result.status).toBe("DELETED");
-        expect(prisma.project.update).toHaveBeenCalledWith({
-          where: { id: "project-1" },
-          data: { status: "DELETED" },
-        });
+        expect(projectRepository.softDelete).toHaveBeenCalledWith("project-1");
       });
     });
   });
