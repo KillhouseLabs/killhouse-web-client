@@ -14,6 +14,18 @@ export interface AnalysisWithRepository {
   repositoryId: string | null;
   branch: string;
   commitHash: string | null;
+  vulnerabilitiesFound: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  infoCount?: number;
+  staticAnalysisReport: string | null;
+  penetrationTestReport: string | null;
+  executiveSummary: string | null;
+  stepResults: string | null;
+  logs?: string | null;
+  exploitSessionId: string | null;
   startedAt: Date;
   completedAt: Date | null;
   repository: { id: string; name: string; provider: string } | null;
@@ -124,4 +136,6 @@ export interface AnalysisRepository {
     userId: string,
     limit: number
   ): Promise<RecentAnalysisWithProject[]>;
+
+  countActiveSandboxesByUser(userId: string): Promise<number>;
 }

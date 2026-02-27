@@ -210,6 +210,15 @@ export const analysisRepository: AnalysisRepository = {
     });
   },
 
+  async countActiveSandboxesByUser(userId) {
+    return prisma.analysis.count({
+      where: {
+        project: { userId },
+        sandboxStatus: { in: ["CREATING", "RUNNING"] },
+      },
+    });
+  },
+
   async findRecentWithProject(userId, limit) {
     return prisma.analysis.findMany({
       where: {

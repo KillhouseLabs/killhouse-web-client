@@ -42,7 +42,16 @@ export interface RepositoryRecord {
 export interface AnalysisRecord {
   id: string;
   status: string;
-  startedAt: Date | null;
+  branch: string;
+  commitHash: string | null;
+  vulnerabilitiesFound: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  infoCount?: number;
+  startedAt: Date;
+  completedAt: Date | null;
   [key: string]: unknown;
 }
 
@@ -53,6 +62,12 @@ export interface ProjectWithRelations extends ProjectRecord {
 
 export interface ProjectWithDetail extends ProjectRecord {
   repositories: RepositoryRecord[];
+  analyses: AnalysisRecord[];
+  _count: { analyses: number };
+}
+
+export interface ProjectFullDetail extends ProjectRecord {
+  repositories: (RepositoryRecord & { _count: { analyses: number } })[];
   analyses: AnalysisRecord[];
   _count: { analyses: number };
 }
@@ -88,6 +103,11 @@ export interface ProjectRepository {
     projectId: string,
     data: Record<string, unknown>
   ): Promise<ProjectWithRelations>;
+
+  findFullDetailByIdAndUser(
+    userId: string,
+    projectId: string
+  ): Promise<ProjectFullDetail | null>;
 
   softDelete(projectId: string): Promise<void>;
 }

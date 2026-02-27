@@ -72,5 +72,7 @@ export interface PaymentRepository {
     userId: string
   ): Promise<PaymentRecord | null>;
 
+  findLastCompletedByUserId(userId: string): Promise<PaymentRecord | null>;
+
   findManyByUserId(userId: string): Promise<PaymentHistoryRecord[]>;
 }

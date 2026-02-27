@@ -49,6 +49,13 @@ export const paymentRepository: PaymentRepository = {
     });
   },
 
+  async findLastCompletedByUserId(userId) {
+    return prisma.payment.findFirst({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { paidAt: "desc" },
+    });
+  },
+
   async findManyByUserId(userId) {
     return prisma.payment.findMany({
       where: { userId },

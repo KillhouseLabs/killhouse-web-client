@@ -115,6 +115,27 @@ export const projectRepository: ProjectRepository = {
     });
   },
 
+  async findFullDetailByIdAndUser(userId, projectId) {
+    return prisma.project.findFirst({
+      where: {
+        id: projectId,
+        userId,
+        status: { not: "DELETED" },
+      },
+      include: {
+        repositories: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          include: { _count: { select: { analyses: true } } },
+        },
+        analyses: {
+          orderBy: { startedAt: "desc" },
+          take: 10,
+        },
+        _count: { select: { analyses: true } },
+      },
+    });
+  },
+
   async softDelete(projectId) {
     await prisma.project.update({
       where: { id: projectId },
