@@ -8,7 +8,8 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { subscriptionRepository } from "@/domains/subscription/infra/prisma-subscription.repository";
+import { paymentRepository } from "@/domains/payment/infra/prisma-payment.repository";
 import { createPaymentGateway } from "@/domains/payment/infra/payment-gateway-factory";
 
 /**
@@ -29,9 +30,7 @@ export async function POST() {
     const userId = session.user.id;
 
     // 현재 구독 확인
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId },
-    });
+    const subscription = await subscriptionRepository.findByUserId(userId);
 
     if (!subscription) {
       return NextResponse.json(
@@ -48,15 +47,8 @@ export async function POST() {
     }
 
     // 최근 결제 정보 조회 (PortOne 결제 취소용)
-    const lastPayment = await prisma.payment.findFirst({
-      where: {
-        userId,
-        status: "COMPLETED",
-      },
-      orderBy: {
-        paidAt: "desc",
-      },
-    });
+    const lastPayment =
+      await paymentRepository.findLastCompletedByUserId(userId);
 
     // gateway를 통한 PortOne 결제 취소 처리 (환불 없이 구독만 취소)
     if (lastPayment?.portonePaymentId) {
@@ -74,25 +66,19 @@ export async function POST() {
       }
 
       // 결제 상태 업데이트
-      await prisma.payment.update({
-        where: { id: lastPayment.id },
-        data: {
-          status: "CANCELLED",
-          cancelledAt: new Date(),
-          cancelReason: "사용자 구독 해지 (환불 없음)",
-        },
+      await paymentRepository.updateStatus(lastPayment.id, {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+        cancelReason: "사용자 구독 해지 (환불 없음)",
       });
     }
 
     // 구독 해지 (Free 플랜으로 변경)
-    const updatedSubscription = await prisma.subscription.update({
-      where: { userId },
-      data: {
-        planId: "free",
-        status: "CANCELLED",
-        cancelAtPeriodEnd: false,
-        currentPeriodEnd: new Date(), // 즉시 해지
-      },
+    const updatedSubscription = await subscriptionRepository.update(userId, {
+      planId: "free",
+      status: "CANCELLED",
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: new Date(), // 즉시 해지
     });
 
     return NextResponse.json({

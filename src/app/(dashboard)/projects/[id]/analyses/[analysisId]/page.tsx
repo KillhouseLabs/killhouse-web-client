@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { projectRepository } from "@/domains/project/infra/prisma-project.repository";
+import { analysisRepository } from "@/domains/analysis/infra/prisma-analysis.repository";
 import { AnalysisDetail } from "@/components/analysis/analysis-detail";
 
 interface PageProps {
@@ -15,13 +16,7 @@ export async function generateMetadata({ params }: PageProps) {
     return { title: "분석 상세" };
   }
 
-  const analysis = await prisma.analysis.findFirst({
-    where: {
-      id: analysisId,
-      projectId: id,
-      project: { userId: session.user.id, status: { not: "DELETED" } },
-    },
-  });
+  const analysis = await analysisRepository.findByIdAndProject(analysisId, id);
 
   return {
     title: analysis ? `분석 ${analysis.status}` : "분석 상세",
@@ -37,30 +32,19 @@ export default async function AnalysisDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      userId: session.user.id,
-      status: { not: "DELETED" },
-    },
-    select: { id: true, name: true },
-  });
+  const project = await projectRepository.findByIdAndUser(
+    session.user.id,
+    projectId
+  );
 
   if (!project) {
     notFound();
   }
 
-  const analysis = await prisma.analysis.findFirst({
-    where: {
-      id: analysisId,
-      projectId,
-    },
-    include: {
-      repository: {
-        select: { id: true, name: true, provider: true },
-      },
-    },
-  });
+  const analysis = await analysisRepository.findByIdAndProject(
+    analysisId,
+    projectId
+  );
 
   if (!analysis) {
     notFound();
